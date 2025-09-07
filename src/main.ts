@@ -1,41 +1,68 @@
-import './style.css'
-import { IxachiNavigationScene } from './core/IxachiNavigationScene'
-import { UIController } from './UIController'
+import './style.css';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { RibbonLine } from './core/RibbonLine';
+import { PathGuide } from './core/PathGuide';
+import { PathFollower } from './core/PathFollower';
 
-// Initialize the main scene
-const scene = new IxachiNavigationScene()
-scene.init()
-scene.start()
+// --- CONFIGURACIÓN BÁSICA DE LA ESCENA ---
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000011);
 
-// 🎛️ Initialize UI Controller
-const uiController = new UIController(scene)
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.z = 20;
 
-// Update UI info periodically
-/* setInterval(() => {
-  uiController.updateInfo()
-}, 1000) */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.getElementById('app')?.appendChild(renderer.domElement);
 
-// 🎛️ Exponer la escena globalmente para control desde consola
-;(window as any).scene = scene
-;(window as any).ui = uiController
-/* 
-console.log('🎮 Ixachi Navigation with Visual UI Controls Ready!')
-console.log('')
-console.log('📱 UI CONTROLS: Check the panel on the top-right!')
-console.log('⌨️  KEYBOARD: 1/2/3/4 for camera presets, WASD for manual control')
-console.log('🖱️  MOUSE: Use the visual controls panel for all adjustments')
-console.log('')
-console.log('🎭 CINEMATIC API (GSAP):')
-console.log('  window.scene.transitionToPreset("overview", 3.0)')
-console.log('  window.scene.playAutoSequence()  // Auto cinematic sequence')
-console.log('  window.scene.saveCameraPreset("my-shot", "My Custom Shot")')
-console.log('  window.scene.listCameraPresets() // List all presets')
-console.log('  window.scene.stopCameraTransition() // Stop current transition')
-console.log('')
-console.log('�️ LINE CONTROLS:')
-console.log('  window.scene.setDeviationPreset("dramatic")   // All lines') 
-console.log('  window.scene.updateLineDeviations(0.8, 0.03)  // All lines')
-console.log('  window.scene.updateSingleLineDeviations(0, 0.5, 0.02) // Line 0')
-console.log('')
-console.log('  Lines: 0=cyan, 1=purple, 2=orange, 3=green')
- */
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; // Movimiento suave
+controls.dampingFactor = 0.05;
+const clock = new THREE.Clock(); // Necesitamos un reloj para un movimiento consistente.  
+
+// --- CREACIÓN DE NUESTROS OBJETOS ---
+
+const MAX_POINTS = 150; // Definimos la longitud máxima en una constante
+
+const ribbon = new RibbonLine({
+  color: new THREE.Color(0x00ffff),
+  width: 0.5,
+  maxLength: MAX_POINTS, // Le pasamos la longitud máxima
+});
+scene.add(ribbon.mesh);
+
+// 2. Creamos nuestro guía que se moverá en un círculo de radio 8.
+const pathGuide = new PathGuide(8, 1.5);
+
+// 3. Creamos el seguidor que conectará el guía con el listón.
+// Le decimos que la estela tendrá una longitud máxima de 150 puntos.
+const follower = new PathFollower({
+  pathGuide: pathGuide,
+  ribbon: ribbon,
+  maxLength: MAX_POINTS,
+});
+
+// --- BUCLE DE ANIMACIÓN ---
+function animate() {
+  requestAnimationFrame(animate);
+  const deltaTime = clock.getDelta(); // Tiempo desde el último frame
+
+  // 1. Actualizamos la posición del guía.
+  pathGuide.update(deltaTime);
+
+  // 2. El seguidor actualiza la estela basándose en la nueva posición del guía.
+  follower.update();
+  
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+animate();
+
+// --- MANEJO DE REDIMENSIONAMIENTO ---
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
