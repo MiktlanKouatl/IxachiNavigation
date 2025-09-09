@@ -1,5 +1,14 @@
 import * as THREE from 'three';
 
+// 🧠 ENUMERACIÓN PARA ESTILOS DE DESVANECIMIENTO
+// None = 0, FadeIn = 1, FadeInOut = 2, FadeOut = 3
+export enum FadeStyle {
+  None,
+  FadeIn,
+  FadeInOut,
+  FadeOut,
+}
+
 // 🧠 INTERFAZ DE CONFIGURACIÓN
 // Definimos una interfaz para que sea fácil crear nuevas RibbonLine
 // con diferentes propiedades en el futuro. Es una buena práctica de POO.
@@ -8,6 +17,7 @@ export interface RibbonConfig {
   color: THREE.Color;      // El color del listón.
   width: number;           // El ancho del listón en unidades de la escena.
   maxLength: number;       // Longitud máxima en número de puntos (opcional).
+  fadeStyle?: FadeStyle;   // Estilo de desvanecimiento (opcional).
 }
 
 export class RibbonLine {
@@ -22,7 +32,8 @@ export class RibbonLine {
 
   // El material que le dará apariencia a nuestro listón.
   // Shader.
-  private material: THREE.ShaderMaterial;
+  // Hacemos el material público para poder acceder a sus uniforms desde main.ts
+  public material: THREE.ShaderMaterial;
 
   // Guardamos una referencia a los puntos y al ancho para poder
   // reconstruir la malla si es necesario.
@@ -65,50 +76,53 @@ export class RibbonLine {
       uniforms: {
         // Le pasamos el color que queremos para el núcleo brillante.
         uColor: { value: config.color },
+        uTime: { value: 0 },
+        uFadeStyle: { value: config.fadeStyle ?? FadeStyle.FadeIn },
       },
 
       // --- CÓDIGO DEL ARQUITECTO (VERTEX SHADER) ---
       // GLSL es el lenguaje de los shaders. Se parece a C.
       vertexShader: `
-        // Atributos que recibimos de nuestra BufferGeometry por cada vértice.
-        // "uv" ya está disponible aquí gracias a setAttribute en TypeScript.
-        //attribute vec2 uv; 
-
-        // "Varyings" son variables que el Vertex Shader le pasa al Fragment Shader.
         varying vec2 vUv;
-
         void main() {
-          // Simplemente pasamos las coordenadas UV al fragment shader.
           vUv = uv;
-
-          // gl_Position es una variable especial que define la posición final del vértice.
-          // Hacemos el cálculo estándar de Three.js para proyectar el punto en la pantalla.
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `,
       
-      // --- CÓDIGO DEL PINTOR (FRAGMENT SHADER) ---
       fragmentShader: `
-        // Variables que recibimos de TypeScript (uniforms) y del Vertex Shader (varyings).
         uniform vec3 uColor;
+        uniform float uTime;
+        uniform int uFadeStyle;
+        
         varying vec2 vUv;
+        const float PI = 3.14159265359;
 
         void main() {
-          // vUv.y nos dice la posición vertical en el listón (0 en un borde, 1 en el otro).
-          // Calculamos la distancia desde el centro (que estaría en 0.5).
-          float distanceToCenter = abs(vUv.y - 0.5) * 2.0; // Normalizamos de 0 a 1
-          
-          // Creamos un factor de "fuerza" que es máximo en el centro (1.0) y
-          // disminuye hacia los bordes. Usamos 1.0 - distancia.
+          // --- CÁLCULO DEL BRILLO (GLOW) ---
+          float distanceToCenter = abs(vUv.y - 0.5) * 2.0;
           float strength = 1.0 - distanceToCenter;
-          
-          // Para un degradado más suave, elevamos la fuerza a una potencia.
-          // Números más altos hacen el núcleo más delgado y definido.
           float glow = pow(strength, 2.5);
 
-          // gl_FragColor es la variable especial que define el color final del píxel.
-          // Usamos el color base y establecemos su transparencia (alpha) según el "glow".
-          gl_FragColor = vec4(uColor, glow);
+          // --- CÁLCULO DEL DESVANECIMIENTO (FADE) ---
+          float tailFade = 1.0;
+
+          if (uFadeStyle == 1) { // Modo FadeIn
+            tailFade = vUv.x;
+          } else if (uFadeStyle == 2) { // Modo FadeInOut
+            tailFade = sin(vUv.x * PI);
+          } else if (uFadeStyle == 3) { // Lógica para FadeOut
+            tailFade = 1.0 - vUv.x; // Invertimos el FadeIn
+          }
+          // Si uFadeStyle es 0, tailFade se queda en 1.0 (sólido).
+
+          // --- CÁLCULO DEL PULSO ---
+          float pulse = (sin(uTime * 5.0) + 1.0) / 2.0;
+          pulse = pulse * 0.4 + 0.6;
+
+          // --- CÁLCULO FINAL DEL COLOR ---
+          float finalAlpha = glow * tailFade * pulse;
+          gl_FragColor = vec4(uColor, finalAlpha);
         }
       `,
     });
@@ -116,7 +130,7 @@ export class RibbonLine {
     this.mesh = new THREE.Mesh(this.geometry, this.material);
     this.mesh.frustumCulled = false; // Evita que la línea desaparezca si parte de ella sale de la pantalla
     
-    console.log('✅ RibbonLine con Shaders creada exitosamente.');
+    console.log('✅ RibbonLine multi-estilo creada.');
   }
 
   // --- MÉTODOS PÚBLICOS ---
@@ -208,7 +222,7 @@ export class RibbonLine {
 
     // Y muy importante, le decimos que los datos de los atributos han cambiado.
     this.geometry.attributes.position.needsUpdate = true;
-    this.geometry.attributes.uv.needsUpdate = true;
+    this.geometry.attributes.uv.needsUpdate = true
     this.geometry.index!.needsUpdate = true;
   }
 }
