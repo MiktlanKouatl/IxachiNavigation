@@ -56,7 +56,7 @@ const solidRibbon = new RibbonLine({
   maxLength: MAX_POINTS,
   renderMode: RenderMode.Solid,
   opacity: 1.0,                           // Opacidad completa para ver bien el degradado
-  fadeStyle: FadeStyle.None,              // Sin desvanecimiento para apreciar el color
+  fadeStyle: FadeStyle.FadeInOut,              // Sin desvanecimiento para apreciar el color
   transitionSize: TRANSITION_SIZE, // Prueba a cambiar este valor entre 0.1 y 1.0
 });
 solidRibbon.mesh.position.x = 5; // La movemos un poco para que no se encime
@@ -99,11 +99,11 @@ function animate() {
 
   // Animamos el ancho y la opacidad usando nuestros nuevos métodos.
   // El ancho del listón de energía palpitará.
-  const newWidth = (Math.sin(elapsedTime * 3.0) + 1) / 2 * 0.8 + 0.4; // va de 0.4 a 1.2
+  const newWidth = (Math.sin(elapsedTime * 3.0) + 1) / 2 * 2.8 + 5.4; // va de 0.4 a 1.2
   glowRibbon.setWidth(newWidth);
 
   // La opacidad del listón sólido cambiará suavemente.
-  const newOpacity = (Math.cos(elapsedTime * 0.5) + 1) / 2 * 0.7 + 0.3; // va de 0.3 a 1.0
+  const newOpacity = (Math.cos(elapsedTime * 0.5) + 1) / 2 * 0.7 + 3.3; // va de 0.3 a 1.0
   solidRibbon.setWidth(newWidth);
 
   controls.update();

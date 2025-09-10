@@ -1,13 +1,11 @@
 import * as THREE from 'three';
 
-// ENUM para RenderMode
+// --- ENUMS E INTERFACES (SIN CAMBIOS) ---
 export enum RenderMode {
-  Glow,   // El modo de energía que ya tenemos.
-  Solid,  // El nuevo modo de color sólido/degradado.
+  Glow,
+  Solid,
 }
 
-// 🧠 ENUMERACIÓN PARA ESTILOS DE DESVANECIMIENTO
-// None = 0, FadeIn = 1, FadeInOut = 2, FadeOut = 3
 export enum FadeStyle {
   None,
   FadeIn,
@@ -15,98 +13,119 @@ export enum FadeStyle {
   FadeOut,
 }
 
-// 🧠 INTERFAZ DE CONFIGURACIÓN
-// Definimos una interfaz para que sea fácil crear nuevas RibbonLine
-// con diferentes propiedades en el futuro. Es una buena práctica de POO.
 export interface RibbonConfig {
-  //points: THREE.Vector3[]; // La lista de puntos que formarán la línea.
-  color:          THREE.Color;  // El color del listón.
-  width:          number;       // El ancho del listón en unidades de la escena.
-  maxLength:      number;       // Longitud máxima en número de puntos (opcional).
-  fadeStyle?:     FadeStyle;    // Estilo de desvanecimiento (opcional).
-  renderMode?:    RenderMode;   // Para elegir el estilo del "pincel".
-  opacity?:       number;       // Una opacidad general para el listón. (opcional, por defecto 1.0)
-  colorEnd?:      THREE.Color;  // Color de fin, solo para el modo Solid/Gradient
-  transitionSize?:number;
+  color: THREE.Color;
+  width: number;
+  maxLength: number;
+  fadeStyle?: FadeStyle;
+  renderMode?: RenderMode;
+  opacity?: number;
+  colorEnd?: THREE.Color;
+  transitionSize?: number;
 }
 
-export class RibbonLine {
-  // --- PROPIEDADES PRINCIPALES ---
 
-  // El objeto 3D que realmente se añade a la escena.
+export class RibbonLine {
   public mesh: THREE.Mesh;
-  
-  // La geometría que contendrá los vértices de nuestro listón.
-  // Usamos BufferGeometry porque es la forma más performante.
+  public material: THREE.ShaderMaterial;
   private geometry: THREE.BufferGeometry;
 
-  // El material que le dará apariencia a nuestro listón.
-  // Shader.
-  // Hacemos el material público para poder acceder a sus uniforms desde main.ts
-  public material: THREE.ShaderMaterial;
-
-  // reconstruir la malla si es necesario.
-  private width: number;
-  private currentPointCount: number = 0; // Para saber cuántos puntos activos tenemos
-  // 👇 Necesitamos guardar los puntos actuales para poder reconstruir la malla al cambiar el ancho.
   private currentPoints: THREE.Vector3[] = [];
 
-
-  // --- CONSTRUCTOR ---
   constructor(config: RibbonConfig) {
-    console.log('🚧 Creando una nueva RibbonLine...');
-
-    // Guardamos la configuración inicial.
-    //this.points = config.points;
-    this.width = config.width;
-
-    // Creamos la geometría y el material.
+    console.log('🚧 Creando RibbonLine v3.0 GPU-Powered...');
+    
     this.geometry = new THREE.BufferGeometry();
+    
+    const maxPoints = config.maxLength;
+    // Pre-alocamos los buffers para los nuevos atributos
+    this.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(maxPoints * 3 * 2), 3));
+    this.geometry.setAttribute('previous', new THREE.BufferAttribute(new Float32Array(maxPoints * 3 * 2), 3));
+    this.geometry.setAttribute('next', new THREE.BufferAttribute(new Float32Array(maxPoints * 3 * 2), 3));
+    this.geometry.setAttribute('side', new THREE.BufferAttribute(new Float32Array(maxPoints * 1 * 2), 1));
+    this.geometry.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(maxPoints * 2 * 2), 2));
+    
+    const indices = [];
+    for (let i = 0; i < maxPoints - 1; i++) {
+        const n = i * 2;
+        indices.push(n, n + 1, n + 2);
+        indices.push(n + 2, n + 1, n + 3);
+    }
+    this.geometry.setIndex(indices);
 
-    // 🧠 OPTIMIZACIÓN: Creamos los "buffers" de la geometría con el tamaño máximo.
-    // Así no tenemos que crear nuevos arrays en cada fotograma, solo actualizarlos.
-    const maxVertices = config.maxLength * 2;
-    const maxIndices = (config.maxLength - 1) * 6;
-    this.geometry.setAttribute(
-      'position',
-      new THREE.BufferAttribute(new Float32Array(maxVertices * 3), 3)
-    );
-    this.geometry.setAttribute(
-      'uv', // UVs son coordenadas 2D (x,y) que van de 0 a 1. Las usaremos en el shader.
-      new THREE.BufferAttribute(new Float32Array(maxVertices * 2), 2)
-    );
-    this.geometry.setIndex(new THREE.BufferAttribute(new Uint16Array(maxIndices), 1));
 
-    // Creamos el ShaderMaterial
     this.material = new THREE.ShaderMaterial({
       side: THREE.DoubleSide,
-      transparent: true, // Necesario para que el degradado a transparente funcione
-      depthWrite: false, // Evita problemas de renderizado con transparencias
+      transparent: true,
+      depthWrite: false,
       
-      // Los "uniforms" son variables que pasamos desde TypeScript a nuestros shaders.
       uniforms: {
-        // Le pasamos el color que queremos para el núcleo brillante.
         uColor: { value: config.color },
-        // Si no se provee un color de fin, usamos el mismo de inicio para un color sólido.
-        uColorEnd:  {value:config.colorEnd ?? config.color},
+        uColorEnd: { value: config.colorEnd ?? config.color },
         uTime: { value: 0 },
         uFadeStyle: { value: config.fadeStyle ?? FadeStyle.FadeIn },
         uRenderMode: { value: config.renderMode ?? RenderMode.Glow },
         uOpacity: { value: config.opacity ?? 1.0 },
-        uColorMix: { value: 1.0 }, // Inicia totalmente pintado con el color final.
+        uColorMix: { value: 1.0 },
         uTransitionSize: { value: config.transitionSize ?? 0.1 },
+        // 👇 NUEVO: El ancho ahora es un uniform, podemos cambiarlo en tiempo real.
+        uWidth: { value: config.width },
+        // Pasamos la resolución para corregir el aspecto del ancho.
+        uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
       },
 
-      // --- CÓDIGO DEL ARQUITECTO (VERTEX SHADER) ---
-      // GLSL es el lenguaje de los shaders. Se parece a C.
+      // 👇 CAMBIO MASIVO: El Vertex Shader ahora construye la geometría.
       vertexShader: `
+        attribute vec3 previous;
+        attribute vec3 next;
+        attribute float side;
+
         varying vec2 vUv;
+
+        uniform vec2 uResolution;
+        uniform float uWidth;
+
         void main() {
           vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+
+          // --- 1. Proyectamos los 3 puntos al espacio de la pantalla ---
+          vec4 prevProjected = projectionMatrix * modelViewMatrix * vec4(previous, 1.0);
+          vec4 currentProjected = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          vec4 nextProjected = projectionMatrix * modelViewMatrix * vec4(next, 1.0);
+
+          // --- 2. Calculamos la dirección y la normal en el espacio 2D de la pantalla ---
+          vec2 currentScreen = currentProjected.xy / currentProjected.w;
+          vec2 prevScreen = prevProjected.xy / prevProjected.w;
+          vec2 nextScreen = nextProjected.xy / nextProjected.w;
+
+          vec2 dir;
+          if (abs(currentScreen.x - prevScreen.x) < 0.0001 && abs(currentScreen.y - prevScreen.y) < 0.0001) {
+            // Si el punto actual y el anterior son el mismo (inicio de la línea)
+            dir = normalize(nextScreen - currentScreen);
+          } else if (abs(currentScreen.x - nextScreen.x) < 0.0001 && abs(currentScreen.y - nextScreen.y) < 0.0001) {
+            // Si el punto actual y el siguiente son el mismo (fin de la línea)
+            dir = normalize(currentScreen - prevScreen);
+          } else {
+            // Mitering: promediamos las direcciones para suavizar las esquinas
+            vec2 dir1 = normalize(currentScreen - prevScreen);
+            vec2 dir2 = normalize(nextScreen - currentScreen);
+            dir = normalize(dir1 + dir2);
+          }
+          
+          vec2 normal = vec2(-dir.y, dir.x);
+
+          // --- 3. Corregimos el aspecto de la pantalla y aplicamos el ancho ---
+          normal.x /= uResolution.x / uResolution.y; // Corrección de aspect ratio
+          float width = uWidth * (1.0 / currentProjected.w); // Hacemos el ancho más pequeño si está lejos
+          
+          // --- 4. Desplazamos el vértice y lo devolvemos al espacio 3D ---
+          currentProjected.xy += normal * side * width;
+          
+          gl_Position = currentProjected;
         }
       `,
       
+      // El Fragment Shader no necesita cambios, ¡sigue funcionando igual!
       fragmentShader: `
         uniform vec3 uColor;
         uniform vec3 uColorEnd;
@@ -115,54 +134,42 @@ export class RibbonLine {
         uniform int uRenderMode;
         uniform float uOpacity;
         uniform float uColorMix;
-        uniform float uTransitionSize; 
+        uniform float uTransitionSize;
         
         varying vec2 vUv;
         const float PI = 3.14159265359;
 
         void main() {
-          vec4 finalColor;
+          // --- 1. CÁLCULO DE COLOR BASE (AHORA ES UNIVERSAL) ---
+          float mixFactor = smoothstep(uColorMix - uTransitionSize, uColorMix, vUv.x);
+          vec3 finalRgb = mix(uColor, uColorEnd, mixFactor);
 
-          if (uRenderMode == 0) { // MODO GLOW (sin cambios)
+          // --- 2. CÁLCULO DE DESVANECIMIENTO (AHORA ES UNIVERSAL) ---
+          float tailFade = 1.0;
+          if (uFadeStyle == 1) { tailFade = vUv.x; }
+          else if (uFadeStyle == 2) { tailFade = sin(vUv.x * PI); }
+          else if (uFadeStyle == 3) { tailFade = 1.0 - vUv.x; }
+
+          // --- 3. CÁLCULO DE OPACIDAD DEPENDIENTE DEL MODO ---
+          float modeAlpha = 1.0;
+          if (uRenderMode == 0) { // MODO GLOW
             float distanceToCenter = abs(vUv.y - 0.5) * 2.0;
             float strength = 1.0 - distanceToCenter;
             float glow = pow(strength, 2.5);
             float pulse = (sin(uTime * 5.0) + 1.0) / 2.0;
             pulse = pulse * 0.4 + 0.6;
-            
-            float tailFade = 1.0;
-            if (uFadeStyle == 1) { tailFade = vUv.x; }
-            else if (uFadeStyle == 2) { tailFade = sin(vUv.x * PI); }
-            else if (uFadeStyle == 3) { tailFade = 1.0 - vUv.x; }
-
-            float finalAlpha = glow * tailFade * pulse * uOpacity;
-            finalColor = vec4(uColor, finalAlpha);
-
-          } else { // MODO SOLID/GRADIENT
-            // La magia del "pintado progresivo" ocurre aquí.
-            // smoothstep(edge0, edge1, x) devuelve 0 si x < edge0, 1 si x > edge1,
-            // y una transición suave entre 0 y 1 en el medio.
-            // Usamos uColorMix como el punto de la transición y le damos un pequeño
-            // margen (0.1) para que el borde del color sea suave.
-            // 👇 CAMBIO 2: Usamos uTransitionSize para controlar la suavidad.
-            // Restamos uTransitionSize al punto de mezcla para crear el rango.
-            float mixFactor = smoothstep(uColorMix - uTransitionSize, uColorMix, vUv.x);
-            
-            vec3 gradientColor = mix(uColor, uColorEnd, mixFactor);
-            
-            float tailFade = 1.0;
-            if (uFadeStyle == 1) { tailFade = vUv.x; }
-            else if (uFadeStyle == 2) { tailFade = sin(vUv.x * PI); }
-            else if (uFadeStyle == 3) { tailFade = 1.0 - vUv.x; }
-
-            finalColor = vec4(gradientColor, uOpacity * tailFade);
+            modeAlpha = glow * pulse;
           }
+          // Para el Modo Solid (1), modeAlpha se queda en 1.0, así que no necesitamos un else.
+
+          // --- 4. COMBINACIÓN FINAL ---
+          float finalAlpha = modeAlpha * tailFade * uOpacity;
           
-          gl_FragColor = finalColor;
+          gl_FragColor = vec4(finalRgb, finalAlpha);
         }
       `,
     });
-    // Configuramos el blending dependiendo del modo.
+    
     if ((config.renderMode ?? RenderMode.Glow) === RenderMode.Glow) {
       this.material.blending = THREE.AdditiveBlending;
     } else {
@@ -170,126 +177,77 @@ export class RibbonLine {
     }
 
     this.mesh = new THREE.Mesh(this.geometry, this.material);
-    this.mesh.frustumCulled = false; // Evita que la línea desaparezca si parte de ella sale de la pantalla
+    this.mesh.frustumCulled = false;
     
-    console.log('✅ RibbonLine multi-estilo creada.');
+    // 👇 NUEVO: Escuchamos el evento de redimensionar para actualizar la resolución.
+    window.addEventListener('resize', () => {
+        this.material.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+    });
+    
+    console.log('✅ RibbonLine v3.0 creada.');
   }
 
-  // --- MÉTODOS PÚBLICOS ---
-
-   /**
-   * Actualiza la línea con un nuevo conjunto de puntos.
-   * @param {THREE.Vector3[]} points El array de puntos actualizado.
-   */
   public update(points: THREE.Vector3[]): void {
-    // Guardamos los puntos actuales cada vez que se actualiza.
     this.currentPoints = points;
-    this.currentPointCount = points.length;
-    this.buildMesh();
+    this.updateGeometry();
   }
-
-  // Método para controlar la opacidad dinámicamente.
-  /**
-   * 
-   * @param opacity Valor de opacidad entre 0.0 (transparente) y 1.0 (opaco).
-   */
+  
   public setOpacity(opacity: number): void {
     this.material.uniforms.uOpacity.value = opacity;
   }
 
-  // Nuevo método para controlar el ancho dinámicamente.
-  /**
-   * 
-   * @param width Nuevo ancho del listón.
-   */
+  // 👇 CAMBIO: setWidth ahora solo actualiza un uniform. ¡Es instantáneo!
   public setWidth(width: number): void {
-    if (this.width !== width) {
-      this.width = width;
-      // Forzamos la reconstrucción de la malla con el nuevo ancho.
-      this.buildMesh();
-    }
+    this.material.uniforms.uWidth.value = width;
   }
 
-  /**
-   * Limpia los recursos de la GPU para evitar fugas de memoria.
-   */
   public dispose(): void {
     this.geometry.dispose();
     this.material.dispose();
   }
-
-  // --- LÓGICA INTERNA (EL CORAZÓN DE LA CLASE) ---
-
-  /**
-   * Construye o reconstruye la malla del listón a partir del array `this.points`.
-   */
-  private buildMesh(): void {
+  
+  // 👇 CAMBIO: `buildMesh` ahora se llama `updateGeometry` y solo prepara los datos.
+  private updateGeometry(): void {
     const points = this.currentPoints;
     if (points.length < 2) {
-      this.geometry.setDrawRange(0, 0); // No dibujamos nada si no hay puntos suficientes.
+      this.geometry.setDrawRange(0, 0);
       return;
     }
-    
-    // Obtenemos una referencia a los arrays de los buffers para actualizarlos.
-    const positions = this.geometry.attributes.position.array as Float32Array;
-    const uvs = this.geometry.attributes.uv.array as Float32Array;
-    const indices = this.geometry.index!.array as Uint16Array;
-    
-    for (let i = 0; i < this.currentPointCount; i++) {
-      const currentPoint = points[i];
-      let direction = new THREE.Vector3();
 
-      if (i < this.currentPointCount - 1) {
-        direction.subVectors(points[i + 1], currentPoint);
-      } else {
-        direction.subVectors(currentPoint, points[i - 1]);
-      }
-      direction.normalize();
+    const posAttr = this.geometry.attributes.position as THREE.BufferAttribute;
+    const prevAttr = this.geometry.attributes.previous as THREE.BufferAttribute;
+    const nextAttr = this.geometry.attributes.next as THREE.BufferAttribute;
+    const sideAttr = this.geometry.attributes.side as THREE.BufferAttribute;
+    const uvAttr = this.geometry.attributes.uv as THREE.BufferAttribute;
 
-      const normal = new THREE.Vector3(-direction.y, direction.x, 0);
-      const v1 = new THREE.Vector3().copy(currentPoint).add(normal.clone().multiplyScalar(this.width / 2));
-      const v2 = new THREE.Vector3().copy(currentPoint).sub(normal.clone().multiplyScalar(this.width / 2));
-      
-      const vertexIndex = i * 2;
-      positions[vertexIndex * 3 + 0] = v1.x;
-      positions[vertexIndex * 3 + 1] = v1.y;
-      positions[vertexIndex * 3 + 2] = v1.z;
+    for (let i = 0; i < points.length; i++) {
+        const i2 = i * 2;
 
-      positions[(vertexIndex + 1) * 3 + 0] = v2.x;
-      positions[(vertexIndex + 1) * 3 + 1] = v2.y;
-      positions[(vertexIndex + 1) * 3 + 2] = v2.z;
+        const prevPoint = points[i - 1] || points[0];
+        const currentPoint = points[i];
+        const nextPoint = points[i + 1] || points[points.length - 1];
 
-      // 👇 CAMBIO 3: Calculamos y asignamos las coordenadas UV
-      uvs[vertexIndex * 2 + 0] = i / (this.currentPointCount - 1); // Progreso a lo largo de la línea (U)
-      uvs[vertexIndex * 2 + 1] = 0; // Borde de "arriba" (V)
+        // Vértice izquierdo
+        posAttr.setXYZ(i2, currentPoint.x, currentPoint.y, currentPoint.z);
+        prevAttr.setXYZ(i2, prevPoint.x, prevPoint.y, prevPoint.z);
+        nextAttr.setXYZ(i2, nextPoint.x, nextPoint.y, nextPoint.z);
+        sideAttr.setX(i2, -1);
+        uvAttr.setXY(i2, i / (points.length - 1), 0);
 
-      uvs[(vertexIndex + 1) * 2 + 0] = i / (this.currentPointCount - 1); // Progreso a lo largo de la línea (U)
-      uvs[(vertexIndex + 1) * 2 + 1] = 1; // Borde de "abajo" (V)
+        // Vértice derecho
+        posAttr.setXYZ(i2 + 1, currentPoint.x, currentPoint.y, currentPoint.z);
+        prevAttr.setXYZ(i2 + 1, prevPoint.x, prevPoint.y, prevPoint.z);
+        nextAttr.setXYZ(i2 + 1, nextPoint.x, nextPoint.y, nextPoint.z);
+        sideAttr.setX(i2 + 1, 1);
+        uvAttr.setXY(i2 + 1, i / (points.length - 1), 1);
     }
-
-    // Actualizamos los índices
-    let indexCount = 0;
-    for (let i = 0; i < this.currentPointCount - 1; i++) {
-      const i_v1 = i * 2;
-      const i_v2 = i * 2 + 1;
-      const i_v3 = (i + 1) * 2;
-      const i_v4 = (i + 1) * 2 + 1;
-
-      indices[indexCount++] = i_v1;
-      indices[indexCount++] = i_v2;
-      indices[indexCount++] = i_v3;
-
-      indices[indexCount++] = i_v2;
-      indices[indexCount++] = i_v4;
-      indices[indexCount++] = i_v3;
-    }
-
-    // Le decimos a Three.js qué parte de los buffers pre-alocados debe dibujar.
-    this.geometry.setDrawRange(0, indexCount);
-
-    // Y muy importante, le decimos que los datos de los atributos han cambiado.
-    this.geometry.attributes.position.needsUpdate = true;
-    this.geometry.attributes.uv.needsUpdate = true
-    this.geometry.index!.needsUpdate = true;
+    
+    posAttr.needsUpdate = true;
+    prevAttr.needsUpdate = true;
+    nextAttr.needsUpdate = true;
+    sideAttr.needsUpdate = true;
+    uvAttr.needsUpdate = true;
+    
+    this.geometry.setDrawRange(0, (points.length - 1) * 6);
   }
 }
