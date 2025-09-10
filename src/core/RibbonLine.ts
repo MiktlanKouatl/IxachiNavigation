@@ -1,5 +1,11 @@
 import * as THREE from 'three';
 
+// ENUM para RenderMode
+export enum RenderMode {
+  Glow,   // El modo de energía que ya tenemos.
+  Solid,  // El nuevo modo de color sólido/degradado.
+}
+
 // 🧠 ENUMERACIÓN PARA ESTILOS DE DESVANECIMIENTO
 // None = 0, FadeIn = 1, FadeInOut = 2, FadeOut = 3
 export enum FadeStyle {
@@ -14,10 +20,14 @@ export enum FadeStyle {
 // con diferentes propiedades en el futuro. Es una buena práctica de POO.
 export interface RibbonConfig {
   //points: THREE.Vector3[]; // La lista de puntos que formarán la línea.
-  color: THREE.Color;      // El color del listón.
-  width: number;           // El ancho del listón en unidades de la escena.
-  maxLength: number;       // Longitud máxima en número de puntos (opcional).
-  fadeStyle?: FadeStyle;   // Estilo de desvanecimiento (opcional).
+  color:          THREE.Color;  // El color del listón.
+  width:          number;       // El ancho del listón en unidades de la escena.
+  maxLength:      number;       // Longitud máxima en número de puntos (opcional).
+  fadeStyle?:     FadeStyle;    // Estilo de desvanecimiento (opcional).
+  renderMode?:    RenderMode;   // Para elegir el estilo del "pincel".
+  opacity?:       number;       // Una opacidad general para el listón. (opcional, por defecto 1.0)
+  colorEnd?:      THREE.Color;  // Color de fin, solo para el modo Solid/Gradient
+  transitionSize?:number;
 }
 
 export class RibbonLine {
@@ -35,11 +45,11 @@ export class RibbonLine {
   // Hacemos el material público para poder acceder a sus uniforms desde main.ts
   public material: THREE.ShaderMaterial;
 
-  // Guardamos una referencia a los puntos y al ancho para poder
   // reconstruir la malla si es necesario.
-  //private points: THREE.Vector3[];
   private width: number;
   private currentPointCount: number = 0; // Para saber cuántos puntos activos tenemos
+  // 👇 Necesitamos guardar los puntos actuales para poder reconstruir la malla al cambiar el ancho.
+  private currentPoints: THREE.Vector3[] = [];
 
 
   // --- CONSTRUCTOR ---
@@ -71,13 +81,20 @@ export class RibbonLine {
     this.material = new THREE.ShaderMaterial({
       side: THREE.DoubleSide,
       transparent: true, // Necesario para que el degradado a transparente funcione
+      depthWrite: false, // Evita problemas de renderizado con transparencias
       
       // Los "uniforms" son variables que pasamos desde TypeScript a nuestros shaders.
       uniforms: {
         // Le pasamos el color que queremos para el núcleo brillante.
         uColor: { value: config.color },
+        // Si no se provee un color de fin, usamos el mismo de inicio para un color sólido.
+        uColorEnd:  {value:config.colorEnd ?? config.color},
         uTime: { value: 0 },
         uFadeStyle: { value: config.fadeStyle ?? FadeStyle.FadeIn },
+        uRenderMode: { value: config.renderMode ?? RenderMode.Glow },
+        uOpacity: { value: config.opacity ?? 1.0 },
+        uColorMix: { value: 1.0 }, // Inicia totalmente pintado con el color final.
+        uTransitionSize: { value: config.transitionSize ?? 0.1 },
       },
 
       // --- CÓDIGO DEL ARQUITECTO (VERTEX SHADER) ---
@@ -92,40 +109,65 @@ export class RibbonLine {
       
       fragmentShader: `
         uniform vec3 uColor;
+        uniform vec3 uColorEnd;
         uniform float uTime;
         uniform int uFadeStyle;
+        uniform int uRenderMode;
+        uniform float uOpacity;
+        uniform float uColorMix;
+        uniform float uTransitionSize; 
         
         varying vec2 vUv;
         const float PI = 3.14159265359;
 
         void main() {
-          // --- CÁLCULO DEL BRILLO (GLOW) ---
-          float distanceToCenter = abs(vUv.y - 0.5) * 2.0;
-          float strength = 1.0 - distanceToCenter;
-          float glow = pow(strength, 2.5);
+          vec4 finalColor;
 
-          // --- CÁLCULO DEL DESVANECIMIENTO (FADE) ---
-          float tailFade = 1.0;
+          if (uRenderMode == 0) { // MODO GLOW (sin cambios)
+            float distanceToCenter = abs(vUv.y - 0.5) * 2.0;
+            float strength = 1.0 - distanceToCenter;
+            float glow = pow(strength, 2.5);
+            float pulse = (sin(uTime * 5.0) + 1.0) / 2.0;
+            pulse = pulse * 0.4 + 0.6;
+            
+            float tailFade = 1.0;
+            if (uFadeStyle == 1) { tailFade = vUv.x; }
+            else if (uFadeStyle == 2) { tailFade = sin(vUv.x * PI); }
+            else if (uFadeStyle == 3) { tailFade = 1.0 - vUv.x; }
 
-          if (uFadeStyle == 1) { // Modo FadeIn
-            tailFade = vUv.x;
-          } else if (uFadeStyle == 2) { // Modo FadeInOut
-            tailFade = sin(vUv.x * PI);
-          } else if (uFadeStyle == 3) { // Lógica para FadeOut
-            tailFade = 1.0 - vUv.x; // Invertimos el FadeIn
+            float finalAlpha = glow * tailFade * pulse * uOpacity;
+            finalColor = vec4(uColor, finalAlpha);
+
+          } else { // MODO SOLID/GRADIENT
+            // La magia del "pintado progresivo" ocurre aquí.
+            // smoothstep(edge0, edge1, x) devuelve 0 si x < edge0, 1 si x > edge1,
+            // y una transición suave entre 0 y 1 en el medio.
+            // Usamos uColorMix como el punto de la transición y le damos un pequeño
+            // margen (0.1) para que el borde del color sea suave.
+            // 👇 CAMBIO 2: Usamos uTransitionSize para controlar la suavidad.
+            // Restamos uTransitionSize al punto de mezcla para crear el rango.
+            float mixFactor = smoothstep(uColorMix - uTransitionSize, uColorMix, vUv.x);
+            
+            vec3 gradientColor = mix(uColor, uColorEnd, mixFactor);
+            
+            float tailFade = 1.0;
+            if (uFadeStyle == 1) { tailFade = vUv.x; }
+            else if (uFadeStyle == 2) { tailFade = sin(vUv.x * PI); }
+            else if (uFadeStyle == 3) { tailFade = 1.0 - vUv.x; }
+
+            finalColor = vec4(gradientColor, uOpacity * tailFade);
           }
-          // Si uFadeStyle es 0, tailFade se queda en 1.0 (sólido).
-
-          // --- CÁLCULO DEL PULSO ---
-          float pulse = (sin(uTime * 5.0) + 1.0) / 2.0;
-          pulse = pulse * 0.4 + 0.6;
-
-          // --- CÁLCULO FINAL DEL COLOR ---
-          float finalAlpha = glow * tailFade * pulse;
-          gl_FragColor = vec4(uColor, finalAlpha);
+          
+          gl_FragColor = finalColor;
         }
       `,
     });
+    // Configuramos el blending dependiendo del modo.
+    if ((config.renderMode ?? RenderMode.Glow) === RenderMode.Glow) {
+      this.material.blending = THREE.AdditiveBlending;
+    } else {
+      this.material.blending = THREE.NormalBlending;
+    }
 
     this.mesh = new THREE.Mesh(this.geometry, this.material);
     this.mesh.frustumCulled = false; // Evita que la línea desaparezca si parte de ella sale de la pantalla
@@ -140,8 +182,32 @@ export class RibbonLine {
    * @param {THREE.Vector3[]} points El array de puntos actualizado.
    */
   public update(points: THREE.Vector3[]): void {
+    // Guardamos los puntos actuales cada vez que se actualiza.
+    this.currentPoints = points;
     this.currentPointCount = points.length;
-    this.buildMesh(points);
+    this.buildMesh();
+  }
+
+  // Método para controlar la opacidad dinámicamente.
+  /**
+   * 
+   * @param opacity Valor de opacidad entre 0.0 (transparente) y 1.0 (opaco).
+   */
+  public setOpacity(opacity: number): void {
+    this.material.uniforms.uOpacity.value = opacity;
+  }
+
+  // Nuevo método para controlar el ancho dinámicamente.
+  /**
+   * 
+   * @param width Nuevo ancho del listón.
+   */
+  public setWidth(width: number): void {
+    if (this.width !== width) {
+      this.width = width;
+      // Forzamos la reconstrucción de la malla con el nuevo ancho.
+      this.buildMesh();
+    }
   }
 
   /**
@@ -157,7 +223,8 @@ export class RibbonLine {
   /**
    * Construye o reconstruye la malla del listón a partir del array `this.points`.
    */
-  private buildMesh(points: THREE.Vector3[]): void {
+  private buildMesh(): void {
+    const points = this.currentPoints;
     if (points.length < 2) {
       this.geometry.setDrawRange(0, 0); // No dibujamos nada si no hay puntos suficientes.
       return;
