@@ -1,13 +1,14 @@
-// En src/core/LineManager.ts
-
 import * as THREE from 'three';
-import { RibbonConfig, RibbonLine, RenderMode } from '../core/RibbonLine'; // Añadimos RenderMode a la importación
-import { PathGuide } from '../core/PathGuide';
-import { PathFollower } from '../core/PathFollower';
-import { ILineController } from '../interfaces/ILineController'; // Importamos la interfaz
-import { PathController } from '../core/PathController'; // Importamos el nuevo controlador
+import { RibbonConfig, RibbonLine, RenderMode } from '../core/RibbonLine';
+import { ILineController } from '../interfaces/ILineController';
 
-// Ahora, un LineSystem contiene un controlador genérico
+// Controladores
+import { PathFollower } from '../core/PathFollower';
+import { PathGuide } from '../core/PathGuide';
+import { PathController } from '../core/PathController';
+import { FlockingController } from '../core/FlockingController';
+import { Boid } from '../core/Boid';
+
 interface LineSystem {
   ribbon: RibbonLine;
   controller: ILineController;
@@ -16,13 +17,17 @@ interface LineSystem {
 export class LineManager {
   private scene: THREE.Scene;
   private lines: LineSystem[] = [];
+  
+  // 👇 CAMBIO 1: El manager ahora conoce a todos los boids.
+  private boids: Boid[] = [];
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
-    console.log('🚀 LineManager v2.0 (Multi-Estrategia) inicializado.');
+    console.log('🚀 LineManager v3.0 (Flocking Ready) inicializado.');
   }
 
-  // Método para las líneas que siguen una guía
+  // --- MÉTODOS DE CREACIÓN ---
+
   public createFollowingLine(
     ribbonConfig: RibbonConfig,
     guideConfig: { radius: number; speed: number }
@@ -35,35 +40,75 @@ export class LineManager {
       ribbon: ribbon,
       maxLength: ribbonConfig.maxLength,
     });
-    const lineSystem = { ribbon, controller: follower }; // Creamos el objeto del sistema
+    const lineSystem = { ribbon, controller: follower };
     this.lines.push(lineSystem);
-    console.log(`✨ Línea dinámica creada con modo: ${RenderMode[ribbonConfig.renderMode ?? 0]}`);
-    return lineSystem; // Devolvemos el sistema completo
+    return lineSystem;
   }
 
-  // Método para las líneas estáticas
   public createStaticShape(
     ribbonConfig: RibbonConfig,
     points: THREE.Vector3[]
-  ): LineSystem { // El tipo de retorno ya estaba bien, solo faltaba la implementación.
+  ): LineSystem {
     const ribbon = new RibbonLine(ribbonConfig);
     this.scene.add(ribbon.mesh);
     const controller = new PathController(ribbon, points);
-    const lineSystem = { ribbon, controller }; // Creamos el objeto
+    const lineSystem = { ribbon, controller };
     this.lines.push(lineSystem);
-    console.log(`✨ Forma estática creada con modo: ${RenderMode[ribbonConfig.renderMode ?? 0]}`);
-    return lineSystem; // Devolvemos el objeto completo
+    return lineSystem;
   }
 
-  // 👇 CAMBIO 3: El update ahora es más simple y genérico
+  // 👇 CAMBIO 2: Un nuevo método para crear un cardumen completo.
+  public createFlock(
+    count: number,
+    ribbonConfig: Omit<RibbonConfig, 'maxLength'>,
+    bounds: { x: number; y: number; z: number }
+  ) {
+    console.log(`🐦 Creando cardumen de ${count} líneas...`);
+    for (let i = 0; i < count; i++) {
+      // Creamos el cerebro (Boid) en una posición aleatoria.
+      const boid = new Boid(
+        Math.random() * 50 - 25,
+        Math.random() * 50 - 25,
+        0,
+        bounds
+      );
+      this.boids.push(boid); // Lo añadimos a nuestra lista de cerebros.
+
+      // Creamos el cuerpo (RibbonLine).
+      const ribbon = new RibbonLine({
+        ...ribbonConfig,
+        maxLength: 100, // Todas las estelas del cardumen tendrán este largo
+      });
+      this.scene.add(ribbon.mesh);
+
+      // Creamos el controlador que los une.
+      const controller = new FlockingController({
+        boid: boid,
+        ribbon: ribbon,
+        maxLength: 100
+      });
+
+      this.lines.push({ ribbon, controller });
+    }
+  }
+
+
+  // 👇 CAMBIO 3: El update ahora orquesta la simulación del flocking.
   public update(deltaTime: number, elapsedTime: number): void {
+    // 1. Primero, calculamos el movimiento de todos los boids.
+    // Pasamos la lista completa de boids a cada FlockingController.
     for (const lineSystem of this.lines) {
-      // Llama al update del controlador, sea cual sea (PathFollower o ShapeDrawer)
+      if (lineSystem.controller instanceof FlockingController) {
+        lineSystem.controller.calculateFlock(this.boids);
+      }
+    }
+    
+    // 2. Luego, actualizamos todos los controladores.
+    for (const lineSystem of this.lines) {
       lineSystem.controller.update(deltaTime, elapsedTime);
     }
   }
 
-  // Un método útil para obtener las ribbons si necesitamos controlarlas desde main.ts
   public getRibbons(): RibbonLine[] {
     return this.lines.map(l => l.ribbon);
   }
