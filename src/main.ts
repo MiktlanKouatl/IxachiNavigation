@@ -1,75 +1,75 @@
 import './style.css';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { RibbonLine, FadeStyle, RenderMode } from './core/RibbonLine';
-import { PathGuide } from './core/PathGuide';
-import { PathFollower } from './core/PathFollower';
+import { RenderMode, FadeStyle } from './core/RibbonLine';
+import { LineManager } from './managers/LineManager';
+import { PathController } from './core/PathController';
+import { SVGParser } from './utils/SVGParser';
 
-// --- CONFIGURACIÓN BÁSICA DE LA ESCENA ---
+// --- CONFIGURACIÓN BÁSICA (sin cambios) ---
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
-
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.z = 20;
-
+camera.position.z = 50;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('app')?.appendChild(renderer.domElement);
-
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true; // Movimiento suave
-controls.dampingFactor = 0.05;
-const clock = new THREE.Clock(); // Necesitamos un reloj para un movimiento consistente.  
+const clock = new THREE.Clock();
 
-// --- CREACIÓN DE NUESTROS OBJETOS ---
+// --- ARQUITECTURA PRINCIPAL ---
+const lineManager = new LineManager(scene);
+const MAX_POINTS = 250;
 
-const MAX_POINTS = 200;
-const allRibbons: RibbonLine[] = []; // Array para guardar las ribbons y actualizar sus uniforms
-const allFollowers: PathFollower[] = []; // Array para actualizar todos los followers
+const glowSystem = lineManager.createFollowingLine(
+  {
+    color: new THREE.Color(0x00ffff),
+    colorEnd: new THREE.Color(0xff00ff),
+    width: 300,
+    maxLength: MAX_POINTS,
+    renderMode: RenderMode.Glow,
+    fadeStyle: FadeStyle.FadeInOut,
+    transitionSize: 0.8,
+  },
+  {
+    radius: 10,
+    speed: 1.2,
+  }
+);
 
-// 👇 CAMBIO: Creamos tres líneas con diferentes estilos.
+const svgParser = new SVGParser();
+svgParser.getPointsFromSVG('logo.svg', 50)
+  .then(async (allPaths) => {
+    const logoPoints = allPaths[0];
+    const boundingBox = new THREE.Box3().setFromPoints(logoPoints);
+    const center = new THREE.Vector3();
+    boundingBox.getCenter(center);
+    logoPoints.forEach(p => p.sub(center));
+    const size = new THREE.Vector3();
+    boundingBox.getSize(size);
+    const maxDimension = Math.max(size.x, size.y, size.z);
+    const desiredSize = 50.0;
+    const scaleFactor = desiredSize / maxDimension;
+    logoPoints.forEach(p => p.multiplyScalar(scaleFactor));
+    logoPoints.forEach(p => { p.y *= -1; });
 
-// PINCEL 1: Modo Glow (energía)
-const glowRibbon = new RibbonLine({
-  color: new THREE.Color(0x00ffff), // Cyan
-  width: 0.7,
-  maxLength: MAX_POINTS,
-  renderMode: RenderMode.Glow,
-  fadeStyle: FadeStyle.FadeInOut,
-});
-scene.add(glowRibbon.mesh);
-const glowGuide = new PathGuide(10, 1.2);
-const glowFollower = new PathFollower({
-  pathGuide: glowGuide,
-  ribbon: glowRibbon,
-  maxLength: MAX_POINTS,
-});
-allRibbons.push(glowRibbon);
-allFollowers.push(glowFollower);
+    const shapeSystem = lineManager.createStaticShape(
+      {
+          color: new THREE.Color(0xffaa00),
+          colorEnd: new THREE.Color(0xffff00),
+          width: 200,
+          maxLength: logoPoints.length,
+          renderMode: RenderMode.Solid,
+          fadeStyle: FadeStyle.FadeInOut,
+      },
+      logoPoints
+    );
 
-const TRANSITION_SIZE = 0.5;
-// PINCEL 2: Modo Solid (gráfico)
-const solidRibbon = new RibbonLine({
-  color: new THREE.Color(0xff4400),       // Naranja (Inicio)
-  colorEnd: new THREE.Color(0x8800ff),   // Morado (Fin)
-  width: 1.0,
-  maxLength: MAX_POINTS,
-  renderMode: RenderMode.Solid,
-  opacity: 1.0,                           // Opacidad completa para ver bien el degradado
-  fadeStyle: FadeStyle.FadeInOut,              // Sin desvanecimiento para apreciar el color
-  transitionSize: TRANSITION_SIZE, // Prueba a cambiar este valor entre 0.1 y 1.0
-});
-solidRibbon.mesh.position.x = 5; // La movemos un poco para que no se encime
-scene.add(solidRibbon.mesh);
-const solidGuide = new PathGuide(8, -1.5); // Se mueve en dirección contraria
-const solidFollower = new PathFollower({
-  pathGuide: solidGuide,
-  ribbon: solidRibbon,
-  maxLength: MAX_POINTS,
-});
-allRibbons.push(solidRibbon);
-allFollowers.push(solidFollower);
-
+    if (shapeSystem.controller instanceof PathController) {
+      await shapeSystem.controller.reveal(3, 1);
+      shapeSystem.controller.trace(5, 0.9);
+    }
+  });
 
 
 // --- BUCLE DE ANIMACIÓN ---
@@ -77,34 +77,25 @@ function animate() {
   requestAnimationFrame(animate);
   const deltaTime = clock.getDelta();
   const elapsedTime = clock.getElapsedTime();
-
-  // Actualizamos todos los sistemas
-  glowGuide.update(deltaTime);
-  solidGuide.update(deltaTime);
-  allFollowers.forEach(follower => follower.update());
   
-  allRibbons.forEach(ribbon => {
-    ribbon.material.uniforms.uTime.value = elapsedTime;
-  });
+  lineManager.update(deltaTime, elapsedTime);
   
-  // Ejemplo de cómo animar la opacidad del listón sólido
-  //solidRibbon.material.uniforms.uOpacity.value = (Math.sin(elapsedTime) + 1) / 2 * 0.7 + 0.3;
+  const glowRibbon = lineManager.getRibbons()[0];
+  const solidRibbon = lineManager.getRibbons()[1]; // Asumimos que la sólida es la segunda
 
-  // Animamos el "pintado progresivo" en la línea sólida.
-  // Usamos una onda senoidal para que el valor de uColorMix vaya de 0 a 1 y viceversa.
-  const totalRange = 1.0 + TRANSITION_SIZE;
-  //Usamos tu fórmula corregida y perfeccionada
-  const colorMixProgress = ((Math.sin(elapsedTime * 0.8) + 1) / 2) * totalRange - ((TRANSITION_SIZE - 0.2) / 2);
+  // 👇 CAMBIO: Usamos una fórmula más simple y robusta para evitar el "salto".
+  // 1. Creamos una oscilación perfecta que va de 0 -> 1 -> 0.
+  const oscillation = (Math.sin(elapsedTime * 0.8) + 1) / 2;
+  
+  // 2. Mapeamos esa oscilación al rango de viaje total que necesita la transición.
+  const totalTravelRange = 1.0 + (glowRibbon.material.uniforms.uTransitionSize.value as number);
+  const colorMixProgress = oscillation * totalTravelRange;
+
+  // Actualizamos el uniform en la línea que tiene el degradado.
+  glowRibbon.material.uniforms.uColorMix.value = colorMixProgress;
+  
+  // Opcional: si quieres que la línea sólida también tenga la animación, descomenta la siguiente línea.
   solidRibbon.material.uniforms.uColorMix.value = colorMixProgress;
-
-  // Animamos el ancho y la opacidad usando nuestros nuevos métodos.
-  // El ancho del listón de energía palpitará.
-  const newWidth = (Math.sin(elapsedTime * 3.0) + 1) / 2 * 2.8 + 5.4; // va de 0.4 a 1.2
-  glowRibbon.setWidth(newWidth);
-
-  // La opacidad del listón sólido cambiará suavemente.
-  const newOpacity = (Math.cos(elapsedTime * 0.5) + 1) / 2 * 0.7 + 3.3; // va de 0.3 a 1.0
-  solidRibbon.setWidth(newWidth);
 
   controls.update();
   renderer.render(scene, camera);
@@ -112,9 +103,13 @@ function animate() {
 
 animate();
 
-// --- MANEJO DE REDIMENSIONAMIENTO ---
+// --- MANEJO DE REDIMENSIONAMIENTO (sin cambios) ---
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    
+    // Actualizamos la resolución en los shaders de todas las líneas
+    for (const ribbon of lineManager.getRibbons()) {
+        ribbon.material.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+    }
 });

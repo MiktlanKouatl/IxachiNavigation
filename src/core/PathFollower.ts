@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RibbonLine } from './RibbonLine';
 import { PathGuide } from './PathGuide';
+import { ILineController } from '../interfaces/ILineController';
 
 // Interfaz para la configuración del seguidor
 export interface FollowerConfig {
@@ -9,7 +10,7 @@ export interface FollowerConfig {
   maxLength: number;         // La longitud máxima de la estela en número de puntos.
 }
 
-export class PathFollower {
+export class PathFollower implements ILineController {
   private pathGuide: PathGuide;
   private ribbon: RibbonLine;
   private maxLength: number;
@@ -38,21 +39,23 @@ export class PathFollower {
   /**
    * Este método se llamará en cada fotograma desde nuestro bucle de animación.
    */
-  public update(): void {
+   // 👇 CAMBIO 3: Ajustamos la firma del método para que coincida con la interfaz.
+  public update(deltaTime: number, elapsedTime: number): void {
+    // La lógica interna no cambia, pero ahora usamos los argumentos que nos llegan.
+    this.pathGuide.update(deltaTime);
     // 1. Obtenemos la posición más reciente de nuestro guía.
     const newHeadPosition = this.pathGuide.getPosition();
-
     // 2. Aplicamos la técnica de "Buffer Circular" para la estela.
     // Tomamos el último punto de la cola...
     const lastPoint = this.points.pop()!; 
-    
     // ...lo movemos al principio del array...
     this.points.unshift(lastPoint);
-    
     // ...y actualizamos su posición para que sea la nueva "cabeza" de la serpiente.
     lastPoint.copy(newHeadPosition);
-    
     // 3. Le decimos a nuestra RibbonLine que se redibuje con la lista de puntos actualizada.
     this.ribbon.update(this.points);
+    // 4. Actualizamos el tiempo en los uniforms del shader para animaciones basadas en tiempo.
+    this.ribbon.material.uniforms.uTime.value = elapsedTime;
   }
+  
 }
