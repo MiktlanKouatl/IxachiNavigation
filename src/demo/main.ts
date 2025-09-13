@@ -1,8 +1,8 @@
 import './style.css';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { RenderMode, FadeStyle } from './core/RibbonLine';
-import { LineManager } from './managers/LineManager';
+import { RenderMode, FadeStyle } from '../ixachi/core/RibbonLine';
+import { LineManager } from '../ixachi/LineManager';
 
 // --- CONFIGURACIÓN BÁSICA ---
 const scene = new THREE.Scene();

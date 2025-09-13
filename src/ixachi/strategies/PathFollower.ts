@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { RibbonLine } from './RibbonLine';
-import { PathGuide } from './PathGuide';
-import { ILineController } from '../interfaces/ILineController';
+import { RibbonLine } from '../core/RibbonLine';
+import { PathGuide } from '../core/PathGuide';
+import { ILineController } from '../core/ILineController';
 
 // Interfaz para la configuración del seguidor
 export interface FollowerConfig {

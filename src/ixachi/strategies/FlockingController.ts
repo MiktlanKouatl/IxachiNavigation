@@ -2,8 +2,8 @@
 
 import * as THREE from 'three';
 import { Boid } from './Boid';
-import { RibbonLine } from './RibbonLine';
-import { ILineController } from '../interfaces/ILineController';
+import { RibbonLine } from '../core/RibbonLine';
+import { ILineController } from '../core/ILineController';
 
 export interface FlockingControllerConfig {
   boid: Boid;

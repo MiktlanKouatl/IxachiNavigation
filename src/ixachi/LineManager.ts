@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { RibbonConfig, RibbonLine, RenderMode } from '../core/RibbonLine';
-import { ILineController } from '../interfaces/ILineController';
+import { RibbonConfig, RibbonLine, RenderMode } from './core/RibbonLine';
+import { ILineController } from './core/ILineController';
 
 // Controladores
-import { PathFollower } from '../core/PathFollower';
-import { PathGuide } from '../core/PathGuide';
-import { PathController } from '../core/PathController';
-import { FlockingController } from '../core/FlockingController';
-import { Boid } from '../core/Boid';
+import { PathFollower } from './strategies/PathFollower';
+import { PathGuide } from './core/PathGuide';
+import { PathController } from './strategies/PathController';
+import { FlockingController } from './strategies/FlockingController';
+import { Boid } from './strategies/Boid';
 
 interface LineSystem {
   ribbon: RibbonLine;

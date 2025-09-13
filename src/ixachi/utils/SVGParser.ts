@@ -1,4 +1,4 @@
-// src/utils/SVGParser.ts
+// src/ixachi/utils/SVGParser.ts
 
 import * as THREE from 'three';
 import { SVGLoader, SVGResultPaths } from 'three/examples/jsm/loaders/SVGLoader.js';

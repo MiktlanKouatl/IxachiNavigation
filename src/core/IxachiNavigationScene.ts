@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { Line3d } from './Line3d'
-import { PathGuide } from './PathGuide'
+import { PathGuide } from '../ixachi/core/PathGuide'
 import { CameraController } from './CameraController'
 
 // 🎨 Interfaz para configuración de líneas

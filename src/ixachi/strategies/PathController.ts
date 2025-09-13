@@ -1,7 +1,7 @@
 // src/core/PathController.ts
 
-import { RibbonLine } from './RibbonLine';
-import { ILineController } from '../interfaces/ILineController';
+import { RibbonLine } from '../core/RibbonLine';
+import { ILineController } from '../core/ILineController';
 import gsap from 'gsap';
 
 export class PathController implements ILineController {

@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { RibbonConfig, RibbonLine, RenderMode } from '../core/RibbonLine'; // Añadimos RenderMode a la importación
-import { PathGuide } from '../core/PathGuide';
+import { PathGuide } from '../ixachi/core/PathGuide';
 import { PathFollower } from '../core/PathFollower';
 import { ILineController } from '../interfaces/ILineController'; // Importamos la interfaz
 import { PathController } from '../core/PathController'; // Importamos el nuevo controlador

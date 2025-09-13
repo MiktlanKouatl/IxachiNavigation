@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import vertexShader from '../shaders/ribbon.vert.glsl?raw';
+import fragmentShader from '../shaders/ribbon.frag.glsl?raw';
 
 // --- ENUMS E INTERFACES (SIN CAMBIOS) ---
 export enum RenderMode {
@@ -75,128 +77,10 @@ export class RibbonLine {
       },
 
       // El Vertex Shader construye la geometría.
-      vertexShader: /* glsl */`
-        attribute vec3 previous;
-        attribute vec3 next;
-        attribute float side;
-
-        varying vec2 vUv;
-
-        uniform vec2 uResolution;
-        uniform float uWidth;
-
-        void main() {
-          vUv = uv;
-
-          // --- 1. Proyectamos los 3 puntos al espacio de la pantalla ---
-          vec4 prevProjected = projectionMatrix * modelViewMatrix * vec4(previous, 1.0);
-          vec4 currentProjected = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          vec4 nextProjected = projectionMatrix * modelViewMatrix * vec4(next, 1.0);
-
-          // --- 2. Calculamos la dirección y la normal en el espacio 2D de la pantalla ---
-          vec2 currentScreen = currentProjected.xy / currentProjected.w;
-          vec2 prevScreen = prevProjected.xy / prevProjected.w;
-          vec2 nextScreen = nextProjected.xy / nextProjected.w;
-
-          vec2 dir;
-          if (abs(currentScreen.x - prevScreen.x) < 0.0001 && abs(currentScreen.y - prevScreen.y) < 0.0001) {
-            // Si el punto actual y el anterior son el mismo (inicio de la línea)
-            dir = normalize(nextScreen - currentScreen);
-          } else if (abs(currentScreen.x - nextScreen.x) < 0.0001 && abs(currentScreen.y - nextScreen.y) < 0.0001) {
-            // Si el punto actual y el siguiente son el mismo (fin de la línea)
-            dir = normalize(currentScreen - prevScreen);
-          } else {
-            // Mitering: promediamos las direcciones para suavizar las esquinas
-            vec2 dir1 = normalize(currentScreen - prevScreen);
-            vec2 dir2 = normalize(nextScreen - currentScreen);
-            dir = normalize(dir1 + dir2);
-          }
-
-          
-          
-          vec2 normal = vec2(-dir.y, dir.x);
-
-          // --- 3. Corregimos el aspecto de la pantalla y aplicamos el ancho ---
-          normal.x /= uResolution.x / uResolution.y; // Corrección de aspect ratio
-          float width = uWidth * (1.0 / currentProjected.w); // Hacemos el ancho más pequeño si está lejos
-          
-          // --- 4. Desplazamos el vértice y lo devolvemos al espacio 3D ---
-          currentProjected.xy += normal * side * width;
-          
-          gl_Position = currentProjected;
-        }
-      `,
+      vertexShader: vertexShader,
       
       // El Fragment Shader no necesita cambios, ¡sigue funcionando igual!
-      fragmentShader: /* glsl */`
-        uniform vec3 uColor;
-        uniform vec3 uColorEnd;
-        uniform float uTime;
-        uniform int uFadeStyle;
-        uniform int uRenderMode;
-        uniform float uOpacity;
-        uniform float uColorMix;
-        uniform float uTransitionSize;
-        uniform float uDrawProgress;
-        uniform float uTraceProgress;
-        uniform float uTraceSegmentLength;
-
-        varying vec2 vUv;
-        const float PI = 3.14159265359;
-
-        void main() {
-          // --- 1. CÁLCULO DE COLOR BASE ---
-          float mixFactor = clamp(smoothstep(uColorMix - uTransitionSize, uColorMix, vUv.x), 0.0, 1.0);
-          vec3 finalRgb = mix(uColor, uColorEnd, mixFactor);
-          
-          // --- 2. CÁLCULO DE OPACIDAD BASE (RenderMode) ---
-          float finalAlpha = uOpacity;
-          if (uRenderMode == 0) { // Modo Glow
-            float distanceToCenter = abs(vUv.y - 0.5) * 2.0;
-            float strength = 1.0 - distanceToCenter;
-            float glow = pow(strength, 2.5);
-            float pulse = (sin(uTime * 5.0) + 1.0) / 2.0;
-            pulse = pulse * 0.4 + 0.6;
-            finalAlpha *= glow * pulse;
-          }
-          
-          // --- 3. CÁLCULO DE VISIBILIDAD (Reveal & Trace & FadeStyle) ---
-          float visibility = 1.0;
-
-          if (uDrawProgress < 1.0) { // Modo Reveal
-            float feather = 0.05 / uDrawProgress;
-            visibility = smoothstep(uDrawProgress - feather, uDrawProgress, vUv.x);
-          } else if (uTraceSegmentLength > 0.0) { // Modo Trace
-            float tail = uTraceProgress - uTraceSegmentLength;
-            float segmentUv = fract(vUv.x - tail); 
-            
-            if (segmentUv > uTraceSegmentLength) {
-              visibility = 0.0;
-            } else {
-              float relativeUv = segmentUv / uTraceSegmentLength;
-              float fadeFactor = 1.0;
-              if (uFadeStyle == 1) { fadeFactor = relativeUv; }
-              else if (uFadeStyle == 2) { fadeFactor = sin(relativeUv * PI); }
-              else if (uFadeStyle == 3) { fadeFactor = 1.0 - relativeUv; }
-              
-              visibility = fadeFactor;
-            }
-          } else { // Caso de línea estática o FollowingLine
-            float fadeFactor = 1.0;
-            if (uFadeStyle == 1) { fadeFactor = vUv.x; }
-            else if (uFadeStyle == 2) { fadeFactor = sin(vUv.x * PI); }
-            else if (uFadeStyle == 3) { fadeFactor = 1.0 - vUv.x; }
-            visibility = fadeFactor;
-          }
-          
-          // --- 4. COMBINACIÓN FINAL ---
-          if (visibility < 0.001) {
-            discard;
-          }
-          
-          gl_FragColor = vec4(finalRgb, finalAlpha * visibility);
-        }
-      `,
+      fragmentShader: fragmentShader,
     });
     
     if ((config.renderMode ?? RenderMode.Glow) === RenderMode.Glow) {
