@@ -32,6 +32,8 @@ export class RibbonLine {
   public material: THREE.ShaderMaterial;
   private geometry: THREE.BufferGeometry;
   private currentPoints: THREE.Vector3[] = [];
+  private maxPoints: number;
+  private isPulsing: boolean = false; // propiedad de estado para la animación
 
   constructor(config: RibbonConfig) {
     console.log('🚧 Creando RibbonLine v3.0 GPU-Powered...');
@@ -39,6 +41,7 @@ export class RibbonLine {
     this.geometry = new THREE.BufferGeometry();
     
     const maxPoints = config.maxLength;
+    this.maxPoints = maxPoints;
     // Pre-alocamos los buffers para los nuevos atributos
     this.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(maxPoints * 3 * 2), 3));
     this.geometry.setAttribute('previous', new THREE.BufferAttribute(new Float32Array(maxPoints * 3 * 2), 3));
@@ -79,7 +82,7 @@ export class RibbonLine {
       // El Vertex Shader construye la geometría.
       vertexShader: vertexShader,
       
-      // El Fragment Shader no necesita cambios, ¡sigue funcionando igual!
+      // El Fragment Shader hace el render final.
       fragmentShader: fragmentShader,
     });
     
@@ -92,7 +95,7 @@ export class RibbonLine {
     this.mesh = new THREE.Mesh(this.geometry, this.material);
     this.mesh.frustumCulled = false;
     
-    // 👇 NUEVO: Escuchamos el evento de redimensionar para actualizar la resolución.
+    // Escuchamos el evento de redimensionar para actualizar la resolución.
     window.addEventListener('resize', () => {
         this.material.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
     });
@@ -100,16 +103,53 @@ export class RibbonLine {
     console.log('✅ RibbonLine v3.0 creada.');
   }
 
-  public update(points: THREE.Vector3[]): void {
+  //método de actualización para la lógica visual
+    public update(elapsedTime: number): void {
+        if (!this.isPulsing) return;
+        if (!this.material.uniforms.transitionSize || !this.material.uniforms.uColorMix) {
+            return;
+        }
+        // --- LÓGICA DE ANIMACIÓN (antes en main.ts) ---
+        const oscillation = (Math.sin(elapsedTime * 0.8) + 1) / 2;
+        const transitionSize = this.material.uniforms.transitionSize.value;
+        const totalTravelRange = 1.0 + transitionSize;
+        const colorMixProgress = oscillation * totalTravelRange;
+
+        this.material.uniforms.uColorMix.value = colorMixProgress;
+    }
+  
+  /*
+  * Inicia o detiene la animación de pulso en la línea.
+  * @param start - Si es verdadero, inicia el pulso; si es falso, lo detiene.
+  */
+  public pulse(start: boolean): void {
+      this.isPulsing = start;
+  }
+
+  /**
+  * Actualiza los puntos que definen la forma de la línea.
+  * Este método es el corazón de la actualización visual para líneas dinámicas.
+  * @param points - Un array de Vector3 que representa la nueva forma de la línea.
+  */
+  public setPoints(points: THREE.Vector3[]): void {
+    
+    //console.log(`[RibbonLine]: Recibiendo ${points.length} puntos.`);
+
     this.currentPoints = points;
     this.updateGeometry();
   }
-  
+  /*
+  * Actualiza la opacidad de la línea.
+  * @param opacity - Nueva opacidad (0.0 a 1.0).
+  */
   public setOpacity(opacity: number): void {
     this.material.uniforms.uOpacity.value = opacity;
   }
 
-  // 👇 CAMBIO: setWidth ahora solo actualiza un uniform. ¡Es instantáneo!
+  /*
+  * Actualiza el ancho de la línea.
+  * @param width - Nuevo ancho de la línea.
+  */
   public setWidth(width: number): void {
     this.material.uniforms.uWidth.value = width;
   }
@@ -119,7 +159,7 @@ export class RibbonLine {
     this.material.dispose();
   }
   
-  // 👇 CAMBIO: `buildMesh` ahora se llama `updateGeometry` y solo prepara los datos.
+  // `updateGeometry` prepara los datos.
   private updateGeometry(): void {
     const points = this.currentPoints;
     if (points.length < 2) {

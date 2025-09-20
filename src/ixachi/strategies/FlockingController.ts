@@ -42,7 +42,7 @@ export class FlockingController implements ILineController {
     lastPoint.copy(this.boid.position);
 
     // 3. Redibujamos y actualizamos uniforms.
-    this.ribbon.update(this.points);
+    this.ribbon.setPoints(this.points);
     this.ribbon.material.uniforms.uTime.value = elapsedTime;
   }
 }

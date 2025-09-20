@@ -33,7 +33,7 @@ export class PathFollower implements ILineController {
     
     // Al inicio, la estela no existe, así que le pasamos un array vacío
     // a la RibbonLine para que no dibuje nada.
-    this.ribbon.update([]); 
+    this.ribbon.setPoints([]); 
   }
 
   /**
@@ -53,7 +53,7 @@ export class PathFollower implements ILineController {
     // ...y actualizamos su posición para que sea la nueva "cabeza" de la serpiente.
     lastPoint.copy(newHeadPosition);
     // 3. Le decimos a nuestra RibbonLine que se redibuje con la lista de puntos actualizada.
-    this.ribbon.update(this.points);
+    this.ribbon.setPoints(this.points);
     // 4. Actualizamos el tiempo en los uniforms del shader para animaciones basadas en tiempo.
     this.ribbon.material.uniforms.uTime.value = elapsedTime;
   }

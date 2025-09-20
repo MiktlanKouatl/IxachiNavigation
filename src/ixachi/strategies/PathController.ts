@@ -26,7 +26,7 @@ export class PathController implements ILineController {
    */
   public show(points: THREE.Vector3[]): void {
     this.timeline.kill(); // Detenemos cualquier animación en curso.
-    this.ribbon.update(points);
+    this.ribbon.setPoints(points);
     // Para mostrar, el progreso del dibujo está al 100%
     this.ribbon.material.uniforms.uDrawProgress.value = 1.0;
     // Y desactivamos el trace poniendo su longitud en 0.

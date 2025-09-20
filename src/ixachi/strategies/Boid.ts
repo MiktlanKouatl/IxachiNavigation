@@ -1,13 +1,15 @@
+// src/ixachi/strategies/Boid.ts
 import * as THREE from 'three';
+import { IMotionSource } from '../core/IMotionSource';
 
-export class Boid {
-  public position: THREE.Vector3;
+export class Boid implements IMotionSource {
+  public readonly position: THREE.Vector3;
   public velocity: THREE.Vector3;
   private acceleration: THREE.Vector3;
 
   // --- Parámetros de Comportamiento (nuestros "diales" creativos) ---
   public maxSpeed: number = .5;    // Velocidad máxima que puede alcanzar
-  public maxForce: number = 0.03; // Fuerza máxima de giro o cambio de dirección
+  public maxForce: number = 0.01; // Fuerza máxima de giro o cambio de dirección
   
   // El radio de percepción se pasará dinámicamente para poder ajustarlo
   

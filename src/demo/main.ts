@@ -3,12 +3,14 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RenderMode, FadeStyle } from '../ixachi/core/RibbonLine';
 import { LineManager } from '../ixachi/LineManager';
+import { PathController } from '../ixachi/strategies/PathController';
+import { SVGParser } from '../ixachi/utils/SVGParser';
 
-// --- CONFIGURACIÓN BÁSICA ---
+// --- CONFIGURACIÓN BÁSICA (sin cambios) ---
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x000000); // Fondo negro para máximo impacto
+scene.background = new THREE.Color(0x111111);
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.z = 75; // Alejamos la cámara para ver el cardumen
+camera.position.z = 50;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('app')?.appendChild(renderer.domElement);
@@ -17,19 +19,58 @@ const clock = new THREE.Clock();
 
 // --- ARQUITECTURA PRINCIPAL ---
 const lineManager = new LineManager(scene);
+const MAX_POINTS = 270;
 
-// 👇 ¡LA MAGIA! Creamos un cardumen de 100 líneas.
-lineManager.createFlock(
-  100,
-  { // Configuración del "Pincel" para cada miembro del cardumen
-    color: new THREE.Color(0xffee88),
-    width: 15,
+const glowSystem = lineManager.createFollowingLine(
+  {
+    color: new THREE.Color(0x00ffff),
+    colorEnd: new THREE.Color(0xff00ff),
+    width: 300,
+    maxLength: MAX_POINTS,
     renderMode: RenderMode.Glow,
     fadeStyle: FadeStyle.FadeInOut,
-    opacity: 1,
+    transitionSize: 0.8,
   },
-  { x:60, y: 60, z: 60 } // Los límites de su "pecera"
+  {
+    radius: 10,
+    speed: 1.2,
+  }
 );
+glowSystem.ribbon.pulse(true); 
+
+const svgParser = new SVGParser();
+svgParser.getPointsFromSVG('/logo.svg', 50)
+  .then(async (allPaths) => {
+    const logoPoints = allPaths[0];
+    const boundingBox = new THREE.Box3().setFromPoints(logoPoints);
+    const center = new THREE.Vector3();
+    boundingBox.getCenter(center);
+    logoPoints.forEach(p => p.sub(center));
+    const size = new THREE.Vector3();
+    boundingBox.getSize(size);
+    const maxDimension = Math.max(size.x, size.y, size.z);
+    const desiredSize = 50.0;
+    const scaleFactor = desiredSize / maxDimension;
+    logoPoints.forEach(p => p.multiplyScalar(scaleFactor));
+    logoPoints.forEach(p => { p.y *= -1; });
+
+    const shapeSystem = lineManager.createStaticShape(
+      {
+          color: new THREE.Color(0xffaa00),
+          colorEnd: new THREE.Color(0xffaa00),
+          width: 200,
+          maxLength: logoPoints.length,
+          renderMode: RenderMode.Solid,
+          fadeStyle: FadeStyle.FadeInOut,
+      },
+      logoPoints
+    );
+
+    if (shapeSystem.controller instanceof PathController) {
+      await shapeSystem.controller.reveal(3, 1);
+      shapeSystem.controller.trace(5, 0.9);
+    }
+  });
 
 
 // --- BUCLE DE ANIMACIÓN ---
@@ -46,12 +87,12 @@ function animate() {
 
 animate();
 
-// --- MANEJO DE REDIMENSIONAMIENTO ---
+// --- MANEJO DE REDIMENSIONAMIENTO (sin cambios) ---
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
     
+    // Actualizamos la resolución en los shaders de todas las líneas
     for (const ribbon of lineManager.getRibbons()) {
         ribbon.material.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
     }

@@ -1,10 +1,13 @@
+// src/ixachi/LineManager.ts
 import * as THREE from 'three';
 import { RibbonConfig, RibbonLine, RenderMode } from './core/RibbonLine';
 import { ILineController } from './core/ILineController';
+import { TrailController } from './strategies/TrailController';
+import { IMotionSource } from './core/IMotionSource';
 
 // Controladores
 import { PathFollower } from './strategies/PathFollower';
-import { PathGuide } from './core/PathGuide';
+import { PathGuide } from './core/PathGuide_CircleTest';
 import { PathController } from './strategies/PathController';
 import { FlockingController } from './strategies/FlockingController';
 import { Boid } from './strategies/Boid';
@@ -18,7 +21,6 @@ export class LineManager {
   private scene: THREE.Scene;
   private lines: LineSystem[] = [];
   
-  // 👇 CAMBIO 1: El manager ahora conoce a todos los boids.
   private boids: Boid[] = [];
 
   constructor(scene: THREE.Scene) {
@@ -34,13 +36,23 @@ export class LineManager {
   ): LineSystem {
     const ribbon = new RibbonLine(ribbonConfig);
     this.scene.add(ribbon.mesh);
-    const guide = new PathGuide(guideConfig.radius, guideConfig.speed);
-    const follower = new PathFollower({
-      pathGuide: guide,
-      ribbon: ribbon,
-      maxLength: ribbonConfig.maxLength,
-    });
-    const lineSystem = { ribbon, controller: follower };
+    //const startPosition = new THREE.Vector3(0,0,0);
+    //const initialDirection = new THREE.Vector3(0, 1, 0);
+    const guide = new PathGuide (/*startPosition, initialDirection, 15*/);
+   
+    const controller = new TrailController(
+      ribbon,
+      guide, // Le pasamos el guía como la "Fuente de Movimiento"
+      ribbonConfig.maxLength
+    );
+
+    // ✨ --- LÍNEAS DE DEPURACIÓN --- ✨
+  //console.log("🔍 [LineManager] Creando sistema:", { ribbon, controller });
+  //console.log("   - Ribbon es instancia de RibbonLine:", ribbon instanceof RibbonLine);
+  //console.log("   - Controller es instancia de TrailController:", controller instanceof TrailController);
+  // --- FIN DE LÍNEAS DE DEPURACIÓN ---
+
+    const lineSystem = { ribbon, controller };
     this.lines.push(lineSystem);
     return lineSystem;
   }
@@ -57,7 +69,7 @@ export class LineManager {
     return lineSystem;
   }
 
-  // 👇 CAMBIO 2: Un nuevo método para crear un cardumen completo.
+  // Método para crear un cardumen completo.
   public createFlock(
     count: number,
     ribbonConfig: Omit<RibbonConfig, 'maxLength'>,
@@ -81,19 +93,20 @@ export class LineManager {
       });
       this.scene.add(ribbon.mesh);
 
-      // Creamos el controlador que los une.
-      const controller = new FlockingController({
-        boid: boid,
-        ribbon: ribbon,
-        maxLength: 100
-      });
-
+      // Creamos un TrailController universal, pasándole el Boid como fuente de movimiento.
+      const controller = new TrailController(
+        ribbon,
+        boid, // Boid ya es un IMotionSource, ¡así que encaja perfecto!
+        100   // maxLength de la estela
+      );
+      
+      // 4. Añadimos el nuevo sistema al manager.
       this.lines.push({ ribbon, controller });
     }
   }
 
 
-  // 👇 CAMBIO 3: El update ahora orquesta la simulación del flocking.
+  // El update orquesta la simulación del flocking.
   public update(deltaTime: number, elapsedTime: number): void {
     // 1. Primero, calculamos el movimiento de todos los boids.
     // Pasamos la lista completa de boids a cada FlockingController.
@@ -106,6 +119,7 @@ export class LineManager {
     // 2. Luego, actualizamos todos los controladores.
     for (const lineSystem of this.lines) {
       lineSystem.controller.update(deltaTime, elapsedTime);
+      lineSystem.ribbon.update(elapsedTime);
     }
   }
 
