@@ -6,8 +6,8 @@ import { TrailController } from './strategies/TrailController';
 import { IMotionSource } from './core/IMotionSource';
 
 // Controladores
-import { PathFollower } from './strategies/PathFollower';
-import { PathGuide } from './core/PathGuide_CircleTest';
+//
+import { PathGuide } from './core/PathGuide';
 import { PathController } from './strategies/PathController';
 import { FlockingController } from './strategies/FlockingController';
 import { Boid } from './strategies/Boid';
@@ -30,7 +30,7 @@ export class LineManager {
 
   // --- MÉTODOS DE CREACIÓN ---
 
-  public createFollowingLine(
+  /* public createFollowingLine(
     ribbonConfig: RibbonConfig,
     guideConfig: { radius: number; speed: number }
   ): LineSystem {
@@ -38,7 +38,7 @@ export class LineManager {
     this.scene.add(ribbon.mesh);
     //const startPosition = new THREE.Vector3(0,0,0);
     //const initialDirection = new THREE.Vector3(0, 1, 0);
-    const guide = new PathGuide (/*startPosition, initialDirection, 15*/);
+    const guide = new PathGuide (startPosition, initialDirection, 15);
    
     const controller = new TrailController(
       ribbon,
@@ -55,7 +55,52 @@ export class LineManager {
     const lineSystem = { ribbon, controller };
     this.lines.push(lineSystem);
     return lineSystem;
+  } */
+
+  public createLinesFromSVG(
+    allPaths: THREE.Vector3[][],
+    ribbonConfig: RibbonConfig,
+    guideSpeed: number = 40.0,
+    trailLength: number = 0.3
+  ): void {
+    console.log(`🌀 [LineManager] Creando sistemas de líneas para ${allPaths.length} trazados SVG...`);
+
+    allPaths.forEach((pathPoints, index) => {
+      // --- 1. FILTRO DE CALIDAD ---
+      let estimatedLength = 0;
+      for (let i = 0; i < pathPoints.length - 1; i++) {
+        estimatedLength += pathPoints[i].distanceTo(pathPoints[i + 1]);
+      }
+      if (pathPoints.length < 3 || estimatedLength < 1.0) {
+        console.warn(`⚠️ [LineManager] Trazado ${index + 1} omitido por ser demasiado corto o simple.`);
+        return; // Omitimos este trazado y continuamos con el siguiente.
+      }
+
+      // --- 2. Crear la Guía de Movimiento ---
+      const guide = new PathGuide(pathPoints, {
+        speed: guideSpeed,
+        isClosedLoop: true,
+      });
+
+      // --- 3. Crear la Cinta (El Cuerpo Visual) ---
+      const ribbon = new RibbonLine(ribbonConfig);
+      this.scene.add(ribbon.mesh);
+
+      // --- 4. Crear el Controlador ---
+      const controller = new TrailController(
+        ribbon,
+        guide,
+        Math.floor(pathPoints.length * trailLength) // maxLength basado en la longitud del trazado
+      );
+
+      // --- 5. Ensamblar y registrar el nuevo sistema de línea ---
+      this.lines.push({ ribbon, controller });
+      //ribbon.pulse(true); // Iniciamos el pulso de la línea
+    });
+
+    console.log(`✅ [LineManager] Se han creado ${this.lines.length} sistemas de líneas.`);
   }
+
 
   public createStaticShape(
     ribbonConfig: RibbonConfig,

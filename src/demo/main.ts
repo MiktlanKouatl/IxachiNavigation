@@ -1,10 +1,14 @@
 import './style.css';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { RenderMode, FadeStyle } from '../ixachi/core/RibbonLine';
 import { LineManager } from '../ixachi/LineManager';
-import { PathController } from '../ixachi/strategies/PathController';
 import { SVGParser } from '../ixachi/utils/SVGParser';
+import { RibbonConfig, RenderMode, FadeStyle } from '../ixachi/core/RibbonLine';
+//import { FadeStyle } from '../ixachi/core/RibbonLine'; --- IGNORE ---
+//import { LineManager } from '../ixachi/LineManager'; --- IGNORE ---
+//import { SVGParser } from '../ixachi/utils/SVGParser'; --- IGNORE ---
+//import { PathController } from '../ixachi/strategies/PathController';
+
 
 // --- CONFIGURACIÓN BÁSICA (sin cambios) ---
 const scene = new THREE.Scene();
@@ -19,6 +23,24 @@ const clock = new THREE.Clock();
 
 // --- ARQUITECTURA PRINCIPAL ---
 const lineManager = new LineManager(scene);
+
+const svgParser = new SVGParser();
+const allLogoPaths = await svgParser.parse(await svgParser.load('/ixachiLogo0001.svg'));
+
+// Configuración visual para las cintas
+const ribbonConfig: RibbonConfig = {
+    color: new THREE.Color(0xff8800),
+    colorEnd: new THREE.Color(0xff0000),
+    width: 10,
+    maxLength: 30, // Puntos de resolución de la estela
+    renderMode: RenderMode.Solid,
+    fadeStyle: FadeStyle.None,
+};
+
+// ¡Llamada única y limpia para crear todo!
+lineManager.createLinesFromSVG(allLogoPaths, ribbonConfig);
+
+ /*
 const MAX_POINTS = 270;
 
 const glowSystem = lineManager.createFollowingLine(
@@ -64,21 +86,24 @@ svgParser.getPointsFromSVG('/logo.svg', 50)
           fadeStyle: FadeStyle.FadeInOut,
       },
       logoPoints
-    );
+    ); 
 
     if (shapeSystem.controller instanceof PathController) {
       await shapeSystem.controller.reveal(3, 1);
       shapeSystem.controller.trace(5, 0.9);
     }
   });
-
+*/
 
 // --- BUCLE DE ANIMACIÓN ---
 function animate() {
   requestAnimationFrame(animate);
+
+  
   const deltaTime = clock.getDelta();
   const elapsedTime = clock.getElapsedTime();
   
+  // Solo necesitamos actualizar el manager, él se encarga del resto.
   lineManager.update(deltaTime, elapsedTime);
 
   controls.update();
@@ -93,7 +118,7 @@ window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     
     // Actualizamos la resolución en los shaders de todas las líneas
-    for (const ribbon of lineManager.getRibbons()) {
+   /*  for (const ribbon of lineManager.getRibbons()) {
         ribbon.material.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
-    }
+    } */
 });
