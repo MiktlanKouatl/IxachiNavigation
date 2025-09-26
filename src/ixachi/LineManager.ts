@@ -4,6 +4,8 @@ import { RibbonConfig, RibbonLine, RenderMode } from './core/RibbonLine';
 import { ILineController } from './core/ILineController';
 import { TrailController } from './strategies/TrailController';
 import { IMotionSource } from './core/IMotionSource';
+import { PathData } from './core/PathData';
+import { PathFollower } from './strategies/PathFollower';
 
 // Controladores
 //
@@ -15,6 +17,7 @@ import { Boid } from './strategies/Boid';
 interface LineSystem {
   ribbon: RibbonLine;
   controller: ILineController;
+  motionSource?: IMotionSource;
 }
 
 export class LineManager {
@@ -60,8 +63,8 @@ export class LineManager {
   public createLinesFromSVG(
     allPaths: THREE.Vector3[][],
     ribbonConfig: RibbonConfig,
-    guideSpeed: number = 40.0,
-    trailLength: number = 0.3
+    guideSpeed: number = 50.0,
+    trailLength: number = 0.8
   ): void {
     console.log(`🌀 [LineManager] Creando sistemas de líneas para ${allPaths.length} trazados SVG...`);
 
@@ -90,17 +93,50 @@ export class LineManager {
       const controller = new TrailController(
         ribbon,
         guide,
-        Math.floor(pathPoints.length * trailLength) // maxLength basado en la longitud del trazado
+        {
+          trailLength: Math.floor(pathPoints.length * trailLength),
+        }
       );
 
       // --- 5. Ensamblar y registrar el nuevo sistema de línea ---
-      this.lines.push({ ribbon, controller });
+      this.lines.push({ ribbon, controller, guide });
       //ribbon.pulse(true); // Iniciamos el pulso de la línea
     });
 
     console.log(`✅ [LineManager] Se han creado ${this.lines.length} sistemas de líneas.`);
   }
 
+  public createLineSwarm(
+    pathPoints: THREE.Vector3[],
+    count: number,
+    ribbonConfig: RibbonConfig
+): void {
+    console.log(`🌀 [LineManager] Creando enjambre de ${count} líneas...`);
+
+    // 1. Creamos UN SOLO "mapa" para que todas las líneas lo compartan.
+    const sharedPathData = new PathData(pathPoints, true);
+
+    // 2. Creamos múltiples "coches" (seguidores), cada uno con un punto de partida diferente.
+    for (let i = 0; i < count; i++) {
+        // Distribuimos los seguidores a lo largo del camino.
+        const initialProgress = i / count;
+
+        const follower = new PathFollower(sharedPathData, {
+            speed: 60.0,
+            initialProgress: initialProgress,
+        });
+
+        const ribbon = new RibbonLine(ribbonConfig);
+        this.scene.add(ribbon.mesh);
+
+        const controller = new TrailController(ribbon, follower, {
+            trailLength: 50, // Estelas cortas para el efecto de enjambre
+        });
+        
+        // Ensamblamos el sistema.
+        this.lines.push({ ribbon, controller, motionSource: follower });
+    }
+}
 
   public createStaticShape(
     ribbonConfig: RibbonConfig,
@@ -163,6 +199,11 @@ export class LineManager {
     
     // 2. Luego, actualizamos todos los controladores.
     for (const lineSystem of this.lines) {
+      
+      if (lineSystem.motionSource) {
+            // Si la tiene (como nuestro PathFollower), la actualizamos primero.
+            lineSystem.motionSource.update (deltaTime, elapsedTime);
+        }
       lineSystem.controller.update(deltaTime, elapsedTime);
       lineSystem.ribbon.update(elapsedTime);
     }

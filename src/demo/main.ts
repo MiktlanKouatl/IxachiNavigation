@@ -2,12 +2,10 @@ import './style.css';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { LineManager } from '../ixachi/LineManager';
-import { SVGParser } from '../ixachi/utils/SVGParser';
+//import { SVGParser } from '../ixachi/utils/SVGParser';
+// ¡Importamos el nuevo extractor en lugar del SVGParser!
+import { ModelPathExtractor } from '../ixachi/utils/ModelPathExtractor'; 
 import { RibbonConfig, RenderMode, FadeStyle } from '../ixachi/core/RibbonLine';
-//import { FadeStyle } from '../ixachi/core/RibbonLine'; --- IGNORE ---
-//import { LineManager } from '../ixachi/LineManager'; --- IGNORE ---
-//import { SVGParser } from '../ixachi/utils/SVGParser'; --- IGNORE ---
-//import { PathController } from '../ixachi/strategies/PathController';
 
 
 // --- CONFIGURACIÓN BÁSICA (sin cambios) ---
@@ -24,21 +22,36 @@ const clock = new THREE.Clock();
 // --- ARQUITECTURA PRINCIPAL ---
 const lineManager = new LineManager(scene);
 
-const svgParser = new SVGParser();
-const allLogoPaths = await svgParser.parse(await svgParser.load('/ixachiLogo0001.svg'));
+//const svgParser = new SVGParser();
+//const allLogoPaths = await svgParser.parse(await svgParser.load('/ixachiLogo0001.svg'));
+
+
+// 1. Instanciamos nuestro nuevo extractor
+const modelExtractor = new ModelPathExtractor();
+
+// 2. Cargamos el .glb y extraemos los caminos
+// Asegúrate de que tu archivo .glb esté en la carpeta /public/
+const allModelPaths = await modelExtractor.extractPaths('/pruebaLinea3d.glb', 50);
+
 
 // Configuración visual para las cintas
 const ribbonConfig: RibbonConfig = {
-    color: new THREE.Color(0xff8800),
+    color: new THREE.Color(0xff0000),
     colorEnd: new THREE.Color(0xff0000),
-    width: 10,
-    maxLength: 30, // Puntos de resolución de la estela
+    width: 25,
+    maxLength: 20, // Puntos de resolución de la estela
     renderMode: RenderMode.Solid,
-    fadeStyle: FadeStyle.None,
+    fadeStyle: FadeStyle.FadeOut,
 };
 
 // ¡Llamada única y limpia para crear todo!
-lineManager.createLinesFromSVG(allLogoPaths, ribbonConfig);
+//lineManager.createLinesFromSVG(allLogoPaths, ribbonConfig);
+//lineManager.createLinesFromSVG(allModelPaths, ribbonConfig);
+// Usamos solo el primer camino del modelo para crear nuestro enjambre
+if (allModelPaths.length > 0) {
+    const mainPath = allModelPaths[0];
+    lineManager.createLineSwarm(mainPath, 10, ribbonConfig); // Crea 10 líneas en el primer camino
+}
 
  /*
 const MAX_POINTS = 270;

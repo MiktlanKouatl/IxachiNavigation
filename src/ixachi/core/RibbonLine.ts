@@ -132,9 +132,6 @@ export class RibbonLine {
   * @param points - Un array de Vector3 que representa la nueva forma de la línea.
   */
   public setPoints(points: THREE.Vector3[]): void {
-    
-    //console.log(`[RibbonLine]: Recibiendo ${points.length} puntos.`);
-
     this.currentPoints = points;
     this.updateGeometry();
   }
@@ -153,6 +150,13 @@ export class RibbonLine {
   public setWidth(width: number): void {
     this.material.uniforms.uWidth.value = width;
   }
+  /*
+  * Obtiene el número máximo de puntos que la línea puede manejar.
+  * Útil para sistemas que necesitan conocer la capacidad máxima de la línea.
+  */
+  public getMaxPoints(): number {
+    return this.maxPoints;
+  }
 
   public dispose(): void {
     this.geometry.dispose();
@@ -162,45 +166,68 @@ export class RibbonLine {
   // `updateGeometry` prepara los datos.
   private updateGeometry(): void {
     const points = this.currentPoints;
-    if (points.length < 2) {
-      this.geometry.setDrawRange(0, 0);
-      return;
-    }
-
     const posAttr = this.geometry.attributes.position as THREE.BufferAttribute;
     const prevAttr = this.geometry.attributes.previous as THREE.BufferAttribute;
     const nextAttr = this.geometry.attributes.next as THREE.BufferAttribute;
     const sideAttr = this.geometry.attributes.side as THREE.BufferAttribute;
     const uvAttr = this.geometry.attributes.uv as THREE.BufferAttribute;
 
-    for (let i = 0; i < points.length; i++) {
-        const i2 = i * 2;
+    // --- CAMBIO CLAVE: MANEJO DEFENSIVO DE LA GEOMETRÍA ---
+    const drawLength = points.length;
 
-        const prevPoint = points[i - 1] || points[0];
-        const currentPoint = points[i];
-        const nextPoint = points[i + 1] || points[points.length - 1];
+    for (let i = 0; i < this.maxPoints; i++) {
+        const i2 = i * 2; // Índice para el vértice izquierdo
+        const i21 = i2 + 1; // Índice para el vértice derecho
 
-        // Vértice izquierdo
-        posAttr.setXYZ(i2, currentPoint.x, currentPoint.y, currentPoint.z);
-        prevAttr.setXYZ(i2, prevPoint.x, prevPoint.y, prevPoint.z);
-        nextAttr.setXYZ(i2, nextPoint.x, nextPoint.y, nextPoint.z);
-        sideAttr.setX(i2, -1);
-        uvAttr.setXY(i2, i / (points.length - 1), 0);
+        if (i < drawLength) {
+            // Si este punto es parte de la estela visible, lo calculamos.
+            const prevPoint = points[i - 1] || points[0];
+            const currentPoint = points[i];
+            const nextPoint = points[i + 1] || points[points.length - 1];
+            
+            // Actualizamos los atributos para los dos vértices (izquierdo y derecho)
+            posAttr.setXYZ(i2, currentPoint.x, currentPoint.y, currentPoint.z);
+            posAttr.setXYZ(i21, currentPoint.x, currentPoint.y, currentPoint.z);
 
-        // Vértice derecho
-        posAttr.setXYZ(i2 + 1, currentPoint.x, currentPoint.y, currentPoint.z);
-        prevAttr.setXYZ(i2 + 1, prevPoint.x, prevPoint.y, prevPoint.z);
-        nextAttr.setXYZ(i2 + 1, nextPoint.x, nextPoint.y, nextPoint.z);
-        sideAttr.setX(i2 + 1, 1);
-        uvAttr.setXY(i2 + 1, i / (points.length - 1), 1);
+            prevAttr.setXYZ(i2, prevPoint.x, prevPoint.y, prevPoint.z);
+            prevAttr.setXYZ(i21, prevPoint.x, prevPoint.y, prevPoint.z);
+
+            nextAttr.setXYZ(i2, nextPoint.x, nextPoint.y, nextPoint.z);
+            nextAttr.setXYZ(i21, nextPoint.x, nextPoint.y, nextPoint.z);
+            
+            sideAttr.setX(i2, -1);
+            sideAttr.setX(i21, 1);
+
+            uvAttr.setXY(i2, i / (drawLength - 1 || 1), 0);
+            uvAttr.setXY(i21, i / (drawLength - 1 || 1), 1);
+
+        } else {
+            // Si este punto NO es parte de la estela visible, lo colapsamos en el origen para ocultarlo.
+            // Hacemos esto para ambos vértices.
+            posAttr.setXYZ(i2, 0, 0, 0);
+            posAttr.setXYZ(i21, 0, 0, 0);
+
+            prevAttr.setXYZ(i2, 0, 0, 0);
+            prevAttr.setXYZ(i21, 0, 0, 0);
+
+            nextAttr.setXYZ(i2, 0, 0, 0);
+            nextAttr.setXYZ(i21, 0, 0, 0);
+
+           /*  if (widthAttr) {
+                widthAttr.setX(i2, 0);
+                widthAttr.setX(i21, 0);
+            } */
+        }
     }
-    
+
+    // Le decimos a Three.js que los datos del buffer han cambiado.
     posAttr.needsUpdate = true;
     prevAttr.needsUpdate = true;
     nextAttr.needsUpdate = true;
     sideAttr.needsUpdate = true;
     uvAttr.needsUpdate = true;
-    
-    this.geometry.setDrawRange(0, (points.length - 1) * 6);
+
+    // Y muy importante, le decimos que solo dibuje la parte visible de la geometría.
+    this.geometry.setDrawRange(0, drawLength * 2);
   }
 }

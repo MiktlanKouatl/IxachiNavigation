@@ -1,61 +1,48 @@
+// src/ixachi/strategies/PathFollower.ts
 import * as THREE from 'three';
-import { RibbonLine } from '../core/RibbonLine';
-import { PathGuide } from '../core/PathGuide';
-import { ILineController } from '../core/ILineController';
+import { IMotionSource } from '../core/IMotionSource';
+import { PathData } from '../core/PathData';
 
-// Interfaz para la configuración del seguidor
-export interface FollowerConfig {
-  pathGuide: PathGuide;      // El objeto guía que seguiremos.
-  ribbon: RibbonLine;        // La RibbonLine que vamos a dibujar/actualizar.
-  maxLength: number;         // La longitud máxima de la estela en número de puntos.
+interface FollowerOptions {
+    speed?: number;
+    initialProgress?: number; // Progreso inicial (0 a 1)
 }
 
-export class PathFollower implements ILineController {
-  private pathGuide: PathGuide;
-  private ribbon: RibbonLine;
-  private maxLength: number;
-
-  // El "Buffer Circular" de puntos que forman la estela.
-  // Lo inicializamos vacío.
-  private points: THREE.Vector3[] = [];
-
-  constructor(config: FollowerConfig) {
-    this.pathGuide = config.pathGuide;
-    this.ribbon = config.ribbon;
-    this.maxLength = config.maxLength;
-
-    // 🧠 Optimización: Pre-populamos nuestro array con instancias de Vector3.
-    // Así, en lugar de crear un `new THREE.Vector3()` en cada fotograma (lo cual genera
-    // basura y pausas en la animación), reutilizaremos estos objetos.
-    for (let i = 0; i < this.maxLength; i++) {
-      this.points.push(new THREE.Vector3());
-    }
+/**
+ * Representa un objeto individual que sigue un PathData.
+ * Implementa IMotionSource y tiene su propio estado de movimiento.
+ */
+export class PathFollower implements IMotionSource {
+    public readonly position: THREE.Vector3;
+    public readonly direction: THREE.Vector3;
     
-    // Al inicio, la estela no existe, así que le pasamos un array vacío
-    // a la RibbonLine para que no dibuje nada.
-    this.ribbon.setPoints([]); 
-  }
+    private pathData: PathData;
+    private speed: number;
+    private progress: number;
 
-  /**
-   * Este método se llamará en cada fotograma desde nuestro bucle de animación.
-   */
-   // 👇 CAMBIO 3: Ajustamos la firma del método para que coincida con la interfaz.
-  public update(deltaTime: number, elapsedTime: number): void {
-    // La lógica interna no cambia, pero ahora usamos los argumentos que nos llegan.
-    this.pathGuide.update(deltaTime);
-    // 1. Obtenemos la posición más reciente de nuestro guía.
-    const newHeadPosition = this.pathGuide.getPosition();
-    // 2. Aplicamos la técnica de "Buffer Circular" para la estela.
-    // Tomamos el último punto de la cola...
-    const lastPoint = this.points.pop()!; 
-    // ...lo movemos al principio del array...
-    this.points.unshift(lastPoint);
-    // ...y actualizamos su posición para que sea la nueva "cabeza" de la serpiente.
-    lastPoint.copy(newHeadPosition);
-    // 3. Le decimos a nuestra RibbonLine que se redibuje con la lista de puntos actualizada.
-    this.ribbon.setPoints(this.points);
-    // 4. Actualizamos el tiempo en los uniforms del shader para animaciones basadas en tiempo.
-    this.ribbon.material.uniforms.uTime.value = elapsedTime;
-  }
-  
+    constructor(pathData: PathData, options: FollowerOptions = {}) {
+        this.pathData = pathData;
+        this.speed = options.speed ?? 5.0;
+        this.progress = options.initialProgress ?? 0;
+
+        this.position = this.pathData.curve.getPointAt(this.progress);
+        this.direction = this.pathData.curve.getTangentAt(this.progress).normalize();
+    }
+
+    public update(deltaTime: number): void {
+        const distanceToTravel = this.speed * deltaTime;
+        const progressIncrement = distanceToTravel / this.pathData.totalLength;
+        this.progress += progressIncrement;
+
+        if (this.progress >= 1) {
+            this.progress %= 1; // Siempre en bucle por ahora
+        }
+        
+        this.position.copy(this.pathData.curve.getPointAt(this.progress));
+        this.direction.copy(this.pathData.curve.getTangentAt(this.progress)).normalize();
+    }
+
+    getPosition(): THREE.Vector3 { return this.position; }
+    getDirection(): THREE.Vector3 { return this.direction; }
+    getSpeed(): number { return this.speed; }
 }
