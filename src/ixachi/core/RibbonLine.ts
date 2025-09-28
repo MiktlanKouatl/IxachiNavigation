@@ -24,6 +24,7 @@ export interface RibbonConfig {
   opacity?: number;
   colorEnd?: THREE.Color;
   transitionSize?: number;
+  fadeTransitionSize?: number; 
 }
 
 
@@ -77,6 +78,7 @@ export class RibbonLine {
         uDrawProgress: { value: 1.0 },
         uTraceProgress: { value: 0.0 },
         uTraceSegmentLength: { value: 0.0 },
+        uFadeTransitionSize: { value: config.fadeTransitionSize ?? 0.1 },
       },
 
       // El Vertex Shader construye la geometría.
@@ -171,6 +173,7 @@ export class RibbonLine {
     const nextAttr = this.geometry.attributes.next as THREE.BufferAttribute;
     const sideAttr = this.geometry.attributes.side as THREE.BufferAttribute;
     const uvAttr = this.geometry.attributes.uv as THREE.BufferAttribute;
+    const widthAttr = this.geometry.attributes.width as THREE.BufferAttribute;
 
     // --- CAMBIO CLAVE: MANEJO DEFENSIVO DE LA GEOMETRÍA ---
     const drawLength = points.length;
@@ -181,9 +184,20 @@ export class RibbonLine {
 
         if (i < drawLength) {
             // Si este punto es parte de la estela visible, lo calculamos.
-            const prevPoint = points[i - 1] || points[0];
+            // --- LÓGICA DE EXTREMOS CORREGIDA ---
             const currentPoint = points[i];
-            const nextPoint = points[i + 1] || points[points.length - 1];
+            
+            // Para el punto 'previo': Si es el primer punto, extrapolamos hacia atrás.
+            // Esto evita que prevPoint sea igual a currentPoint.
+            const prevPoint = (i === 0) 
+                ? points[i].clone().sub(points[i + 1].clone().sub(points[i])) 
+                : points[i - 1];
+
+            // Para el punto 'siguiente': Si es el último punto, extrapolamos hacia adelante.
+            // Esto evita que nextPoint sea igual a currentPoint.
+            const nextPoint = (i === points.length - 1) 
+                ? points[i].clone().add(points[i].clone().sub(points[i - 1]))
+                : points[i + 1];
             
             // Actualizamos los atributos para los dos vértices (izquierdo y derecho)
             posAttr.setXYZ(i2, currentPoint.x, currentPoint.y, currentPoint.z);
@@ -213,10 +227,13 @@ export class RibbonLine {
             nextAttr.setXYZ(i2, 0, 0, 0);
             nextAttr.setXYZ(i21, 0, 0, 0);
 
-           /*  if (widthAttr) {
+            uvAttr.setXY(i2, 0, 0);
+            uvAttr.setXY(i21, 0, 0);
+
+            if (widthAttr) {
                 widthAttr.setX(i2, 0);
                 widthAttr.setX(i21, 0);
-            } */
+            }
         }
     }
 
@@ -226,8 +243,10 @@ export class RibbonLine {
     nextAttr.needsUpdate = true;
     sideAttr.needsUpdate = true;
     uvAttr.needsUpdate = true;
+    if (widthAttr) widthAttr.needsUpdate = true;
 
     // Y muy importante, le decimos que solo dibuje la parte visible de la geometría.
-    this.geometry.setDrawRange(0, drawLength * 2);
+    const indicesToDraw = Math.max(0, (drawLength - 1) * 6);
+    this.geometry.setDrawRange(0, indicesToDraw);
   }
 }

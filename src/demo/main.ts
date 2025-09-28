@@ -38,10 +38,10 @@ const allModelPaths = await modelExtractor.extractPaths('/pruebaLinea3d.glb', 50
 const ribbonConfig: RibbonConfig = {
     color: new THREE.Color(0xff0000),
     colorEnd: new THREE.Color(0xff0000),
-    width: 25,
+    width: 10,
     maxLength: 20, // Puntos de resolución de la estela
     renderMode: RenderMode.Solid,
-    fadeStyle: FadeStyle.FadeOut,
+    fadeStyle: FadeStyle.FadeInOut,
 };
 
 // ¡Llamada única y limpia para crear todo!

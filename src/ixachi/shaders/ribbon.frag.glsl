@@ -10,6 +10,7 @@
         uniform float uDrawProgress;
         uniform float uTraceProgress;
         uniform float uTraceSegmentLength;
+        uniform float uFadeTransitionSize;
 
         varying vec2 vUv;
         const float PI = 3.14159265359;
@@ -53,17 +54,28 @@
             }
           } else { // Caso de línea estática o FollowingLine
             float fadeFactor = 1.0;
-            if (uFadeStyle == 1) { fadeFactor = vUv.x; }
-            else if (uFadeStyle == 2) { fadeFactor = sin(vUv.x * PI); }
-            else if (uFadeStyle == 3) { fadeFactor = 1.0 - vUv.x; }
+            float t = uFadeTransitionSize;
+
+            // Calculamos ambos fades matemáticamente
+            float fadeIn = smoothstep(0.0, t, vUv.x);
+            float fadeOut = 1.0 - smoothstep(1.0 - t, 1.0, vUv.x);
+
+            // Seleccionamos el factor a usar según el estilo
+            if (uFadeStyle == 1) { // FadeIn
+                fadeFactor = fadeIn;
+            } else if (uFadeStyle == 2) { // FadeInOut
+                // Para FadeInOut, queremos el valor más pequeño de los dos fades
+                fadeFactor = min(fadeIn, fadeOut);
+            } else if (uFadeStyle == 3) { // FadeOut
+                fadeFactor = fadeOut;
+            }
             visibility = fadeFactor;
           }
-          
           // --- 4. COMBINACIÓN FINAL ---
+          finalAlpha *= visibility;
           if (visibility < 0.001) {
             discard;
           }
-          
-          gl_FragColor = vec4(finalRgb, finalAlpha * visibility);
+          gl_FragColor = vec4(finalRgb, finalAlpha);
         }
       
