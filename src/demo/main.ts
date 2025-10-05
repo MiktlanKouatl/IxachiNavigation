@@ -41,7 +41,7 @@ const ribbonConfig: RibbonConfig = {
     width: 10,
     maxLength: 20, // Puntos de resolución de la estela
     renderMode: RenderMode.Solid,
-    fadeStyle: FadeStyle.FadeInOut,
+    fadeStyle: FadeStyle.None ,
 };
 
 // ¡Llamada única y limpia para crear todo!

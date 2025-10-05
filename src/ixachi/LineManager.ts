@@ -64,7 +64,7 @@ export class LineManager {
     allPaths: THREE.Vector3[][],
     ribbonConfig: RibbonConfig,
     guideSpeed: number = 50.0,
-    trailLength: number = 0.8
+    trailLength: number = 0.1
   ): void {
     console.log(`🌀 [LineManager] Creando sistemas de líneas para ${allPaths.length} trazados SVG...`);
 
@@ -130,7 +130,7 @@ export class LineManager {
         this.scene.add(ribbon.mesh);
 
         const controller = new TrailController(ribbon, follower, {
-            trailLength: 50, // Estelas cortas para el efecto de enjambre
+            trailLength: 20, // Estelas cortas para el efecto de enjambre
         });
         
         // Ensamblamos el sistema.
