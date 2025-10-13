@@ -1,23 +1,57 @@
 // src/demo/main_testbed.ts
-import '../demo/style.css';
+
+import './style.css';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { RibbonLine, RibbonConfig, RenderMode, FadeStyle } from '../ixachi/core/RibbonLine';
+import { RibbonLine, RibbonConfig, RenderMode, UseMode, FadeStyle } from '../ixachi/core/RibbonLine';
 import { TrailController } from '../ixachi/strategies/TrailController';
 import { PathData } from '../ixachi/core/PathData';
 import { PathFollower } from '../ixachi/strategies/PathFollower';
+import gsap from 'gsap';
 
 // --- CONFIGURACIÓN BÁSICA ---
 const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x111111);
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 0, 30);
+camera.position.set(0, 0, 15);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('app')?.appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 const clock = new THREE.Clock();
 
-// --- CREACIÓN DEL CAMINO DE PRUEBA ---
+console.log("🛠️ BANCO DE PRUEBAS DE MODOS DE USO 🛠️");
+
+// Descomenta UNO de los siguientes bloques para probar cada modo.
+
+// =======================================================================
+// MODO 1: REVEAL (Animación de dibujado)
+// =======================================================================
+/* 
+const testPath = [
+    new THREE.Vector3(-10, 2, 0), new THREE.Vector3(-5, 4, 0), new THREE.Vector3(0, 2, 0),
+    new THREE.Vector3(5, 4, 0), new THREE.Vector3(10, 2, 0)
+];
+const ribbonLine = new RibbonLine({
+    color: new THREE.Color("tomato"),
+    width: 0.5,
+    maxLength: testPath.length + 1,
+    renderMode: RenderMode.Solid,
+    useMode: UseMode.Reveal,
+});
+ribbonLine.setPoints(testPath);
+scene.add(ribbonLine.mesh);
+ribbonLine.material.uniforms.uDrawProgress.value = 0.0;
+gsap.to(ribbonLine.material.uniforms.uDrawProgress, {
+    value: 1.0, duration: 3, delay: 1, ease: "power2.inOut",
+    repeat: -1, yoyo: true,
+});
+  */
+// =======================================================================
+// MODO 2: TRAIL (Estela que sigue a un objeto)
+// =======================================================================
+
+/* 
 const pathPoints: THREE.Vector3[] = [];
 const numPoints = 200;
 const radius = 10;
@@ -28,113 +62,91 @@ for (let i = 0; i < numPoints; i++) {
     const z = Math.sin(angle) * radius;
     pathPoints.push(new THREE.Vector3(x, y, z));
 }
-
-// --- ARQUITECTURA DE PRUEBA ---
 const pathData = new PathData(pathPoints, false);
 const follower = new PathFollower(pathData, { speed: 15.0 });
 
-const ribbonConfig: RibbonConfig = {
+const ribbonConfig_2: RibbonConfig = {
     color: new THREE.Color(0x00ffff),
     colorEnd: new THREE.Color(0xff00ff),
     width: 10,
     maxLength: 150,
     opacity: 1.0,
-    transitionSize: 0.2,
+    transitionSize: 0.5,
     renderMode: RenderMode.Solid,
-    fadeStyle: FadeStyle.None,
-    fadeTransitionSize: 0.1,
+    fadeStyle: FadeStyle.FadeInOut,
+    fadeTransitionSize: 0.2,
 };
 
-const ribbon = new RibbonLine(ribbonConfig);
+const ribbon = new RibbonLine(ribbonConfig_2);
 scene.add(ribbon.mesh);
 
 const trailController = new TrailController(ribbon, follower, {
     trailLength: 0.4,
 });
-
-// --- INTERFAZ DE USUARIO ---
-const ui = {
-    speed: follower.getSpeed(),
-    trailLength: 0.4,
-    colorMix: 0.5,
-    ...ribbonConfig,
-};
-const controlsContainer = document.getElementById('controls')!;
-
-function createSlider(id: string, label: string, min: number, max: number, step: number, value: number, callback: (value: number) => void) {
-    const labelEl = document.createElement('label');
-    labelEl.htmlFor = id;
-    labelEl.textContent = label;
-    const slider = document.createElement('input');
-    slider.type = 'range';
-    slider.id = id;
-    slider.min = String(min);
-    slider.max = String(max);
-    slider.step = String(step);
-    slider.value = String(value);
-    slider.addEventListener('input', (e) => callback(parseFloat((e.target as HTMLInputElement).value)));
-    controlsContainer.appendChild(labelEl);
-    controlsContainer.appendChild(slider);
+ */
+// =======================================================================
+// MODO 3: TRACE (Chispa que recorre una línea)
+// =======================================================================
+// 1. Creamos un camino circular cerrado para la prueba.
+const tracePathPoints: THREE.Vector3[] = [];
+const traceRadius = 5;
+const traceSegments = 100;
+for (let i = 0; i <= traceSegments; i++) {
+    const angle = (i / traceSegments) * Math.PI * 2;
+    tracePathPoints.push(new THREE.Vector3(Math.cos(angle) * traceRadius, Math.sin(angle) * traceRadius, 0));
 }
 
-function createSelect(id: string, label: string, options: { [key: string]: number }, value: number, callback: (value: number) => void) {
-    const labelEl = document.createElement('label');
-    labelEl.htmlFor = id;
-    labelEl.textContent = label;
-    const select = document.createElement('select');
-    select.id = id;
-    for (const key in options) {
-        const option = document.createElement('option');
-        option.value = String(options[key]);
-        option.textContent = key;
-        if (options[key] === value) option.selected = true;
-        select.appendChild(option);
-    }
-    select.addEventListener('change', (e) => callback(parseInt((e.target as HTMLInputElement).value, 10)));
-    controlsContainer.appendChild(labelEl);
-    controlsContainer.appendChild(select);
-}
-
-function createColorPicker(id: string, label: string, value: THREE.Color, callback: (value: THREE.Color) => void) {
-    const labelEl = document.createElement('label');
-    labelEl.htmlFor = id;
-    labelEl.textContent = label;
-    const picker = document.createElement('input');
-    picker.type = 'color';
-    picker.id = id;
-    picker.value = '#' + value.getHexString();
-    picker.addEventListener('input', (e) => callback(new THREE.Color((e.target as HTMLInputElement).value)));
-    controlsContainer.appendChild(labelEl);
-    controlsContainer.appendChild(picker);
-}
-
-createSlider('speed', 'Velocidad', 1, 50, 0.5, ui.speed, (val) => { follower['speed'] = val; });
-createSlider('trailLength', 'Longitud Estela', 0.01, 1, 0.01, ui.trailLength, (val) => { trailController['trailLengthRatio'] = val; });
-createSlider('width', 'Ancho', 1.0, 50.0, 2.0, ui.width, (val) => { ribbon.material.uniforms.uWidth.value = val; });
-createSlider('opacity', 'Opacidad', 0, 1, 0.01, ui.opacity, (val) => { ribbon.material.uniforms.uOpacity.value = val; });
-createSlider('colorMix', 'Color Mix', 0.0, 1.0, 0.01, ui.colorMix, (val) => { ribbon.material.uniforms.uColorMix.value = val; });
-createSlider('transitionSize', 'Tamaño Transición', 0.01, 1, 0.01, ui.transitionSize, (val) => { ribbon.material.uniforms.uTransitionSize.value = val; });
-createColorPicker('color', 'Color Inicio', ui.color, (val) => { ribbon.material.uniforms.uColor.value = val; });
-createColorPicker('colorEnd', 'Color Fin', ui.colorEnd, (val) => { ribbon.material.uniforms.uColorEnd.value = val; });
-createSelect('renderMode', 'Modo Render', RenderMode, ui.renderMode!, (val) => { ribbon.material.uniforms.uRenderMode.value = val; });
-createSelect('fadeStyle', 'Estilo Fade', FadeStyle, ui.fadeStyle!, (val) => { ribbon.material.uniforms.uFadeStyle.value = val; });
-createSlider('transitionSize', 'Tamaño Fade', 0.01, 1, 0.01, ui.fadeTransitionSize, (val) => { 
-    ribbon.material.uniforms.uFadeTransitionSize.value = val; 
+const ribbonLine = new RibbonLine({
+    color: new THREE.Color("lime"),
+    width: 0.5,
+    maxLength: tracePathPoints.length + 1,
+    renderMode: RenderMode.Solid,
+    useMode: UseMode.Trace,
 });
+ribbonLine.setPoints(tracePathPoints);
+scene.add(ribbonLine.mesh);
 
+// 2. Establecemos la longitud de la chispa.
+ribbonLine.material.uniforms.uTraceSegmentLength.value = 0.15; // La chispa ocupa un 15%
 
-
-
+// 3. Animamos el progreso de 0 a 1 en un bucle infinito.
+// La nueva lógica del shader se encargará de que el loop sea perfecto.
+gsap.to(ribbonLine.material.uniforms.uTraceProgress, {
+    value: 1.0,
+    duration: 4, // 4 segundos para dar una vuelta completa
+    delay: 1,
+    ease: "none",
+    repeat: -1,
+});
+// =======================================================================
+// MODO 4: STATIC (Línea estática con fades en los bordes)
+// =======================================================================
+/* 
+const staticPathFade = [ new THREE.Vector3(-10, -6, 0), new THREE.Vector3(10, -6, 0) ];
+const ribbonLine = new RibbonLine({
+    color: new THREE.Color("magenta"),
+    width: 10.5,
+    maxLength: staticPathFade.length + 1,
+    renderMode: RenderMode.Solid,
+    useMode: UseMode.Static,
+    fadeStyle: FadeStyle.FadeInOut, // Prueba a cambiarlo por FadeIn, FadeOut o None
+    fadeTransitionSize: 0.25, // El 25% de cada extremo tendrá un fade
+});
+ribbonLine.setPoints(staticPathFade);
+scene.add(ribbonLine.mesh);
+ */
 
 // --- BUCLE DE ANIMACIÓN ---
 function animate() {
     requestAnimationFrame(animate);
     const deltaTime = clock.getDelta();
-    const elapsedTime = clock.getElapsedTime();
 
-    follower.update(deltaTime);
-    trailController.update(deltaTime);
-    
+    // Descomenta el update si estás probando el modo TRAIL
+    /*  if (typeof trailController !== 'undefined') {
+         follower.update(deltaTime);
+        trailController.update(deltaTime);
+    } */
+
     controls.update();
     renderer.render(scene, camera);
 }
@@ -145,5 +157,5 @@ window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    ribbon.material.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+    ribbonLine.material.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
 });

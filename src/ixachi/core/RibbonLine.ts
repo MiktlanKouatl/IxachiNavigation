@@ -3,6 +3,13 @@ import vertexShader from '../shaders/ribbon.vert.glsl?raw';
 import fragmentShader from '../shaders/ribbon.frag.glsl?raw';
 
 // --- ENUMS E INTERFACES (SIN CAMBIOS) ---
+// --- AÑADIMOS EL NUEVO ENUM "UseMode" ---
+export enum UseMode {
+  Static = 0,    // Para una línea estática completa (puede usar FadeStyle)
+  Reveal = 1,    // Para animar el dibujado de una línea (usa uDrawProgress)
+  Trail = 2,     // Para una estela dinámica que sigue algo (no necesita lógica de visibilidad en el shader)
+  Trace = 3,     // Para una "chispa" que recorre una línea ya dibujada (usa uTraceProgress)
+}
 export enum RenderMode {
   Glow,
   Solid,
@@ -24,7 +31,8 @@ export interface RibbonConfig {
   opacity?: number;
   colorEnd?: THREE.Color;
   transitionSize?: number;
-  fadeTransitionSize?: number; 
+  fadeTransitionSize?: number;
+  useMode?: UseMode;
 }
 
 
@@ -79,6 +87,7 @@ export class RibbonLine {
         uTraceProgress: { value: 0.0 },
         uTraceSegmentLength: { value: 0.0 },
         uFadeTransitionSize: { value: config.fadeTransitionSize ?? 0.1 },
+        uUseMode: { value: config.useMode ?? UseMode.Static },
       },
 
       // El Vertex Shader construye la geometría.
@@ -177,6 +186,12 @@ export class RibbonLine {
 
     // --- CAMBIO CLAVE: MANEJO DEFENSIVO DE LA GEOMETRÍA ---
     const drawLength = points.length;
+
+    if (drawLength < 2) {
+        // Le decimos al renderizador que no dibuje ningún triángulo.
+        this.geometry.setDrawRange(0, 0);
+        return; // Salimos de la función inmediatamente para evitar errores.
+    }
 
     for (let i = 0; i < this.maxPoints; i++) {
         const i2 = i * 2; // Índice para el vértice izquierdo

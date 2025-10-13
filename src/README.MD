@@ -1,110 +1,183 @@
-Proyecto Ixachi: Herramienta de Venta Interactiva
-1. Concepto y Visión Creativa
-Concepto Central: "El Flujo de la Comunicación"
+Ixachi Navigation - Arquitectura y Hoja de Ruta del Proyecto
+1. Visión General y Propósito
+Ixachi Navigation es un motor cinemático web diseñado para crear experiencias narrativas inmersivas y de alto rendimiento. El propósito de este proyecto es dar vida al logo y la misión de Ixachi a través de una animación coreografiada en 4 actos, contando una historia visual que va "De la Visión Interna a la Proyección Externa".
 
-Narrativa: La experiencia es un viaje cinemático e interactivo que simboliza el proceso de desarrollo personal y profesional que ofrece Ixachi. Partimos de una "chispa" interna de potencial (una idea, una visión) y la acompañamos en su viaje hacia el exterior, dándole forma, estructura y poder a través de las técnicas de "Prescénica". El usuario no navega por una web, sino que dirige y descubre un flujo de energía creativa.
+El motor está construido sobre una arquitectura modular y orientada a objetos, priorizando la reutilización de componentes, la escalabilidad y la separación de responsabilidades.
 
-Simbología del Logo como Hilo Conductor:
+2. Arquitectura del Motor Cinemático
+El sistema se organiza en torno a un director de escena (SceneDirector) que orquesta varios módulos especializados.
 
-El logo de Ixachi no es un simple gráfico estático; es el mapa de nuestra experiencia. Cada componente se revela progresivamente para construir un significado más profundo:
+main.ts (Punto de Entrada):
 
-El Ojo Central (La Visión): Representa la consciencia, la atención y el potencial interno. Es el punto de partida de toda comunicación efectiva.
+Inicializa el entorno 3D básico (Renderer, Scene, Camera).
 
-Las Manos Protectoras (La Técnica): Simbolizan la práctica, las herramientas y las power skills que Ixachi enseña para guiar y proteger el mensaje.
+Crea una instancia del SceneDirector.
 
-El Templo Piramidal (La Estructura): Es la base metodológica, el espacio de aprendizaje donde se produce la transformación y desde donde fluye el conocimiento.
+Inicia el bucle de animación principal, que delega cada update al SceneDirector.
 
-El Flujo "Ixachi" (La Abundancia): El resultado final es un flujo constante y generoso de comunicación efectiva que emana de una base sólida, impactando positivamente el entorno.
+SceneDirector (El Director de Orquesta):
 
-2. El Viaje del Cliente: Coreografía de la Experiencia
-Describimos la interacción del usuario como un viaje continuo a través de una única escena 3D, dividida en cuatro actos.
+Es el cerebro de la cinemática. Gestiona la secuencia de actos y escenas.
 
-Acto I: La Chispa (El Ojo) - El Inicio
-Escena: El usuario aterriza en un espacio 3D oscuro y minimalista. En el centro, una pequeña esfera de luz pulsa suavemente, como una respiración. Es un ambiente íntimo y expectante. El eslogan principal aparece flotando sutilmente: "Igual de importante que el mensaje es la forma en que lo transmites".
+Utiliza una máquina de estados para controlar el acto actual (LOADING, INTRO, ACT_1_EYE, ACT_2_HANDS, ACT_3_TEMPLE, OUTRO).
 
-Interacción: Al primer scroll o clic del usuario, la cámara inicia un lento viaje hacia atrás. La esfera de luz central cobra vida y de ella emana una RibbonLine brillante que comienza a trazar un camino, guiando a la cámara.
+Coordina a los demás managers para ejecutar las acciones de cada escena.
 
-Mensaje: "Todo empieza con una visión interna."
+AssetManager (El Ut utilero):
 
-Acto II: El Camino de la Presencia (Las Manos) - El Taller
-Escena: Mientras la cámara sigue a la RibbonLine principal, dos estelas secundarias se dibujan a su alrededor, trazando la forma de las "manos" del logo. Dentro de este espacio protegido, aparecen textos 3D elegantes que nombran los Power Skills (Oratoria, Respiración Consciente, etc.) a medida que la línea pasa junto a ellos. La línea principal puede cambiar sus propiedades (color, grosor, velocidad del pulso) para reflejar cada concepto.
+Responsable de la carga de todos los recursos externos (.glb, .svg, texturas, etc.).
 
-Interacción: El scroll del usuario controla el progreso a lo largo de este camino, permitiéndole explorar a su ritmo.
+Utiliza el LoadingManager de Three.js para rastrear el progreso de la carga.
 
-Mensaje: "Te damos las herramientas prácticas (las manos) para dar forma y poder a tu comunicación."
+Emite eventos cuando los recursos están listos, permitiendo al UIManager mostrar una barra de progreso.
 
-Acto III: El Ecosistema de Habilidades (El Templo) - Los Módulos
-Escena: La cámara completa el camino principal y realiza un último movimiento de retroceso para revelar la imagen completa: el ojo y las manos están en la cima de una base piramidal (el templo). Desde esta base emanan 5 caminos de luz distintos, cada uno representando un módulo opcional.
+TimelineManager (El Coreógrafo):
 
-Interacción: El usuario ahora tiene control orbital para explorar este "mapa de conocimiento". Al pasar el mouse sobre un camino, este se ilumina y muestra el nombre del módulo. Al hacer clic, la cámara viaja de forma cinemática por ese camino para mostrar la información del módulo.
+Utiliza una librería como GSAP para crear y controlar líneas de tiempo complejas.
 
-Mensaje: "Nuestra metodología es una base sólida desde la cual puedes expandir tus habilidades."
+Define las animaciones de cámara, las transiciones de shaders, la aparición/desaparición de líneas y otros eventos sincronizados para cada acto.
 
-Acto IV: La Abundancia (El Flujo "Ixachi") - La Misión y Clientes
-Escena: Durante todo el viaje, un enjambre de miles de partículas de luz (RibbonLineGPU) emana de la base del templo y fluye hacia el exterior, llenando el fondo de la escena de forma sutil y hermosa. Los logos de los clientes satisfechos aparecen y desaparecen elegantemente dentro de este flujo.
+SceneManager (El Escenógrafo):
 
-Interacción: Una sección dedicada o un camino final lleva al usuario a los textos de "Misión" y "Contacto". Al llegar a "Contacto", el enjambre de fondo converge hacia la información, creando un poderoso llamado a la acción.
+Gestiona los elementos visuales de la escena 3D.
 
-Mensaje: "Compartimos conocimiento en abundancia para generar un impacto real."
+Controla el entorno: color de fondo, niebla, luces.
 
-3. Roadmap Técnico y Plan de Acción
-Este es el desglose de tareas para materializar nuestra visión.
+Contiene y dirige al LineManager y al CameraController.
 
-✅ Fase 0: Pre-producción y Activos
-[ ] Definir y finalizar todos los textos (copywriting) para cada sección.
+LineManager (El Director de Personajes):
 
-[ ] Modelado 3D (Blender):
+Orquesta la creación, actualización y destrucción de todos los sistemas de líneas (RibbonLine).
 
-[ ] Modelar el logo 3D de forma descompuesta: Ojo, Mano Izquierda, Mano Derecha, Base del Templo.
+Recibe órdenes del SceneDirector (ej. "crear enjambre para el ojo", "dibujar el templo").
 
-[ ] Crear y nombrar los 6 caminos (Path_): 1 principal y 5 para los módulos.
+CameraController (El Operador de Cámara):
 
-[ ] Exportar todo en un único archivo .glb optimizado (usando compresión Draco).
+Gestiona la posición, rotación y movimientos de la cámara.
 
-🚀 Fase 1: El Lienzo y el Protagonista
-[ ] Configurar la escena principal de Three.js (main.ts): renderer, cámara, luces base, atmósfera.
+Ejecuta las animaciones de cámara definidas en el TimelineManager (ej. zoom in, travelling, paneo).
 
-[ ] Implementar el ModelPathExtractor para cargar el .glb y obtener la geometría del logo y los caminos.
+UIManager (El Comunicador):
 
-[ ] Implementar la animación del "Acto I":
+Gestiona todos los elementos de la interfaz de usuario en HTML/CSS.
 
-[ ] Posicionar la cámara inicialmente "dentro" del ojo.
+Muestra la pantalla de carga, el botón de "Iniciar Experiencia" y cualquier otro texto o elemento interactivo.
 
-[ ] Crear la esfera de luz pulsante inicial.
+3. Estructura de Archivos Propuesta
+Propongo la siguiente organización de carpetas para mantener nuestro código limpio y escalable:
 
-[ ] Animar la transición de la cámara hacia atrás al interactuar el usuario.
+/src
+├── /assets
+│   ├── /models (ixachi_logo.glb, etc.)
+│   └── /svg (paths.svg)
+│
+├── /ixachi
+│   ├── /core (Clases fundamentales y reutilizables)
+│   │   ├── IMotionSource.ts
+│   │   ├── ILineController.ts
+│   │   ├── RibbonLine.ts
+│   │   └── PathData.ts
+│   │
+│   ├── /managers (Los orquestadores de alto nivel)
+│   │   ├── SceneDirector.ts
+│   │   ├── AssetManager.ts
+│   │   ├── TimelineManager.ts
+│   │   ├── SceneManager.ts
+│   │   └── LineManager.ts
+│   │
+│   ├── /strategies (Implementaciones concretas de movimiento)
+│   │   ├── PathFollower.ts
+│   │   ├── TrailController.ts
+│   │   └── ... (otros controladores futuros)
+│   │
+│   ├── /utils (Clases de ayuda)
+│   │   ├── SVGParser.ts
+│   │   └── ModelPathExtractor.ts
+│   │
+│   ├── /ui (Componentes de la interfaz de usuario)
+│   │   └── UIManager.ts
+│   │
+│   └── main.ts (Punto de entrada principal)
+│
+└── /shaders
+    ├── ribbon.vert.glsl
+    └── ribbon.frag.glsl
+4. Hoja de Ruta de Desarrollo (Roadmap)
+Avanzaremos de forma segura y estructurada, acto por acto.
 
-[ ] Animar el nacimiento y movimiento de la RibbonLine principal desde el centro.
+Fase 0: Pre-Producción (¡Completada!)
+[x]  Definición de la arquitectura base (RibbonLine, PathData, PathFollower, TrailController, LineManager).
 
-🛠️ Fase 2: El Viaje Guiado y la Narrativa Visual
-[ ] Implementar la lógica para que la cámara siga a un PathFollower a lo largo del camino principal.
+[x]  Creación de parsers para SVG y modelos GLB.
 
-[ ] Sincronizar el scroll del usuario con el progress del PathFollower de la cámara.
+[x]  Estabilización y prueba de los componentes centrales.
 
-[ ] Integrar la librería Troika.js para renderizar texto 3D de alto rendimiento.
+Fase 1: El Director y la Puesta en Escena
+Crear el AssetManager:
 
-[ ] Posicionar los textos de los "Power Skills" en el espacio 3D a lo largo del camino.
+Implementar la lógica para cargar todos los modelos y SVGs necesarios para la cinemática completa.
 
-[ ] Crear funciones en RibbonLine que permitan transiciones suaves de sus uniforms (ej. ribbon.changeColor(newColor, duration)).
+Configurar el LoadingManager de Three.js.
 
-[ ] Implementar los triggers para que la RibbonLine cambie sus propiedades al pasar por los textos.
+Crear el UIManager:
 
-🎮 Fase 3: Interactividad y Exploración
-[ ] Implementar los controles orbitales de cámara para cuando el usuario llegue al "Acto III".
+Diseñar una pantalla de carga con una barra de progreso que se actualice con el AssetManager.
 
-[ ] Implementar Raycasting para detectar el hover del mouse sobre las mallas de los módulos.
+Añadir un botón "Iniciar Experiencia" que aparezca al finalizar la carga.
 
-[ ] Programar los efectos visuales de hover (iluminación, pulso de la línea, aparición de texto).
+Implementar el SceneDirector:
 
-[ ] Programar la transición de la cámara para seguir los caminos de los módulos al hacer clic.
+Crear la máquina de estados básica para los actos.
 
-[ ] Diseñar y maquetar la vista de información para cada módulo.
+Conectar el AssetManager y el UIManager. La experiencia no comenzará hasta que todo esté cargado y el usuario haga clic.
 
-✨ Fase 4: Atmósfera y Pulido Final
-[ ] Implementar el sistema RibbonLineGPU como enjambre de fondo, asegurándose de que las partículas emanen de la base del templo.
+Refactorizar main.ts:
 
-[ ] Integrar la sección de logos de clientes en el "Acto IV".
+Limpiar el punto de entrada para que solo cree e inicie el SceneDirector.
 
-[ ] Implementar la animación final de convergencia para la sección de "Contacto".
+Fase 2: Acto I - El Microcosmos del Ojo
+Timeline del Acto 1: Usar GSAP en el TimelineManager para definir la secuencia:
 
-[ ] Realizar pruebas de rendimiento exhaustivas en diferentes dispositivos y optimizar donde sea necesario.
+Fade in desde negro.
+
+La cámara inicia muy cerca, dentro del "microcosmos" oscuro.
+
+El SceneDirector ordena al LineManager crear el enjambre de partículas que forman el ojo (createLineSwarm).
+
+Animar la cámara para que se aleje lentamente, revelando la forma completa del ojo.
+
+Efectos Visuales:
+
+Asegurar que las RibbonLine del enjambre tengan el RenderMode.Glow para crear un efecto etéreo y vibrante.
+
+Jugar con la animación de pulso (ribbon.pulse(true)) para dar vida al ojo.
+
+Fase 3: Acto II y III - Las Manos y el Templo
+Transición al "Lienzo":
+
+El SceneDirector ordenará al SceneManager una transición suave del fondo de negro a blanco.
+
+Simultáneamente, cambiar el blending de las RibbonLine de AdditiveBlending a NormalBlending para que se vean sólidas sobre el fondo blanco.
+
+Timeline de los Actos 2 y 3:
+
+El SceneDirector ordena al LineManager que destruya el enjambre del ojo.
+
+Inmediatamente, se ordena la creación de las formas estáticas de las manos y luego el templo, usando createStaticShape o una variante.
+
+Coreografiar el "dibujado" de estas formas usando el uniform uDrawProgress en el shader, animado vía GSAP.
+
+La cámara continúa su movimiento hacia atrás para enmarcar el logo completo.
+
+Fase 4: El Final y los Detalles
+Texto y Outro:
+
+Una vez que el logo está completamente formado, usar TextPlugin de GSAP o TextGeometry de Three.js para mostrar el nombre "Ixachi".
+
+Definir la animación final: mantener el logo en pantalla por un momento y luego hacer un fade out a blanco.
+
+Optimización y Pulido:
+
+Revisar el rendimiento en cada fase, especialmente durante las transiciones.
+
+Ajustar el timing, los easings y los colores para lograr el máximo impacto emocional y visual.

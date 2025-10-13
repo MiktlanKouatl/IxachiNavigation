@@ -4,16 +4,10 @@ import * as THREE from 'three';
 import { SVGLoader, SVGResult, ShapePath } from 'three/examples/jsm/loaders/SVGLoader.js';
 
 export class SVGParser {
-    private loader: SVGLoader;
+    //
 
     constructor() {
-        this.loader = new SVGLoader();
-    }
-
-    public async load(url: string): Promise<SVGResult> {
-        return new Promise((resolve, reject) => {
-            this.loader.load(url, resolve, undefined, reject);
-        });
+        //
     }
 
     public parse(data: SVGResult): THREE.Vector3[][] {

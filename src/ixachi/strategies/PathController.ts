@@ -17,7 +17,8 @@ export class PathController implements ILineController {
   constructor(ribbon: RibbonLine, points: THREE.Vector3[]) {
     this.ribbon = ribbon;
     this.timeline = gsap.timeline();
-    this.show(points);
+    //this.show(points);
+    this.ribbon.setPoints(points);
   }
 
   /**
