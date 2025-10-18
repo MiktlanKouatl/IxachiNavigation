@@ -1,6 +1,7 @@
 // src/ixachi/strategies/Boid.ts
 import * as THREE from 'three';
-import { IMotionSource } from '../core/IMotionSource';
+import { IMotionSource } from '../../types/IMotionSource';
+import { IAreaConstraint } from './constraints/IAreaConstraint'; // Import the new interface
 
 export class Boid implements IMotionSource {
   public readonly position: THREE.Vector3;
@@ -13,32 +14,19 @@ export class Boid implements IMotionSource {
   
   // El radio de percepción se pasará dinámicamente para poder ajustarlo
   
-  // --- Límites del Entorno ---
-  private bounds: { x: number; y: number; z: number };
+  // --- Límites del Entorno (ahora gestionados por IAreaConstraint) ---
+  public areaConstraint: IAreaConstraint | null = null; // Nuevo: para gestionar límites dinámicamente
 
-  constructor(x: number, y: number, z: number, bounds: { x: number; y: number; z: number }) {
+  constructor(x: number, y: number, z: number, areaConstraint: IAreaConstraint | null = null) {
     this.position = new THREE.Vector3(x, y, z);
     // Inicia con una velocidad aleatoria para que no todos empiecen igual
     this.velocity = new THREE.Vector3().randomDirection();
     this.velocity.setLength(Math.random() * this.maxSpeed);
     this.acceleration = new THREE.Vector3();
-    this.bounds = bounds;
+    this.areaConstraint = areaConstraint; // Asignamos la restricción de área
   }
 
-  /**
-   * Mantiene al boid dentro de los límites. Si sale por un lado, aparece por el opuesto.
-   */
-  private edges(): void {
-    if (this.position.x > this.bounds.x) this.position.x = -this.bounds.x;
-    else if (this.position.x < -this.bounds.x) this.position.x = this.bounds.x;
-
-    if (this.position.y > this.bounds.y) this.position.y = -this.bounds.y;
-    else if (this.position.y < -this.bounds.y) this.position.y = this.bounds.y;
-
-    // Lo mantenemos en 2D por ahora para simplicidad, el eje Z no cambia.
-    // if (this.position.z > this.bounds.z) this.position.z = -this.bounds.z;
-    // else if (this.position.z < -this.bounds.z) this.position.z = this.bounds.z;
-  }
+  // El método `edges()` ha sido eliminado y su lógica se ha movido a las implementaciones de IAreaConstraint.
 
   // --- LAS TRES REGLAS DE ORO ---
 
@@ -108,6 +96,7 @@ export class Boid implements IMotionSource {
    * Calcula y aplica las tres fuerzas de comportamiento.
    */
   public flock(boids: Boid[], perception: number): void {
+    // console.log('[Boid] flock called.');
     const alignment = this.align(boids, perception);
     const cohesion = this.cohesion(boids, perception);
     const separation = this.separate(boids, perception * 0.8); // La separación suele necesitar un radio menor
@@ -118,14 +107,23 @@ export class Boid implements IMotionSource {
     this.acceleration.add(separation.multiplyScalar(1.5)); // La separación es la más importante
   }
 
+  public applyForce(force: THREE.Vector3): void {
+    this.acceleration.add(force);
+  }
+
   /**
    * Actualiza la física del boid.
    */
   public update(): void {
+    // console.log('[Boid] update called.');
     this.position.add(this.velocity);
     this.velocity.add(this.acceleration);
     this.velocity.clampLength(0, this.maxSpeed);
     this.acceleration.multiplyScalar(0);
-    this.edges();
+    
+    // Nuevo: Aplicamos la restricción de área si existe
+    if (this.areaConstraint) {
+        this.areaConstraint.constrain(this);
+    }
   }
 }

@@ -1,32 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ixachi Navigation - RibbonLine Testbed</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ixachi Components Testbed</title>
     <style>
-        body { margin: 0; background-color: #111; color: white; font-family: sans-serif; }
+        body { margin: 0; overflow: hidden; }
         canvas { display: block; }
-        #controls {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 10px;
-            border-radius: 5px;
-            display: grid;
-            grid-template-columns: 150px 1fr;
-            gap: 5px;
-            align-items: center;
-        }
-        label { text-align: right; padding-right: 10px; }
     </style>
 </head>
 <body>
     <div id="app"></div>
-    <div id="controls">
-        </div>
-    <script type="module" src="/src/demo/main_testbed_ribbonLinGPU.ts"></script>
+    <script type="module" src="/src/testbed/main.ts"></script>
 </body>
 </html>

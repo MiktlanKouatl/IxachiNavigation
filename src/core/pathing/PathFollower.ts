@@ -1,7 +1,7 @@
-// src/ixachi/strategies/PathFollower.ts
+// src/core/pathing/PathFollower.ts
 import * as THREE from 'three';
-import { IMotionSource } from '../core/IMotionSource';
-import { PathData } from '../core/PathData';
+import { IMotionSource } from '../../types/IMotionSource';
+import { PathData } from './PathData';
 
 interface FollowerOptions {
     speed?: number;
@@ -40,6 +40,10 @@ export class PathFollower implements IMotionSource {
         
         this.position.copy(this.pathData.curve.getPointAt(this.progress));
         this.direction.copy(this.pathData.curve.getTangentAt(this.progress)).normalize();
+    }
+
+    public setSpeed(newSpeed: number): void {
+        this.speed = newSpeed;
     }
 
     getPosition(): THREE.Vector3 { return this.position; }

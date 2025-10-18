@@ -1,8 +1,8 @@
 // src/ixachi/strategies/TrailController.ts
 
 import * as THREE from 'three';
-import { ILineController } from '../core/ILineController';
-import { IMotionSource } from '../core/IMotionSource';
+import { ILineController } from '../../../src/core/ILineController';
+import { IMotionSource } from '../../../src/types/IMotionSource';
 import { RibbonLine } from '../core/RibbonLine';
 
 interface TrailOptions {
