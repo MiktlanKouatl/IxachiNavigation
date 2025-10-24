@@ -8,6 +8,7 @@
         uniform float uColorMix;
         uniform float uTransitionSize;
         uniform float uDrawProgress;
+        uniform float uWipeProgress;
         uniform float uTraceProgress;
         uniform float uTraceSegmentLength;
         uniform float uFadeTransitionSize;
@@ -49,17 +50,30 @@
             }
         }
         // MODO 1: REVEAL
-        // Anima el dibujado de la línea de principio a fin.
+        // Dibuja un segmento de la línea, controlado por un punto de inicio (wipe) y uno de fin (draw).
         else if (uUseMode == 1) {
-            float feather = 0.05; // Un borde suave y constante
-            // La lógica correcta para "dibujar hasta" el punto de progreso.
-            visibility = 1.0 - smoothstep(uDrawProgress - feather, uDrawProgress, vUv.x);
+            float feather = 0.01;
+            // Fade in at uWipeProgress
+            float wipeOn = smoothstep(uWipeProgress - feather, uWipeProgress, vUv.x);
+            // Fade out at uDrawProgress
+            float wipeOff = 1.0 - smoothstep(uDrawProgress - feather, uDrawProgress, vUv.x);
+            // The final visibility is the intersection of these two ranges
+            visibility = min(wipeOn, wipeOff);
         }
         // MODO 2: TRAIL
-        // Para una estela dinámica, la visibilidad es siempre 1.0. La longitud
-        // se controla desde TypeScript cambiando el número de puntos.
+        // Para una estela dinámica, la visibilidad se controla por la longitud de los puntos
+        // en TypeScript, pero también podemos aplicar un fade.
         else if (uUseMode == 2) {
-            visibility = 1.0;
+            visibility = 1.0; // Start with full visibility
+            float t = uFadeTransitionSize;
+            if (t > 0.0) {
+                float fadeIn = smoothstep(0.0, t, vUv.x);
+                float fadeOut = 1.0 - smoothstep(1.0 - t, 1.0, vUv.x);
+
+                if (uFadeStyle == 1) { visibility = fadeIn; }          // FadeIn at the head
+                else if (uFadeStyle == 2) { visibility = min(fadeIn, fadeOut); } // FadeInOut at both ends
+                else if (uFadeStyle == 3) { visibility = fadeOut; }         // FadeOut at the tail
+            }
         }
         // MODO 3: TRACE
         // Anima una "chispa" que recorre una línea ya dibujada.

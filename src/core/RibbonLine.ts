@@ -84,6 +84,7 @@ export class RibbonLine {
         uWidth: { value: config.width }, // El ancho ahora es un uniform, podemos cambiarlo en tiempo real.
         uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }, // Pasamos la resolución para corregir el aspecto del ancho.
         uDrawProgress: { value: 1.0 },
+        uWipeProgress: { value: 0.0 },
         uTraceProgress: { value: 0.0 },
         uTraceSegmentLength: { value: 0.0 },
         uFadeTransitionSize: { value: config.fadeTransitionSize ?? 0.1 },
