@@ -13,51 +13,85 @@ export class AnimationDirector {
   private chapters: { name: string, chapter: IAnimationChapter }[] = [];
   private experience: IxachiExperience; // Store IxachiExperience instance
 
+  private isPlaying: boolean = false;
+  private activeChapter: IAnimationChapter | null = null;
+
   constructor(targets: AnimationTargets, experience: IxachiExperience) {
     this.targets = targets;
     this.experience = experience; // Store the experience instance
     console.log('🎬 [AnimationDirector] Initialized.');
   }
 
-  /**
-   * Adds a chapter to the sequence and exposes its parameters to the master config.
-   * @param name A unique name for the chapter (used as a key in the config).
-   * @param chapter An object that implements the IAnimationChapter interface.
-   */
   public addChapter(name: string, chapter: IAnimationChapter): void {
     console.log(`🎞️ [AnimationDirector] Adding chapter: ${name}`);
-    
-    // Expose the chapter's parameters to the master config
     if (chapter.params) {
       this.masterConfig[name] = chapter.params;
     }
-
     this.chapters.push({ name, chapter });
   }
 
-  /**
-   * Plays the sequence of chapters, awaiting each one's completion.
-   */
   public async play(): Promise<void> {
+    if (this.isPlaying) return;
+    this.isPlaying = true;
     console.log('▶️ [AnimationDirector] Main sequence started.');
-    for (let i = 0; i < this.chapters.length; i++) {
-      const { name, chapter } = this.chapters[i];
+
+    for (const { name, chapter } of this.chapters) {
+      if (!this.isPlaying) {
+        console.log('⏹️ [AnimationDirector] Sequence stopped externally.');
+        break;
+      }
       console.log(`▶️ [AnimationDirector] Starting chapter: ${name}`);
+      this.activeChapter = chapter;
       try {
         await chapter.start(this, this.targets);
-        chapter.stop(); // Cleanup after completion
-
-        // Set hostState to 'orbiting' after IntroChapter completes
-        if (name === 'Intro') {
-          this.experience.setHostState('orbiting');
-        }
-
+        if (chapter.stop) chapter.stop(this.targets); // Cleanup after completion
       } catch (error) {
         console.error(`❌ [AnimationDirector] Chapter ${name} failed:`, error);
-        // Optionally, handle error (e.g., skip chapter, stop sequence)
-        chapter.stop(); // Ensure cleanup even on error
+        if (chapter.stop) chapter.stop(this.targets); // Ensure cleanup even on error
       }
     }
-    console.log('✅ [AnimationDirector] All chapters completed.');
+
+    console.log('✅ [AnimationDirector] Sequence finished or was stopped.');
+    this.activeChapter = null;
+    this.isPlaying = false;
+  }
+
+  /**
+   * Plays a single chapter by its ID.
+   * @param chapterId The ID of the chapter to play.
+   */
+  public async playChapter(chapterId: string): Promise<void> {
+    if (this.isPlaying) return;
+
+    const chapterInfo = this.chapters.find(c => c.name === chapterId);
+    if (!chapterInfo) {
+        console.error(`❌ [AnimationDirector] Chapter with ID '${chapterId}' not found.`);
+        return;
+    }
+
+    this.isPlaying = true;
+    this.activeChapter = chapterInfo.chapter;
+    console.log(`▶️ [AnimationDirector] Playing single chapter: ${chapterId}`);
+
+    try {
+        await this.activeChapter.start(this, this.targets);
+        if (this.activeChapter.stop) this.activeChapter.stop(this.targets);
+    } catch (error) {
+        console.error(`❌ [AnimationDirector] Chapter ${chapterId} failed:`, error);
+        if (this.activeChapter.stop) this.activeChapter.stop(this.targets);
+    }
+
+    console.log(`✅ [AnimationDirector] Chapter ${chapterId} finished.`);
+    this.activeChapter = null;
+    this.isPlaying = false;
+  }
+
+  public stop(): void {
+    if (!this.isPlaying) return;
+    console.log('⏹️ [AnimationDirector] Stopping sequence...');
+    this.isPlaying = false;
+    if (this.activeChapter?.stop) {
+      this.activeChapter.stop(this.targets);
+    }
   }
 }

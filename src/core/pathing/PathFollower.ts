@@ -65,6 +65,18 @@ export class PathFollower implements IMotionSource {
         this.speed = newSpeed;
     }
 
+    /**
+     * Manually sets the follower's progress along the path.
+     * @param progress A value from 0 to 1.
+     */
+    public seek(progress: number): void {
+        this.progress = Math.max(0, Math.min(1, progress)); // Clamp progress
+        this.isAtEnd = this.progress >= 1;
+
+        this.position.copy(this.pathData.curve.getPointAt(this.progress));
+        this.direction.copy(this.pathData.curve.getTangentAt(this.progress)).normalize();
+    }
+
     getPosition(): THREE.Vector3 { return this.position; }
     getDirection(): THREE.Vector3 { return this.direction; }
     getSpeed(): number { return this.speed; }

@@ -52,6 +52,7 @@ export class LoadingChapter implements IAnimationChapter {
                 circleMat.uniforms.uDrawProgress.value = 0;
                 circleMat.uniforms.uWipeProgress.value = 0;
                 this._targets.progressCircle.mesh.visible = true; // Keep circle visible
+                progressUI.setTextVisible(false); // Hide the percentage text
                 progressUI.fade(true, 0.2);
                 progressUI.percentage.value = 0; // Reset text
                 progressUI.updateText();
@@ -79,8 +80,8 @@ export class LoadingChapter implements IAnimationChapter {
             overwrite: true, // Overwrite previous progress tweens
             onUpdate: () => {
                 circleMat.uniforms.uDrawProgress.value = this.displayedProgress.value / 100;
-                progressUI.percentage.value = this.displayedProgress.value;
-                progressUI.updateText();
+                //progressUI.percentage.value = this.displayedProgress.value;
+                //progressUI.updateText();
             },
         });
     }
@@ -98,8 +99,8 @@ export class LoadingChapter implements IAnimationChapter {
             overwrite: true,
             onUpdate: () => {
                 circleMat.uniforms.uDrawProgress.value = this.displayedProgress.value / 100;
-                progressUI.percentage.value = this.displayedProgress.value;
-                progressUI.updateText();
+                //progressUI.percentage.value = this.displayedProgress.value;
+                //progressUI.updateText();
             },
             onComplete: () => this.onDisplayedProgressComplete(), // Check completion after reaching 100%
         });
@@ -129,7 +130,7 @@ export class LoadingChapter implements IAnimationChapter {
             const progressUI = this._targets.progressUI;
 
             this.timeline
-                .call(() => progressUI.fade(false, 0.3), [], '-=0.3')
+                //.call(() => progressUI.fade(false, 0.3), [], '-=0.3')
                 .to(circleMat.uniforms.uWipeProgress, {
                     value: 1,
                     duration: this.params.disappearDuration,
@@ -153,7 +154,10 @@ export class LoadingChapter implements IAnimationChapter {
         this.assetManager.off('progress', this.onAssetProgress);
         this.assetManager.off('loaded', this.onAssetsLoaded);
         // Ensure UI is hidden if stopped prematurely
-        this._targets.progressCircle.mesh.visible = false;
-        this._targets.progressUI.fade(false, 0);
+        if (this._targets) { // Check if targets have been set
+            this._targets.progressCircle.mesh.visible = false;
+            //this._targets.progressUI.fade(false, 0);
+            //this._targets.progressUI.setTextVisible(true); // Restore text visibility
+        }
     }
 }

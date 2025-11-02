@@ -43,9 +43,12 @@ export function runScene() {
 
     // 2. Configure and create the RibbonLineGPU instance.
     const ribbonConfig: RibbonConfig = {
-        color: new THREE.Color(0xffaa00),
+        color: new THREE.Color(0xffCC00),
+        colorEnd: new THREE.Color(0xff0000),
+        transitionSize: 0.0,
         width: 0.4,
         maxLength: pathPoints.length, // maxLength should match the path points for the GPU version
+
         useMode: UseMode.Trail, // Explicitly set to Trail mode
     };
     const gpuRibbon = new RibbonLineGPU(pathPoints, ribbonConfig);

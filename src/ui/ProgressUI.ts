@@ -38,4 +38,13 @@ export class ProgressUI {
       duration: duration,
     });
   }
+
+  /**
+   * Sets the visibility of the percentage text element.
+   * @param visible True to show the text, false to hide it.
+   */
+  public setTextVisible(visible: boolean): void {
+    this.textElement.style.display = visible ? '' : 'none';
+    this.container.style.display = visible ? '' : 'none';
+  }
 }

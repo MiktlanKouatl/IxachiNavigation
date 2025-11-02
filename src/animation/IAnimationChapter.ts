@@ -17,5 +17,5 @@ export interface IAnimationChapter {
      * Stops and cleans up the chapter's animation or logic.
      * This is called when the chapter is interrupted or the director moves to the next chapter.
      */
-    stop(): void;
+    stop?(targets: AnimationTargets): void;
 }

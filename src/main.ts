@@ -1,28 +1,55 @@
 import * as THREE from 'three';
-// import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'; // Removed for cinematic animation
 import { AssetManager } from './managers/AssetManager';
 import { AnimationControlPanel } from './ui/AnimationControlPanel';
 import { RibbonLine, RibbonConfig, UseMode, FadeStyle, RenderMode } from './core/RibbonLine';
 import { PathData } from './core/pathing/PathData';
 import { PathFollower } from './core/pathing/PathFollower';
-import { randomInRange } from './utils/random';
 import { ProgressUI } from './ui/ProgressUI';
 
-// Animation System
+// Core Systems
+import { MovementController } from './core/movement/MovementController';
 import { AnimationDirector } from './animation/AnimationDirector';
+import { NavigationController, NavigationState } from './core/navigation/NavigationController';
+import { ScrollManager, ScrollData } from './managers/ScrollManager';
+import { NavigationIntersection, NavigationChoice } from './core/navigation/NavigationModel';
+
+// UI
+import { IntersectionUIController } from './ui/IntersectionUIController';
+
+// Animation Chapters
 import { AnimationTargets } from './animation/AnimationTargets';
 import { IntroChapter } from './animation/chapters/IntroChapter';
 import { LoadingChapter } from './animation/chapters/LoadingChapter';
+import { InnerUniverseChapter } from './animation/chapters/InnerUniverseChapter';
 import { FadeInChapter } from './animation/chapters/FadeInChapter';
+import { TransitionToCirclePath } from './animation/chapters/TransitionToCirclePath';
 
 console.log('🚀 Ixachi Experience Initialized');
+
+enum ExperienceMode {
+  Navigation,
+  Cinematic,
+}
 
 export class IxachiExperience {
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
   private renderer: THREE.WebGLRenderer;
-  // private controls: OrbitControls; // Removed for cinematic animation
   private clock: THREE.Clock;
+
+  // Controllers
+  private movementController: MovementController;
+  private director: AnimationDirector;
+  private navigationController: NavigationController;
+  private scrollManager: ScrollManager;
+  private intersectionUI: IntersectionUIController;
+
+  // State & Camera
+  private currentMode: ExperienceMode;
+  private cameraTarget: THREE.Object3D;
+  private lookAtTarget: THREE.Object3D;
+  private smoothLookAtTarget: THREE.Object3D;
+  private cameraSmoothing: number = 0.05;
 
   // Animatable Objects
   private hostRibbon: RibbonLine;
@@ -30,22 +57,27 @@ export class IxachiExperience {
   private hostSourceObject: THREE.Object3D;
   private progressCircle: RibbonLine;
   private progressUI: ProgressUI;
-
-  // State & Parameters
-  private hostState: 'intro' | 'orbiting' = 'intro';
-  private readonly idleParams = {
-    speed: 6.0,
-    radius: 0.5,
-    freqX: 1.1, freqY: 1.2, freqZ: 1.5,
-    phaseX: 1.3, phaseY: 1.7, phaseZ: 1.0,
-  };
+  private isDrawingEnabled: boolean = false;
 
   constructor() {
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    // this.controls = new OrbitControls(this.camera, this.renderer.domElement); // Removed for cinematic animation
     this.clock = new THREE.Clock();
+
+    this.cameraTarget = new THREE.Object3D();
+    this.lookAtTarget = new THREE.Object3D();
+    this.smoothLookAtTarget = new THREE.Object3D();
+    //this.camera.position.set(0, 0, 40);
+    this.scene.add(this.cameraTarget);
+    this.scene.add(this.lookAtTarget);
+    this.scene.add(this.smoothLookAtTarget);
+
+    this.movementController = new MovementController();
+    this.scrollManager = new ScrollManager();
+    this.navigationController = new NavigationController(this.cameraTarget, this.lookAtTarget);
+    this.intersectionUI = new IntersectionUIController(this.camera, this.scene);
+    // Director is initialized in init() after targets are created
 
     this.init();
     this.animate();
@@ -56,53 +88,109 @@ export class IxachiExperience {
     this.renderer.setPixelRatio(window.devicePixelRatio);
     document.getElementById('app')?.appendChild(this.renderer.domElement);
 
-    this.camera.position.set(0, 0, 20);
-    // this.controls.enableDamping = true; // Removed for cinematic animation
-
     // --- Create all animatable objects ---
     this.hostSourceObject = new THREE.Object3D();
     this.scene.add(this.hostSourceObject);
-    const dummyPath = new PathData([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,0)]);
+    const dummyPath = new PathData([new THREE.Vector3(0,0,35), new THREE.Vector3(0,0,30)]);
     this.hostFollower = new PathFollower(dummyPath, { speed: 0 });
     this.hostRibbon = this.createHostRibbon();
-    this.scene.add(this.hostRibbon.mesh);
     this.progressUI = new ProgressUI();
     this.progressCircle = this.createProgressCircle();
     this.scene.add(this.progressCircle.mesh);
 
-    // --- AssetManager & UI ---
-    const assetManager = new AssetManager(); // Instantiate AssetManager earlier
-
-    // --- Build Animation Sequence using Chapter System ---
+    // --- Initialize Cinematic System (AnimationDirector) ---
     const targets: AnimationTargets = {
         camera: this.camera,
+        cameraTarget: this.cameraTarget,
+        lookAtTarget: this.lookAtTarget,
         hostFollower: this.hostFollower,
         hostSourceObject: this.hostSourceObject,
         hostRibbon: this.hostRibbon,
-        // Note: hostRibbon is duplicated in original, keeping for now
         progressCircle: this.progressCircle,
         progressUI: this.progressUI,
+        movementController: this.movementController,
+        enableDrawing: () => { this.isDrawingEnabled = true; },
+        scene: this.scene,
     };
-    const director = new AnimationDirector(targets, this); // Pass IxachiExperience instance // Moved director declaration here
+    this.director = new AnimationDirector(targets, this);
+    const assetManager = new AssetManager();
+    new AnimationControlPanel(assetManager, this.director);
+    this.director.addChapter('FadeIn', new FadeInChapter());
+    this.director.addChapter('Intro', new IntroChapter());
+    this.director.addChapter('Loading', new LoadingChapter(assetManager));
+    this.director.addChapter('InnerUniverse', new InnerUniverseChapter());
+    this.director.addChapter('transitionToCircle', new TransitionToCirclePath());
 
-    new AnimationControlPanel(assetManager, director); // Now director is initialized
-
-    director.addChapter('FadeIn', new FadeInChapter());
-    director.addChapter('Intro', new IntroChapter());
-    director.addChapter('Loading', new LoadingChapter(assetManager)); // Pass assetManager to LoadingChapter
-
-    // assetManager.loadAll() is now called by LoadingChapter itself
-
-    // --- Start Experience ---
-    // Play the director and await its completion to set the hostState
-    director.play().then(() => {
-        this.hostState = 'orbiting';
-        console.log('🌀 Host state switched to ORBITING');
+    // --- Initialize Navigation System ---
+    this.setupNavigationPaths();
+    this.navigationController.on('transitionRequested', (chapterId: string, targetPathId: string) => {
+      this.handleTransition(chapterId, targetPathId);
+    });
+    this.navigationController.on('intersectionReached', (intersection: NavigationIntersection) => {
+      this.intersectionUI.show(intersection);
+    });
+    this.navigationController.on('intersectionExited', () => {
+      this.intersectionUI.hide();
     });
 
+    // --- Final Setup ---
     window.addEventListener('resize', () => this.onWindowResize(), false);
+
+    // --- Start Experience ---
+    this.setMode(ExperienceMode.Cinematic);
+    this.director.play().then(() => {
+        console.log('🎬 Cinematic intro finished. Switching to Navigation mode.');
+        this.navigationController.setPath('pathB'); // Set the initial path for navigation
+        this.setMode(ExperienceMode.Navigation);
+    });
   }
 
+  private setupNavigationPaths(): void {
+    // Path A: A straight line from front to center
+    const pathA = new PathData([new THREE.Vector3(0, 5, 20), new THREE.Vector3(0, 5, 0)]);
+
+    // Path B: A circle in the XZ plane (our main navigation path for now)
+    const circleRadius = 10;
+    const circleShape = new THREE.EllipseCurve(0, 0, circleRadius, circleRadius, 0, 2 * Math.PI, false, 0);
+    const pathBPoints = circleShape.getPoints(128).map(p => new THREE.Vector3(p.x, 5, p.y));
+    const pathB = new PathData(pathBPoints, true);
+
+    // Intersection at the end of Path A
+    const intersection: NavigationIntersection = {
+      progress: 1,
+      choices: [
+        { direction: 'right', targetPathId: 'pathB', transitionChapterId: 'transitionToCircle' }
+      ]
+    };
+
+    this.navigationController.addPath('pathA', pathA, [intersection]);
+    this.navigationController.addPath('pathB', pathB, []);
+  }
+
+  private handleTransition(chapterId: string, targetPathId: string): void {
+    this.intersectionUI.hide();
+    this.setMode(ExperienceMode.Cinematic);
+    this.director.playChapter(chapterId).then(() => {
+      this.navigationController.setPath(targetPathId);
+      this.setMode(ExperienceMode.Navigation);
+    });
+  }
+
+  public setMode(mode: ExperienceMode): void {
+    if (this.currentMode === mode && this.currentMode !== undefined) return;
+
+    console.log(`🔄 [Experience] Switching mode to ${ExperienceMode[mode]}`);
+    this.currentMode = mode;
+
+    if (mode === ExperienceMode.Navigation) {
+      this.director.stop();
+      this.scrollManager.connect();
+      this.scrollManager.on('scroll', this.navigationController.handleScroll.bind(this.navigationController));
+    } else { // Cinematic
+      this.scrollManager.off('scroll', this.navigationController.handleScroll.bind(this.navigationController));
+      this.scrollManager.disconnect();
+    }
+  }
 
   private createHostRibbon(): RibbonLine {
     const config: RibbonConfig = {
@@ -138,34 +226,33 @@ export class IxachiExperience {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-  }
-
-  public setHostState(state: 'intro' | 'orbiting'): void {
-    this.hostState = state;
+    this.intersectionUI.updateResolution(window.innerWidth, window.innerHeight);
   }
 
   private animate(): void {
     requestAnimationFrame(() => this.animate());
     const elapsedTime = this.clock.getElapsedTime();
+    const deltaTime = this.clock.getDelta();
 
-    if (this.hostState === 'intro') {
-        this.hostFollower.update(0);
-        this.hostSourceObject.position.copy(this.hostFollower.position);
-    } else { // 'orbiting'
-        const { speed, radius, freqX, freqY, freqZ, phaseX, phaseY, phaseZ } = this.idleParams;
-        const time = elapsedTime * speed;
-        const x = radius * Math.cos(time * freqX) * Math.sin(time * phaseX);
-        const y = radius * Math.sin(time * freqY) * Math.cos(time * phaseY);
-        const z = radius * Math.sin(time * freqZ) * Math.cos(time * phaseZ);
-        this.hostSourceObject.position.set(x, y, z);
+    // Only update navigation controls when in navigation mode
+    if (this.currentMode === ExperienceMode.Navigation) {
+      this.navigationController.update();
     }
     
-    this.hostRibbon.addPoint(this.hostSourceObject.position);
+    this.intersectionUI.update();
 
-    // this.controls.update(); // Removed for cinematic animation
+    // Smooth camera movement is always on
+    this.smoothLookAtTarget.position.lerp(this.lookAtTarget.position, this.cameraSmoothing);
+    this.camera.position.lerp(this.cameraTarget.position, this.cameraSmoothing);
+    this.camera.lookAt(this.smoothLookAtTarget.position);
+
+    this.movementController.update(this.hostSourceObject, deltaTime, elapsedTime);
+    if (this.isDrawingEnabled) {
+      this.hostRibbon.addPoint(this.hostSourceObject.position);
+    }
+
     this.renderer.render(this.scene, this.camera);
   }
 }
 
 new IxachiExperience();
-
