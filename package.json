@@ -17,6 +17,7 @@
     "@types/three": "^0.158.0",
     "gsap": "^3.13.0",
     "three": "^0.158.0",
-    "troika-three-text": "^0.52.4"
+    "troika-three-text": "^0.52.4",
+    "troika-three-utils": "^0.52.4"
   }
 }

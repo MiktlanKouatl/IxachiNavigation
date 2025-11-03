@@ -16,11 +16,12 @@ console.log('🚀 Ixachi Components Testbed Initialized');
 //import { runScene } from './scenes/03_pathfollower_integration.ts';
 //import { runScene } from './scenes/04_ribbonlinegpu_trail.ts';
 //import { runScene } from './scenes/14_camera_perspective_effect.ts';
-import { runScene } from './scenes/15_road_follower.ts';
+//import { runScene } from './scenes/15_road_follower.ts';
+import { runScene } from './scenes/19_cinematic_text_lab.ts';
 //import { runScene } from './scenes/05_ribbonline_reveal.ts';
 //import { runScene } from './scenes/06_ribbonlinegpu_reveal.ts';
 //import { runScene } from './scenes/07_flocking_test.ts';
-//import { runScene } from './scenes/08_boid_movement_test.ts';
+//import { runScene } from './scenes/08_boid_movement_test.ts';1
 //import { runScene } from './scenes/09_single_boid_flocking.ts';
 //import { runScene } from './scenes/10_synapse_test.ts';
 //import { runScene } from './scenes/11_flocking_calm.ts';
