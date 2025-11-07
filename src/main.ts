@@ -23,6 +23,7 @@ import { LoadingChapter } from './animation/chapters/LoadingChapter';
 import { InnerUniverseChapter } from './animation/chapters/InnerUniverseChapter';
 import { FadeInChapter } from './animation/chapters/FadeInChapter';
 import { TransitionToCirclePath } from './animation/chapters/TransitionToCirclePath';
+import { JourneyChapter } from './animation/chapters/JourneyChapter';
 
 console.log('🚀 Ixachi Experience Initialized');
 
@@ -118,8 +119,7 @@ export class IxachiExperience {
     this.director.addChapter('FadeIn', new FadeInChapter());
     this.director.addChapter('Intro', new IntroChapter());
     this.director.addChapter('Loading', new LoadingChapter(assetManager));
-    this.director.addChapter('InnerUniverse', new InnerUniverseChapter());
-    this.director.addChapter('transitionToCircle', new TransitionToCirclePath());
+    this.director.addChapter('Journey', new JourneyChapter());
 
     // --- Initialize Navigation System ---
     this.setupNavigationPaths();

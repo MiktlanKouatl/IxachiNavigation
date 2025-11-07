@@ -7,9 +7,23 @@
     <style>
         body { margin: 0; overflow: hidden; }
         canvas { display: block; }
+        #startButton {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            z-index: 10;
+        }
     </style>
 </head>
 <body>
+    <div id="button-container" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10;">
+        <button id="startButton">Restart Animation</button>
+        <button id="exportButton">Export Settings</button>
+    </div>
     <div id="app"></div>
     <script type="module" src="/src/testbed/main.ts"></script>
 </body>
