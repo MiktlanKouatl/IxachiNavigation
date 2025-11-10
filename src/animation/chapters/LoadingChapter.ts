@@ -35,7 +35,7 @@ export class LoadingChapter implements IAnimationChapter {
     }
 
     public start(director: AnimationDirector, targets: AnimationTargets): Promise<void> {
-        return new Promise<void>(resolve => {
+        return new Promise<void>(async resolve => {
             this.resolvePromise = resolve;
             this.startTime = performance.now() / 1000;
             this.isAssetsLoaded = false;
@@ -44,7 +44,7 @@ export class LoadingChapter implements IAnimationChapter {
             this._targets = targets; // Store targets here
 
             // Delay the actual start of the loading UI and asset loading
-            gsap.delayedCall(this.params.preStartDelay, () => {
+            await gsap.delayedCall(this.params.preStartDelay, async () => {
                 const circleMat = this._targets.progressCircle.material;
                 const progressUI = this._targets.progressUI;
 
@@ -62,7 +62,7 @@ export class LoadingChapter implements IAnimationChapter {
                 this.assetManager.on('loaded', this.onAssetsLoaded);
 
                 // Start loading assets
-                this.assetManager.loadAll();
+                await this.assetManager.loadAll();
             });
         });
     }

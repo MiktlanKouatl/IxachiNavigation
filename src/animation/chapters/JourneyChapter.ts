@@ -113,7 +113,7 @@ export class JourneyChapter implements IAnimationChapter {
 
                         // Animate hostRibbon's uFadeTransitionSize
                         gsap.to(targets.hostRibbon.material.uniforms.uFadeTransitionSize, {
-                            uFadeTransitionSize: 20.0, // Your target value
+                            value: 20.0, // Your target value
                             duration: 2.0,
                             ease: 'power2.inOut',
                         });
@@ -202,7 +202,7 @@ export class JourneyChapter implements IAnimationChapter {
                             });
                             
                             if (hostFollower.isAtEnd) {
-                                resolve();
+                                director.playChapter('TraceLogo').then(resolve);
                             }
                         };
             

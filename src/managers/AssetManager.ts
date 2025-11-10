@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { SVGLoader, SVGResultPaths } from 'three/examples/jsm/loaders/SVGLoader.js';
 import { EventEmitter } from '../core/EventEmitter';
+import { PathData } from '../core/pathing/PathData';
 
 // Define the structure of the assets to be loaded
 const assetsToLoad = {
@@ -8,90 +10,122 @@ const assetsToLoad = {
     ixachiLogoGLB: '/ixachiLogo_ixtioli.glb' // Add the GLB model
   },
   textures: {
-    ixachiLogoSVG: '/ixachiLogo0001.svg' // Keep the SVG as a texture
+    // ixachiLogoSVG: '/ixachiLogo0001.svg' // Keep the SVG as a texture
+  },
+  paths: {
+    ixachiLogoSVG: '/ixachiLogo0001.svg'
   }
 };
 
-type AssetType = 'models' | 'textures';
+type AssetType = 'models' | 'textures' | 'paths';
 type AssetKey<T extends AssetType> = keyof (typeof assetsToLoad)[T];
 
 /**
  * @class AssetManager
  * @description Centralized manager for loading all 3D assets.
- * It uses Three.js's LoadingManager to track progress and emits events
- * upon completion or errors.
  */
 export class AssetManager extends EventEmitter {
-  private manager: THREE.LoadingManager;
   private gltfLoader: GLTFLoader;
+  private svgLoader: SVGLoader;
   private textureLoader: THREE.TextureLoader;
 
-  // Stores for the loaded assets
   public readonly models: Record<string, THREE.Group> = {};
   public readonly textures: Record<string, THREE.Texture> = {};
+  public readonly paths: Record<string, PathData> = {};
 
   constructor() {
     super();
     console.log('📦 [AssetManager] Initialized.');
-
-    // --- SETUP LOADING MANAGER ---
-    this.manager = new THREE.LoadingManager();
-    
-    this.manager.onProgress = (item, loaded, total) => {
-      const progressRatio = loaded / total;
-      console.log(`⏳ [AssetManager] Loading: ${item} (${(progressRatio * 100).toFixed(0)}%)`);
-      this.emit('progress', progressRatio, item, loaded, total);
-    };
-
-    this.manager.onLoad = () => {
-      console.log('✅ [AssetManager] All assets have been loaded.');
-      this.emit('loaded');
-    };
-
-    this.manager.onError = (url) => {
-      console.error(`❌ [AssetManager] There was an error loading: ${url}`);
-      this.emit('error', url);
-    };
-
-    // --- INITIALIZE LOADERS ---
-    this.gltfLoader = new GLTFLoader(this.manager);
-    this.textureLoader = new THREE.TextureLoader(this.manager);
+    this.gltfLoader = new GLTFLoader();
+    this.svgLoader = new SVGLoader();
+    this.textureLoader = new THREE.TextureLoader();
   }
 
-  /**
-   * Starts the loading process for all defined assets.
-   */
-  public loadAll(): void {
+  public async loadAll(): Promise<void> {
     console.log('🌀 [AssetManager] Starting to load all assets...');
     
-    // Load all models
+    const promises: Promise<any>[] = [];
+    let loaded = 0;
+    const total = Object.keys(assetsToLoad.models).length + Object.keys(assetsToLoad.textures).length + Object.keys(assetsToLoad.paths).length;
+
+    const onProgress = (key: string) => {
+        loaded++;
+        const progressRatio = loaded / total;
+        console.log(`⏳ [AssetManager] Loading: ${key} (${(progressRatio * 100).toFixed(0)}%)`);
+        this.emit('progress', progressRatio, key, loaded, total);
+    };
+
     for (const key in assetsToLoad.models) {
       const path = assetsToLoad.models[key as AssetKey<'models'>];
-      this.gltfLoader.load(path, (gltf) => {
+      const promise = this.gltfLoader.loadAsync(path).then(gltf => {
         this.models[key] = gltf.scene;
+        onProgress(key);
       });
+      promises.push(promise);
     }
 
-    // Load all textures
     for (const key in assetsToLoad.textures) {
       const path = assetsToLoad.textures[key as AssetKey<'textures'>];
-      this.textureLoader.load(path, (texture) => {
+      const promise = this.textureLoader.loadAsync(path).then(texture => {
         this.textures[key] = texture;
+        onProgress(key);
       });
+      promises.push(promise);
     }
 
-    // If there are no assets to load, emit 'loaded' immediately
-    if (Object.keys(assetsToLoad.models).length === 0 && Object.keys(assetsToLoad.textures).length === 0) {
-        // Use a timeout to ensure the event is emitted asynchronously
-        setTimeout(() => this.emit('loaded'), 0);
+    for (const key in assetsToLoad.paths) {
+        const path = assetsToLoad.paths[key as AssetKey<'paths'>];
+        const promise = this.loadPathData(path).then(pathData => {
+            this.paths[key] = pathData;
+            onProgress(key);
+        });
+        promises.push(promise);
     }
+
+    await Promise.all(promises);
+
+    console.log('✅ [AssetManager] All assets have been loaded.');
+    this.emit('loaded');
   }
 
-  /**
-   * Safely retrieves a loaded model.
-   * @param key The key of the model to retrieve.
-   * @returns A clone of the model group.
-   */
+  private async loadPathData(url: string): Promise<PathData> {
+    const data = await this.svgLoader.loadAsync(url);
+    const allPoints: THREE.Vector3[] = [];
+    const minDistanceSq = 0.01 * 0.01; // Threshold for filtering close points
+
+    for (const path of data.paths) {
+        const shapes = SVGLoader.createShapes(path as unknown as SVGResultPaths);
+
+        for (const shape of shapes) {
+            for (const curve of shape.curves) {
+                const points2D = curve.getPoints(20);
+                for (const point2d of points2D) {
+                    const newPoint = new THREE.Vector3(point2d.x, point2d.y, 0);
+                    if (allPoints.length === 0 || newPoint.distanceToSquared(allPoints[allPoints.length - 1]) > minDistanceSq) {
+                        allPoints.push(newPoint);
+                    }
+                }
+            }
+        }
+    }
+
+    // Normalize and center the points
+    const boundingBox = new THREE.Box3().setFromPoints(allPoints);
+    const center = boundingBox.getCenter(new THREE.Vector3());
+    const size = boundingBox.getSize(new THREE.Vector3());
+    const scale = 20 / Math.max(size.x, size.y, size.z);
+
+    const centeredPoints = allPoints.map(p => {
+        return new THREE.Vector3(
+            (p.x - center.x) * scale,
+            (p.y - center.y) * -scale, // Invert Y to match Three.js coordinates
+            0
+        );
+    });
+
+    return new PathData(centeredPoints);
+  }
+
   public getModel(key: string): THREE.Group {
     if (!this.models[key]) {
       throw new Error(`[AssetManager] Model with key "${key}" has not been loaded or does not exist.`);
@@ -99,15 +133,17 @@ export class AssetManager extends EventEmitter {
     return this.models[key].clone();
   }
 
-  /**
-   * Safely retrieves a loaded texture.
-   * @param key The key of the texture to retrieve.
-   * @returns The texture.
-   */
   public getTexture(key: string): THREE.Texture {
     if (!this.textures[key]) {
       throw new Error(`[AssetManager] Texture with key "${key}" has not been loaded or does not exist.`);
     }
     return this.textures[key];
+  }
+
+  public getPath(key: string): PathData {
+    if (!this.paths[key]) {
+      throw new Error(`[AssetManager] Path with key "${key}" has not been loaded or does not exist.`);
+    }
+    return this.paths[key];
   }
 }

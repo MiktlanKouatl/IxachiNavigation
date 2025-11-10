@@ -24,6 +24,7 @@ import { InnerUniverseChapter } from './animation/chapters/InnerUniverseChapter'
 import { FadeInChapter } from './animation/chapters/FadeInChapter';
 import { TransitionToCirclePath } from './animation/chapters/TransitionToCirclePath';
 import { JourneyChapter } from './animation/chapters/JourneyChapter';
+import { TraceLogoChapter } from './animation/chapters/TraceLogoChapter';
 
 console.log('🚀 Ixachi Experience Initialized');
 
@@ -99,6 +100,8 @@ export class IxachiExperience {
     this.progressCircle = this.createProgressCircle();
     this.scene.add(this.progressCircle.mesh);
 
+    const assetManager = new AssetManager();
+
     // --- Initialize Cinematic System (AnimationDirector) ---
     const targets: AnimationTargets = {
         camera: this.camera,
@@ -112,14 +115,15 @@ export class IxachiExperience {
         movementController: this.movementController,
         enableDrawing: () => { this.isDrawingEnabled = true; },
         scene: this.scene,
+        assetManager: assetManager,
     };
     this.director = new AnimationDirector(targets, this);
-    const assetManager = new AssetManager();
     new AnimationControlPanel(assetManager, this.director);
     this.director.addChapter('FadeIn', new FadeInChapter());
     this.director.addChapter('Intro', new IntroChapter());
     this.director.addChapter('Loading', new LoadingChapter(assetManager));
     this.director.addChapter('Journey', new JourneyChapter());
+    this.director.addChapter('TraceLogo', new TraceLogoChapter());
 
     // --- Initialize Navigation System ---
     this.setupNavigationPaths();
