@@ -99,7 +99,7 @@ export class AssetManager extends EventEmitter {
         for (const shape of shapes) {
             const shapePoints: THREE.Vector3[] = [];
             for (const curve of shape.curves) {
-                const points2D = curve.getPoints(50);
+                const points2D = curve.getPoints(100);
                 for (const point2d of points2D) {
                     const newPoint = new THREE.Vector3(point2d.x, point2d.y, 0);
                     if (shapePoints.length === 0 || newPoint.distanceToSquared(shapePoints[shapePoints.length - 1]) > minDistanceSq) {
@@ -134,7 +134,19 @@ export class AssetManager extends EventEmitter {
         });
     });
 
-    return new PathData(centeredPaths);
+    // Filter out paths that are too small to be meaningful
+    const minLengthThreshold = 0.5;
+    const filteredPaths = centeredPaths.filter(pathPoints => {
+        if (pathPoints.length < 2) return false;
+        // Calculate the length of this specific path
+        const tempCurve = new THREE.CatmullRomCurve3(pathPoints);
+        const length = tempCurve.getLength();
+        return length > minLengthThreshold;
+    });
+
+    console.log(`[AssetManager] Filtered SVG paths: ${centeredPaths.length} -> ${filteredPaths.length}`);
+
+    return new PathData(filteredPaths);
   }
 
   public getModel(key: string): THREE.Group {

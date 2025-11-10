@@ -35,10 +35,10 @@ export function runScene() {
             Math.sin(angle) * pathRadius
         ));
     }
-    const pathData = new PathData(pathPoints, true);
+    const pathData = new PathData([pathPoints], true);
 
     // Optional: Visualize the path for debugging
-    const pathLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pathData.curve.getPoints(200)), new THREE.LineBasicMaterial({ color: 0x444444 }));
+    const pathLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pathData.curves[0].getPoints(200)), new THREE.LineBasicMaterial({ color: 0x444444 }));
     scene.add(pathLine);
 
     // 2. Configure and create the RibbonLineGPU instance.

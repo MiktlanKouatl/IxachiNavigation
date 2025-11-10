@@ -174,7 +174,7 @@ export class JourneyChapter implements IAnimationChapter {
                             
                             targets.cameraTarget.position.copy(basePosition).add(offset);
             
-                            const lookAtProgress = (hostFollower.progress + 0.05) % 1.0;
+                            const lookAtProgress = Math.min(hostFollower.progress + 0.05, 1.0);
                             const lookAtPosition = pathData.curves[0].getPointAt(lookAtProgress);
                             const lookAtOffset = new THREE.Vector3()
                                 .add(rightVec.clone().multiplyScalar(cameraOffset.x * this.settings.journey.horizontalRange * 0.2))
@@ -202,6 +202,10 @@ export class JourneyChapter implements IAnimationChapter {
                             });
                             
                             if (hostFollower.isAtEnd) {
+                                if (this.animationFrameId) {
+                                    cancelAnimationFrame(this.animationFrameId);
+                                    this.animationFrameId = null;
+                                }
                                 director.playChapter('TraceLogo').then(resolve);
                             }
                         };

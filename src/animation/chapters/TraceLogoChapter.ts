@@ -2,76 +2,153 @@ import { IAnimationChapter } from "../IAnimationChapter";
 import { AnimationDirector } from "../AnimationDirector";
 import { AnimationTargets } from "../AnimationTargets";
 import * as THREE from 'three';
-import { RibbonLine, UseMode } from "../../core/RibbonLine";
+import { RibbonLine, UseMode, RibbonConfig, FadeStyle } from '../../core/RibbonLine';
+import { RibbonLineGPU } from '../../core/RibbonLineGPU';
 import { PathFollower } from "../../core/pathing/PathFollower";
 import { gsap } from 'gsap';
 import { PathData } from "../../core/pathing/PathData";
 
 export class TraceLogoChapter implements IAnimationChapter {
+    private revealRibbons: RibbonLine[] = [];
+    private trailRibbons: RibbonLineGPU[] = [];
+    private trailLoop: gsap.core.Tween | null = null;
+    private allTweens: gsap.core.Tween[] = [];
+    private scene: THREE.Scene | null = null;
+    private logoContainer: THREE.Group | null = null;
+
     public start(director: AnimationDirector, targets: AnimationTargets): Promise<void> {
-        return new Promise(resolve => {
+        // This chapter's promise should never resolve, as it runs an infinite loop.
+        return new Promise(() => {
             console.log('TraceLogoChapter started');
 
-            // 1. Camera and HostRibbon animation
-            gsap.to(targets.cameraTarget.position, { x: 0, y: 0, z: 25, duration: 2, ease: 'power2.inOut' });
-            gsap.to(targets.lookAtTarget.position, { x: 0, y: 0, z: 0, duration: 2, ease: 'power2.inOut' });
-            gsap.to(targets.hostRibbon.material.uniforms.uFadeTransitionSize, { value: 1.0, duration: 1.5, ease: 'power1.in' });
+            this.scene = targets.scene;
+
+            // --- Animation Parameters ---
+            const params = {
+                revealDuration: 4.0,
+                staticOpacity: 0.15,
+                crossfadeDuration: 2.5,
+                trailSpeed: 0.2,
+                trailLength: 0.7,
+            };
+
+            // --- Initial Setup ---
+            // No camera movement, respect the end position of JourneyChapter.
+            // The logo will appear in front of the camera.
+            this.logoContainer = new THREE.Group();
+            this.logoContainer.position.set(0, 0, -85);
+            this.scene.add(this.logoContainer);
+
+            // Point the camera at the new logo position.
+            targets.lookAtTarget.position.copy(this.logoContainer.position);
+
+            this.allTweens.push(
+                gsap.to(targets.hostRibbon.material.uniforms.uFadeTransitionSize, { value: 1.0, duration: 1.5, ease: 'power1.in' })
+            );
 
             const logoPathData = targets.assetManager.getPath('ixachiLogoSVG');
             if (logoPathData.curves.length === 0) {
                 console.warn('TraceLogoChapter: No curves found in logo path data.');
-                resolve();
+                // In a non-resolving promise, we can't resolve, but we can stop.
                 return;
             }
 
-            const firstPoint = logoPathData.curves[0].points[0];
-            gsap.to(targets.hostSourceObject.position, {
-                x: firstPoint.x,
-                y: firstPoint.y,
-                z: firstPoint.z,
-                duration: 2,
-                ease: 'power2.inOut',
+            // --- Create Ribbons ---
+            for (const curve of logoPathData.curves) {
+                const highResPoints = new PathData([curve.points]).curves[0].getPoints(150);
+                
+                const revealRibbon = new RibbonLine({
+                    color: new THREE.Color(0xffffff),
+                    width: 0.5,
+                    maxLength: highResPoints.length,
+                    useMode: UseMode.Reveal,
+                    fadeStyle: FadeStyle.None,
+                });
+                revealRibbon.material.uniforms.uDrawProgress.value = 0; // Set initial state for animation
+                revealRibbon.setPoints(highResPoints);
+                this.logoContainer.add(revealRibbon.mesh);
+                this.revealRibbons.push(revealRibbon);
+
+                const trailConfig: RibbonConfig = {
+                    color: new THREE.Color().setHSL(Math.random(), 0.8, 0.6),
+                    width: 0.5,
+                    maxLength: highResPoints.length,
+                    useMode: UseMode.Trail,
+                    fadeStyle: FadeStyle.FadeInOut,
+                    opacity: 0,
+                };
+                const trailRibbon = new RibbonLineGPU(highResPoints, trailConfig);
+                this.logoContainer.add(trailRibbon.mesh);
+                this.trailRibbons.push(trailRibbon);
+            }
+
+            // --- Reveal Animation ---
+            const revealTl = gsap.timeline({
                 onComplete: () => {
-                    const masterTl = gsap.timeline({ onComplete: resolve });
-                    const totalDuration = 5; // Total time to trace all paths
-
-                    for (const curve of logoPathData.curves) {
-                        // Create a new PathData for this specific curve to get the "true" curve follower will use
-                        const singlePathData = new PathData([curve.points]);
-                        const finalCurve = singlePathData.curves[0];
-
-                        // Get a high-resolution set of points from this final curve for drawing
-                        const highResPoints = finalCurve.getPoints(150);
-                        
-                        const logoRibbon = new RibbonLine({
-                            color: new THREE.Color(0xffffff),
-                            width: 0.5,
-                            maxLength: highResPoints.length,
-                            useMode: UseMode.Reveal,
-                        });
-                        logoRibbon.setPoints(highResPoints);
-                        targets.scene.add(logoRibbon.mesh);
-
-                        const pathFollower = new PathFollower(singlePathData, { speed: 10 });
-
-                        const duration = (singlePathData.totalLength / logoPathData.totalLength) * totalDuration;
-
-                        const tl = gsap.timeline();
-                        tl.to(pathFollower, { 
-                            progress: 1, 
-                            duration: duration, 
-                            ease: 'linear',
-                            onUpdate: () => {
-                                pathFollower.update(0); // Manual update since we're driving progress
-                                targets.hostSourceObject.position.copy(pathFollower.position);
-                            }
-                        });
-                        tl.to(logoRibbon.material.uniforms.uDrawProgress, { value: 1, duration: duration, ease: 'linear' }, 0);
-                        
-                        masterTl.add(tl);
+                    // --- Start Loop Animation after Reveal ---
+                    console.log('Starting crossfade and trail loop...');
+                    
+                    const fadeTl = gsap.timeline();
+                    this.allTweens.push(fadeTl);
+                    for (const ribbon of this.revealRibbons) {
+                        fadeTl.to(ribbon.material.uniforms.uOpacity, {
+                            value: params.staticOpacity,
+                            duration: params.crossfadeDuration
+                        }, 0);
                     }
+                    for (const ribbon of this.trailRibbons) {
+                        fadeTl.to(ribbon.material.uniforms.uOpacity, {
+                            value: 1.0,
+                            duration: params.crossfadeDuration
+                        }, 0);
+                    }
+
+                    const progress = { value: 0 };
+                    this.trailLoop = gsap.to(progress, {
+                        value: 1,
+                        duration: 1 / params.trailSpeed,
+                        ease: 'none',
+                        repeat: -1,
+                        onUpdate: () => {
+                            for (const ribbon of this.trailRibbons) {
+                                ribbon.setTrail(progress.value, params.trailLength);
+                            }
+                        }
+                    });
                 }
             });
+            this.allTweens.push(revealTl);
+
+            for (const ribbon of this.revealRibbons) {
+                revealTl.to(ribbon.material.uniforms.uDrawProgress, {
+                    value: 1,
+                    duration: params.revealDuration,
+                    ease: 'power1.inOut'
+                }, 0);
+            }
         });
+    }
+
+    public stop(): void {
+        console.log('Stopping TraceLogoChapter');
+        if (this.trailLoop) this.trailLoop.kill();
+        for (const tween of this.allTweens) tween.kill();
+        this.allTweens = [];
+
+        if (this.scene) {
+            if (this.logoContainer) {
+                this.scene.remove(this.logoContainer);
+            }
+            for (const ribbon of this.revealRibbons) {
+                ribbon.dispose();
+            }
+            for (const ribbon of this.trailRibbons) {
+                ribbon.dispose();
+            }
+        }
+        this.revealRibbons = [];
+        this.trailRibbons = [];
+        this.logoContainer = null;
+        this.scene = null;
     }
 }

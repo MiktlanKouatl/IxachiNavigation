@@ -19,6 +19,7 @@ import { runScene as runScene18 } from './scenes/18_bloom_effect_test';
 import { runScene as runScene19 } from './scenes/19_cinematic_text_lab';
 import { runScene as runScene20 } from './scenes/20_main_journey_prototype';
 import { runScene as runScene21 } from './scenes/21_direct_journey_transition';
+import { runScene as runScene22 } from './scenes/22_logo_trace_loop';
 
 console.log('🚀 Ixachi Components Testbed Initialized');
 
@@ -44,11 +45,12 @@ const scenes: { [key: string]: () => void } = {
     '19: Cinematic Text Lab': runScene19,
     '20: Main Journey Prototype': runScene20,
     '21: Direct Journey Transition': runScene21,
+    '22: Logo Trace Loop': runScene22,
 };
 
 let currentScene: string | null = null;
 
-function loadScene(sceneName: string) {
+function loadScene(sceneIdentifier: string) {
     // Clean up previous scene if any
     const app = document.getElementById('app');
     if (app) {
@@ -61,18 +63,33 @@ function loadScene(sceneName: string) {
         oldGui.remove();
     }
 
-    // Load new scene
-    const sceneFunction = scenes[sceneName];
-    if (sceneFunction) {
-        console.log(`Loading scene: ${sceneName}`);
+    let resolvedSceneName: string | undefined;
+    // Check if the identifier is a number (e.g., "22")
+    if (!isNaN(Number(sceneIdentifier))) {
+        const sceneNumber = sceneIdentifier + ':';
+        resolvedSceneName = Object.keys(scenes).find(key => key.startsWith(sceneNumber));
+    } else {
+        // Otherwise, assume it's the full scene name
+        resolvedSceneName = sceneIdentifier;
+    }
+
+    const sceneFunction = resolvedSceneName ? scenes[resolvedSceneName] : undefined;
+
+    if (sceneFunction && resolvedSceneName) {
+        console.log(`Loading scene: ${resolvedSceneName}`);
         sceneFunction();
-        currentScene = sceneName;
+        currentScene = resolvedSceneName;
         // Update URL
         const url = new URL(window.location.href);
-        url.searchParams.set('scene', sceneName);
-        window.history.pushState({ scene: sceneName }, ``, url);
+        url.searchParams.set('scene', resolvedSceneName);
+        window.history.pushState({ scene: resolvedSceneName }, ``, url);
+        // Also update the selector to reflect the loaded scene
+        const selector = document.getElementById('scene-selector') as HTMLSelectElement;
+        if (selector) {
+            selector.value = resolvedSceneName;
+        }
     } else {
-        console.error(`Scene "${sceneName}" not found.`);
+        console.error(`Scene "${sceneIdentifier}" not found.`);
     }
 }
 
@@ -84,6 +101,7 @@ selectorContainer.style.right = '10px';
 selectorContainer.style.zIndex = '100';
 
 const selector = document.createElement('select');
+selector.id = 'scene-selector'; // Add an ID for easier access
 Object.keys(scenes).forEach(sceneName => {
     const option = document.createElement('option');
     option.value = sceneName;
@@ -103,12 +121,10 @@ document.body.appendChild(selectorContainer);
 const urlParams = new URLSearchParams(window.location.search);
 const sceneFromUrl = urlParams.get('scene');
 
-if (sceneFromUrl && scenes[sceneFromUrl]) {
-    selector.value = sceneFromUrl;
+if (sceneFromUrl) {
     loadScene(sceneFromUrl);
 } else {
     // Load a default scene if none is specified in the URL
-    const defaultScene = '21: Direct Journey Transition';
-    selector.value = defaultScene;
+    const defaultScene = '22: Logo Trace Loop';
     loadScene(defaultScene);
 }
