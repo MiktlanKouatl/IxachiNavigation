@@ -42,7 +42,7 @@ export class IntroChapter implements IAnimationChapter {
         // --- Fix the initial "jump" ---
         // 1. Create the path first to know the starting point.
         const path = this.createIntroPath();
-        const startPoint = path.curve.getPointAt(0);
+        const startPoint = path.curves[0].getPointAt(0);
 
         // 2. Move the host object to the start point BEFORE enabling drawing.
         targets.hostSourceObject.position.copy(startPoint);
@@ -123,6 +123,6 @@ export class IntroChapter implements IAnimationChapter {
         const finalAngle = Math.random() * Math.PI * 2;
         points.push(new THREE.Vector3(0.1 * Math.cos(finalAngle), 0.1 * Math.sin(finalAngle), 0));
         console.log('🌀 Puntos generados para la curva:', points);
-        return new PathData(points);
+        return new PathData([points]);
     }
 }

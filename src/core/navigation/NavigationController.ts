@@ -53,7 +53,7 @@ export class NavigationController extends EventEmitter {
             return;
         }
         this.currentPathId = pathId;
-        this.pathFollower = new PathFollower(path, { loop: path.curve.closed });
+        this.pathFollower = new PathFollower(path, { loop: path.curves[0].closed });
         this.progress = initialProgress;
         this.pathFollower.seek(this.progress);
         this.state = NavigationState.NAVIGATING;
@@ -128,7 +128,7 @@ export class NavigationController extends EventEmitter {
         this.cameraTarget.position.copy(newPosition);
 
         const lookAheadProgress = (this.progress + 0.01) % 1;
-        const target = this.pathFollower.pathData.curve.getPointAt(lookAheadProgress);
+        const target = this.pathFollower.pathData.curves[0].getPointAt(lookAheadProgress);
         this.lookAtTarget.position.copy(target);
     }
 }

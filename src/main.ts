@@ -93,7 +93,7 @@ export class IxachiExperience {
     // --- Create all animatable objects ---
     this.hostSourceObject = new THREE.Object3D();
     this.scene.add(this.hostSourceObject);
-    const dummyPath = new PathData([new THREE.Vector3(0,0,35), new THREE.Vector3(0,0,30)]);
+    const dummyPath = new PathData([[new THREE.Vector3(0,0,35), new THREE.Vector3(0,0,30)]]);
     this.hostFollower = new PathFollower(dummyPath, { speed: 0 });
     this.hostRibbon = this.createHostRibbon();
     this.progressUI = new ProgressUI();
@@ -151,13 +151,13 @@ export class IxachiExperience {
 
   private setupNavigationPaths(): void {
     // Path A: A straight line from front to center
-    const pathA = new PathData([new THREE.Vector3(0, 5, 20), new THREE.Vector3(0, 5, 0)]);
+    const pathA = new PathData([[new THREE.Vector3(0, 5, 20), new THREE.Vector3(0, 5, 0)]]);
 
     // Path B: A circle in the XZ plane (our main navigation path for now)
     const circleRadius = 10;
     const circleShape = new THREE.EllipseCurve(0, 0, circleRadius, circleRadius, 0, 2 * Math.PI, false, 0);
     const pathBPoints = circleShape.getPoints(128).map(p => new THREE.Vector3(p.x, 5, p.y));
-    const pathB = new PathData(pathBPoints, true);
+    const pathB = new PathData([pathBPoints], true);
 
     // Intersection at the end of Path A
     const intersection: NavigationIntersection = {

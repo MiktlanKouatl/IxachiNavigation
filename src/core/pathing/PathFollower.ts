@@ -27,10 +27,10 @@ export class PathFollower implements IMotionSource {
         this.pathData = pathData;
         this.speed = options.speed ?? 5.0;
         this.progress = options.initialProgress ?? 0;
-        this.loop = options.loop ?? this.pathData.curve.closed;
+        this.loop = options.loop ?? this.pathData.curves[0].closed;
 
-        this.position = this.pathData.curve.getPointAt(this.progress);
-        this.direction = this.pathData.curve.getTangentAt(this.progress).normalize();
+        this.position = this.pathData.curves[0].getPointAt(this.progress);
+        this.direction = this.pathData.curves[0].getTangentAt(this.progress).normalize();
     }
 
     public setPath(newPathData: PathData): void {
@@ -57,8 +57,8 @@ export class PathFollower implements IMotionSource {
             }
         }
         
-        this.position.copy(this.pathData.curve.getPointAt(this.progress));
-        this.direction.copy(this.pathData.curve.getTangentAt(this.progress)).normalize();
+        this.position.copy(this.pathData.curves[0].getPointAt(this.progress));
+        this.direction.copy(this.pathData.curves[0].getTangentAt(this.progress)).normalize();
     }
 
     public setSpeed(newSpeed: number): void {
@@ -73,8 +73,8 @@ export class PathFollower implements IMotionSource {
         this.progress = Math.max(0, Math.min(1, progress)); // Clamp progress
         this.isAtEnd = this.progress >= 1;
 
-        this.position.copy(this.pathData.curve.getPointAt(this.progress));
-        this.direction.copy(this.pathData.curve.getTangentAt(this.progress)).normalize();
+        this.position.copy(this.pathData.curves[0].getPointAt(this.progress));
+        this.direction.copy(this.pathData.curves[0].getTangentAt(this.progress)).normalize();
     }
 
     getPosition(): THREE.Vector3 { return this.position; }

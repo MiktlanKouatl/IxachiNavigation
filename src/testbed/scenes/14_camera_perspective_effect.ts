@@ -92,7 +92,7 @@ export function runScene() {
     scene.add(pathObject); // Visualize the master path
 
     // 2. Setup Camera Movement
-    const masterPathData = new PathData(points, true); // Corrected: Pass points array to PathData
+    const masterPathData = new PathData([points], true); // Corrected: Pass points array to PathData
     const cameraFollower = new PathFollower(masterPathData, { speed: 500.0 }); // Increased speed
     
     // Create a visible marker (red sphere) that moves ahead of the camera

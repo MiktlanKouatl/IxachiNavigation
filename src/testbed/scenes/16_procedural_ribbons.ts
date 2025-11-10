@@ -30,11 +30,11 @@ export function runScene() {
         new THREE.Vector3(0, 0, -pathRadius),
         new THREE.Vector3(-pathRadius, -5, 0),
     ];
-    const pathData = new PathData(controlPoints, true);
+    const pathData = new PathData([controlPoints], true);
 
     // Visualize the master path
     const divisions = 200;
-    const visualPathPoints = pathData.curve.getPoints(divisions);
+    const visualPathPoints = pathData.curves[0].getPoints(divisions);
     const pathGeometry = new THREE.BufferGeometry().setFromPoints(visualPathPoints);
     const pathMaterial = new THREE.LineDashedMaterial({ color: 0xffffff, dashSize: 1, gapSize: 0.5, transparent: true, opacity: 0.5 });
     const pathObject = new THREE.Line(pathGeometry, pathMaterial);
@@ -113,7 +113,7 @@ export function runScene() {
 
         // Determine the point to look at
         const lookAtProgress = (cameraFollower.progress + cameraConfig.lookAhead) % 1.0;
-        const lookAtPosition = pathData.curve.getPointAt(lookAtProgress);
+        const lookAtPosition = pathData.curves[0].getPointAt(lookAtProgress);
         lookAtPosition.y += cameraConfig.height * 0.8; // Look slightly down
         camera.lookAt(lookAtPosition);
 

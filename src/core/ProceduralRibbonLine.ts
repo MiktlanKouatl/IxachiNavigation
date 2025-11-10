@@ -116,8 +116,9 @@ export class ProceduralRibbonLine {
         normals: THREE.DataTexture,
         binormals: THREE.DataTexture
     } {
-        const points = pathData.curve.getPoints(divisions);
-        const frenetFrames = pathData.curve.computeFrenetFrames(divisions, pathData.curve.closed);
+        const curve = pathData.curves[0];
+        const points = curve.getPoints(divisions);
+        const frenetFrames = curve.computeFrenetFrames(divisions, curve.closed);
         const normals = frenetFrames.normals;
         const binormals = frenetFrames.binormals;
 

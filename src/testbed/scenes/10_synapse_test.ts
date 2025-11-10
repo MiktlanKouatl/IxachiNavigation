@@ -63,7 +63,7 @@ export function runScene() {
     new THREE.Vector3(-50, 0, 0),
     new THREE.Vector3(50, 0, 0),
   ];
-  const pathData = new PathData(pathPoints, false);
+  const pathData = new PathData([pathPoints], false);
 
   // --- PATH FOLLOWER ---
   const follower = new PathFollower(pathData, { speed: 20 });

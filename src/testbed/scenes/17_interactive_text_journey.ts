@@ -43,9 +43,9 @@ export function runScene() {
         new THREE.Vector3(0, 0, -pathRadius),
         new THREE.Vector3(-pathRadius, -5, 0),
     ];
-    const pathData = new PathData(controlPoints, true);
+    const pathData = new PathData([controlPoints], true);
     const divisions = 200;
-    const { normals, binormals } = pathData.curve.computeFrenetFrames(divisions, true);
+    const { normals, binormals } = pathData.curves[0].computeFrenetFrames(divisions, true);
 
     const ribbonSettings: ProceduralRibbonConfig = {
         maxLength: divisions + 1,
@@ -92,7 +92,7 @@ export function runScene() {
         text.material.transparent = true;
         text.fillOpacity = 0;
 
-        const point = pathData.curve.getPointAt(chapter.progress);
+        const point = pathData.curves[0].getPointAt(chapter.progress);
         text.position.copy(point);
         text.position.y += 3;
 
@@ -190,7 +190,7 @@ export function runScene() {
         camera.position.copy(basePosition).add(offset);
 
         const lookAtProgress = (cameraFollower.progress + 0.01) % 1.0;
-        const lookAtPosition = pathData.curve.getPointAt(lookAtProgress);
+        const lookAtPosition = pathData.curves[0].getPointAt(lookAtProgress);
         const lookAtOffset = new THREE.Vector3()
             .add(rightVec.clone().multiplyScalar(cameraOffset.x * journeyParams.horizontalRange * 0.5))
             .add(upVec.clone().multiplyScalar(cameraOffset.y * journeyParams.verticalRange * 0.5));

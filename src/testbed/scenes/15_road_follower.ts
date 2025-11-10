@@ -36,7 +36,7 @@ export function runScene() {
     const masterPath = new THREE.CatmullRomCurve3(masterPathPoints, true, 'catmullrom', 0.5);
     const divisions = 200;
     const pathPoints = masterPath.getPoints(divisions);
-    const masterPathData = new PathData(pathPoints, true);
+    const masterPathData = new PathData([pathPoints], true);
 
     // Create visual road lines
     const roadLineMaterial = new THREE.LineBasicMaterial({ color: 0x888888 });

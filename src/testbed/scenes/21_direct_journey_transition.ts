@@ -48,9 +48,9 @@ export function runScene() {
 
     controlPoints.push(endPoint);
 
-    const pathData = new PathData(controlPoints, false);
+    const pathData = new PathData([controlPoints], false);
     const divisions = 200;
-    const { normals, binormals } = pathData.curve.computeFrenetFrames(divisions, false);
+    const { normals, binormals } = pathData.curves[0].computeFrenetFrames(divisions, false);
 
     // --- Parameters & GUI ---
     const journeyParams = {
@@ -186,7 +186,7 @@ export function runScene() {
             text.anchorX = 'center';
             text.material.transparent = true;
             text.fillOpacity = 0;
-            const point = pathData.curve.getPointAt(chapter.progress);
+            const point = pathData.curves[0].getPointAt(chapter.progress);
             text.position.copy(point);
             text.position.y += journeyParams.textVerticalOffset;
             scene.add(text);
@@ -237,7 +237,7 @@ export function runScene() {
         camera.position.copy(basePosition).add(offset);
 
         const lookAtProgress = (cameraFollower.progress + 0.05) % 1.0;
-        const lookAtPosition = pathData.curve.getPointAt(lookAtProgress);
+        const lookAtPosition = pathData.curves[0].getPointAt(lookAtProgress);
         const lookAtOffset = new THREE.Vector3()
             .add(rightVec.clone().multiplyScalar(cameraOffset.x * journeyParams.horizontalRange * 0.2))
             .add(upVec.clone().multiplyScalar(cameraOffset.y * journeyParams.verticalRange * 0.2));

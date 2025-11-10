@@ -90,40 +90,51 @@ export class AssetManager extends EventEmitter {
 
   private async loadPathData(url: string): Promise<PathData> {
     const data = await this.svgLoader.loadAsync(url);
-    const allPoints: THREE.Vector3[] = [];
+    const paths: THREE.Vector3[][] = [];
     const minDistanceSq = 0.01 * 0.01; // Threshold for filtering close points
 
     for (const path of data.paths) {
         const shapes = SVGLoader.createShapes(path as unknown as SVGResultPaths);
 
         for (const shape of shapes) {
+            const shapePoints: THREE.Vector3[] = [];
             for (const curve of shape.curves) {
-                const points2D = curve.getPoints(20);
+                const points2D = curve.getPoints(50);
                 for (const point2d of points2D) {
                     const newPoint = new THREE.Vector3(point2d.x, point2d.y, 0);
-                    if (allPoints.length === 0 || newPoint.distanceToSquared(allPoints[allPoints.length - 1]) > minDistanceSq) {
-                        allPoints.push(newPoint);
+                    if (shapePoints.length === 0 || newPoint.distanceToSquared(shapePoints[shapePoints.length - 1]) > minDistanceSq) {
+                        shapePoints.push(newPoint);
                     }
                 }
+            }
+            if (shapePoints.length > 0) {
+                paths.push(shapePoints);
             }
         }
     }
 
     // Normalize and center the points
+    const allPoints = paths.flat();
+    if (allPoints.length === 0) {
+        return new PathData([]);
+    }
+
     const boundingBox = new THREE.Box3().setFromPoints(allPoints);
     const center = boundingBox.getCenter(new THREE.Vector3());
     const size = boundingBox.getSize(new THREE.Vector3());
     const scale = 20 / Math.max(size.x, size.y, size.z);
 
-    const centeredPoints = allPoints.map(p => {
-        return new THREE.Vector3(
-            (p.x - center.x) * scale,
-            (p.y - center.y) * -scale, // Invert Y to match Three.js coordinates
-            0
-        );
+    const centeredPaths = paths.map(pathPoints => {
+        return pathPoints.map(p => {
+            return new THREE.Vector3(
+                (p.x - center.x) * scale,
+                (p.y - center.y) * -scale, // Invert Y to match Three.js coordinates
+                0
+            );
+        });
     });
 
-    return new PathData(centeredPoints);
+    return new PathData(centeredPaths);
   }
 
   public getModel(key: string): THREE.Group {

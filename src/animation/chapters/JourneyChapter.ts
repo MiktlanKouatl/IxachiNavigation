@@ -72,9 +72,9 @@ export class JourneyChapter implements IAnimationChapter {
                             controlPoints.push(new THREE.Vector3(x, y, z));
                         }
                         controlPoints.push(endPoint);
-                        const pathData = new PathData(controlPoints, false);
+                        const pathData = new PathData([controlPoints], false);
                         const divisions = 200;
-                        const { normals, binormals } = pathData.curve.computeFrenetFrames(divisions, false);
+                        const { normals, binormals } = pathData.curves[0].computeFrenetFrames(divisions, false);
                         
                         hostFollower.setPath(pathData);
                         hostFollower.setSpeed(this.settings.journey.speed);
@@ -140,7 +140,7 @@ export class JourneyChapter implements IAnimationChapter {
                             text.anchorX = 'center';
                             text.material.transparent = true;
                             text.fillOpacity = 0;
-                            const point = pathData.curve.getPointAt(chapter.progress);
+                            const point = pathData.curves[0].getPointAt(chapter.progress);
                             text.position.copy(point);
                             text.position.y += this.settings.journey.textVerticalOffset;
                             scene.add(text);
@@ -175,7 +175,7 @@ export class JourneyChapter implements IAnimationChapter {
                             targets.cameraTarget.position.copy(basePosition).add(offset);
             
                             const lookAtProgress = (hostFollower.progress + 0.05) % 1.0;
-                            const lookAtPosition = pathData.curve.getPointAt(lookAtProgress);
+                            const lookAtPosition = pathData.curves[0].getPointAt(lookAtProgress);
                             const lookAtOffset = new THREE.Vector3()
                                 .add(rightVec.clone().multiplyScalar(cameraOffset.x * this.settings.journey.horizontalRange * 0.2))
                                 .add(upVec.clone().multiplyScalar(cameraOffset.y * this.settings.journey.verticalRange * 0.2));

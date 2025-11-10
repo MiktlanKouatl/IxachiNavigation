@@ -37,10 +37,10 @@ export function runScene() {
             Math.sin(angle) * 10
         ));
     }
-    const pathData = new PathData(pathPoints, true); // true for closed loop
+    const pathData = new PathData([pathPoints], true); // true for closed loop
 
     // Optional: Visualize the path for debugging
-    const pathLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pathData.curve.getPoints(100)), new THREE.LineBasicMaterial({ color: 0x444444 }));
+    const pathLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pathData.curves[0].getPoints(100)), new THREE.LineBasicMaterial({ color: 0x444444 }));
     scene.add(pathLine);
 
     // 2. Create the PathFollower

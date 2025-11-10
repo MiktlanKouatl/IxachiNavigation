@@ -2,19 +2,21 @@
 import * as THREE from 'three';
 
 /**
- * Contiene la información inmutable y compartible de una curva.
+ * Contiene la información inmutable y compartible de una o más curvas.
  * Actúa como un "plano" que múltiples seguidores pueden usar.
  */
 export class PathData {
-    public readonly curve: THREE.CatmullRomCurve3;
+    public readonly curves: THREE.CatmullRomCurve3[];
     public readonly totalLength: number;
 
-    constructor(points: THREE.Vector3[], isClosedLoop: boolean = false) {
-        if (points.length < 2) {
-            throw new Error("PathData requiere al menos 2 puntos.");
+    constructor(paths: THREE.Vector3[][], isClosedLoop: boolean = false) {
+        if (paths.length === 0 || paths.some(p => p.length < 2)) {
+            throw new Error("PathData requiere al menos un camino con 2 o más puntos.");
         }
-        this.curve = new THREE.CatmullRomCurve3(points, isClosedLoop, 'catmullrom', 0.5);
-        this.totalLength = this.curve.getLength();
-        console.log(`🌀 [PathData] Creado un nuevo camino con ${points.length} puntos y una longitud de ${this.totalLength.toFixed(2)}.`);
+
+        this.curves = paths.map(points => new THREE.CatmullRomCurve3(points, isClosedLoop, 'catmullrom', 0.5));
+        this.totalLength = this.curves.reduce((sum, curve) => sum + curve.getLength(), 0);
+
+        console.log(`🌀 [PathData] Creado un nuevo PathData con ${this.curves.length} camino(s) y una longitud total de ${this.totalLength.toFixed(2)}.`);
     }
 }
