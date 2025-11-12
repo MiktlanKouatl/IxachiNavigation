@@ -26,7 +26,6 @@ export class ParticleDebugger {
         this.material = new THREE.ShaderMaterial({
             uniforms: {
                 u_positions: { value: null }, // This will be set externally
-                u_color: { value: new THREE.Color(0xff0000) }, // Red for high visibility
             },
             vertexShader,
             fragmentShader,

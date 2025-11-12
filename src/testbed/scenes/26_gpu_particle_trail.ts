@@ -38,7 +38,7 @@ export function runScene() {
     );
     scene.add(playerMesh);
 
-    // --- Controllers & Systems ---
+    // --- Controllers & Systems --- 
     const playerController = new PlayerController();
     const cameraController = new ChaseCameraController(camera, playerController);
     const colorManager = new ColorManager();

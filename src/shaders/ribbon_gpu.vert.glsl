@@ -11,87 +11,103 @@ uniform float uWidth;
 uniform sampler2D uPathTexture;
 uniform float uPathLength;
 
-// New uniforms for explicit mode control
-uniform int uUseMode; // 0: Static, 1: Reveal, 2: Trail
-uniform float uRevealProgress; // For Reveal mode
-uniform float uTrailHead;      // For Trail mode
-uniform float uTrailLength;    // For Trail mode
+uniform int uUseMode;
+uniform float uRevealProgress;
+uniform float uTrailHead;
+uniform float uTrailLength;
 
 vec4 getPoint(float progress) {
-    // Use fract to allow paths to loop
-    return texture2D(uPathTexture, vec2(fract(progress), 0.0));
+    if (progress < 0.0 || progress > 1.0) {
+        return vec4(0.0/0.0);
+    }
+    vec4 pointData = texture2D(uPathTexture, vec2(progress, 0.0));
+    if (pointData.w < 0.5) {
+        return vec4(0.0/0.0);
+    }
+    return pointData;
+}
+
+vec2 safeNormalize(vec2 v) {
+    float len = length(v);
+    if (len > 0.0) {
+        return v / len;
+    }
+    return vec2(0.0);
 }
 
 void main() {
     vUv = uv;
-    vTrailUv = a_index; // Pass the original index for fragment shader fading
+    vTrailUv = a_index;
 
     float pointProgress = a_index;
     
-    // Read the full vec4 which includes our visibility flag in the 'w' component
-    vec4 currentPointData = getPoint(pointProgress);
-    float visibility = currentPointData.w; // Use visibility from texture
-    v_visibility = visibility;
-
-    // --- USE MODE LOGIC ---
-    if (uUseMode == 1) { // Reveal Mode
+    if (uUseMode == 1) {
         pointProgress = a_index;
         if (a_index > uRevealProgress) {
-            visibility = 0.0;
+            gl_Position = vec4(0.0/0.0);
+            return;
         }
-        vTrailUv = a_index / max(0.001, uRevealProgress); // Remap for fade
-
-    } else if (uUseMode == 2) { // Trail Mode
+        vTrailUv = a_index / max(0.001, uRevealProgress);
+    } else if (uUseMode == 2) {
         pointProgress = uTrailHead - a_index * uTrailLength;
-        vTrailUv = a_index; // Trail fade is over its own length
+        vTrailUv = a_index;
     }
-    // For Static mode (0), we use the visibility from the texture
 
-    // If vertex is not visible, collapse it to the origin to hide it.
-    if (visibility == 0.0) {
-        gl_Position = vec4(0.0, 0.0, 0.0, 0.0);
+    vec4 currentPointData = getPoint(pointProgress);
+    if (isnan(currentPointData.x)) {
+        gl_Position = vec4(0.0/0.0);
         return;
     }
+    v_visibility = currentPointData.w;
 
-    // --- GEOMETRY CALCULATION (same as before) ---
-    vec3 previousPoint = getPoint(pointProgress - 1.0 / uPathLength).rgb;
-    vec3 currentPoint = currentPointData.rgb;
-    vec3 nextPoint = getPoint(pointProgress + 1.0 / uPathLength).rgb;
+    // --- GEOMETRY CALCULATION (View Space) ---
+    vec4 prevPointData = getPoint(pointProgress - 1.0 / uPathLength);
+    vec4 nextPointData = getPoint(pointProgress + 1.0 / uPathLength);
 
-    vec4 prevProjected = projectionMatrix * modelViewMatrix * vec4(previousPoint, 1.0);
-    vec4 currentProjected = projectionMatrix * modelViewMatrix * vec4(currentPoint, 1.0);
-    vec4 nextProjected = projectionMatrix * modelViewMatrix * vec4(nextPoint, 1.0);
+    // Transform points to View Space
+    vec4 currentView = modelViewMatrix * vec4(currentPointData.rgb, 1.0);
+    vec4 prevView = modelViewMatrix * vec4(prevPointData.rgb, 1.0);
+    vec4 nextView = modelViewMatrix * vec4(nextPointData.rgb, 1.0);
 
-    vec2 currentScreen = currentProjected.xy / currentProjected.w;
-    vec2 prevScreen = prevProjected.xy / prevProjected.w;
-    vec2 nextScreen = nextProjected.xy / nextProjected.w;
-    
-    vec2 dir = vec2(1.0, 0.0);
+    vec2 dir;
 
-    if (a_index == 0.0) {
-        vec2 diff = nextScreen - currentScreen;
-        if (length(diff) > 0.0) dir = normalize(diff);
-    } else if (a_index == 1.0) {
-        vec2 diff = currentScreen - prevScreen;
-        if (length(diff) > 0.0) dir = normalize(diff);
+    bool hasPrev = !isnan(prevPointData.x);
+    bool hasNext = !isnan(nextPointData.x);
+
+    // Project to screen space ONLY for direction calculation. This is still a weak point.
+    // A true robust solution would use derivatives or normals calculated in 3D space.
+    // However, for a ribbon that should be camera-facing, this is a common approach.
+    vec2 currentScreen = currentView.xy / currentView.w;
+    vec2 prevScreen = prevView.xy / prevView.w;
+    vec2 nextScreen = nextView.xy / nextView.w;
+
+    if (hasPrev && hasNext) {
+        vec2 dir1 = safeNormalize(currentScreen - prevScreen);
+        vec2 dir2 = safeNormalize(nextScreen - currentScreen);
+        dir = safeNormalize(dir1 + dir2);
+    } else if (hasPrev) {
+        dir = safeNormalize(currentScreen - prevScreen);
+    } else if (hasNext) {
+        dir = safeNormalize(nextScreen - currentScreen);
     } else {
-        vec2 dir1 = currentScreen - prevScreen;
-        vec2 dir2 = nextScreen - currentScreen;
-        vec2 tangent = dir1 + dir2;
-        
-        if (length(tangent) > 0.0) {
-            dir = normalize(tangent);
-        } else if (length(dir2) > 0.0) {
-            dir = normalize(dir2);
-        }
+        dir = vec2(1.0, 0.0);
     }
     
+    if (length(dir) < 0.0001) {
+        dir = vec2(1.0, 0.0);
+    }
+
+    // The normal is perpendicular to the screen-space direction
     vec2 normal = vec2(-dir.y, dir.x);
-    normal.x /= uResolution.x / uResolution.y;
     
-    float width = uWidth * (1.0 / currentProjected.w);
+    // The width is applied in screen space, so it's constant
+    float aspect = uResolution.x / uResolution.y;
+    normal.x /= aspect;
+    normal *= uWidth;
+
+    // Project back to a 3D offset in view space
+    vec4 offset = vec4(normal * currentView.w, 0.0, 0.0);
     
-    currentProjected.xy += normal * side * width;
-    
-    gl_Position = currentProjected;
+    // Final position is the view-space point, plus the offset, projected to clip space
+    gl_Position = projectionMatrix * (currentView + offset * side);
 }

@@ -83,9 +83,29 @@ export class GPUParticleSystem {
         const posTexture = new THREE.DataTexture(posArray, this.numParticles, 1, THREE.RGBAFormat, THREE.FloatType);
         posTexture.needsUpdate = true;
 
-        // To initialize the render target, we render our data texture onto it.
+        // Use a custom shader for a guaranteed 1:1 copy of the data
         const copyScene = new THREE.Scene();
-        const copyMaterial = new THREE.MeshBasicMaterial({ map: posTexture });
+        const copyMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                u_texture: { value: posTexture }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                varying vec2 vUv;
+                uniform sampler2D u_texture;
+                void main() {
+                    gl_FragColor = texture2D(u_texture, vUv);
+                }
+            `
+        });
+        
+        // The plane needs to fill the screen to cover all pixels of the render target
         const copyMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), copyMaterial);
         copyScene.add(copyMesh);
 
@@ -97,6 +117,7 @@ export class GPUParticleSystem {
 
         copyMaterial.dispose();
         copyMesh.geometry.dispose();
+        posTexture.dispose(); // We can dispose the initial data texture now
     }
 
     public update(deltaTime: number, emitterPosition: THREE.Vector3, emitterVelocity: THREE.Vector3): void {
