@@ -20,6 +20,8 @@ import { runScene as runScene19 } from './scenes/19_cinematic_text_lab';
 import { runScene as runScene20 } from './scenes/20_main_journey_prototype';
 import { runScene as runScene21 } from './scenes/21_direct_journey_transition';
 import { runScene as runScene22 } from './scenes/22_logo_trace_loop';
+import { runScene as runScene24 } from './scenes/24_chase_camera_test';
+import { CreativeUniverseChapterTest } from './scenes/23_CreativeUniverseChapter_Test';
 
 console.log('🚀 Ixachi Components Testbed Initialized');
 
@@ -46,9 +48,60 @@ const scenes: { [key: string]: () => void } = {
     '20: Main Journey Prototype': runScene20,
     '21: Direct Journey Transition': runScene21,
     '22: Logo Trace Loop': runScene22,
+    '23: Creative Universe Chapter': () => runChapterTest(new CreativeUniverseChapterTest()),
+    '24: Chase Camera Test': runScene24,
 };
 
 let currentScene: string | null = null;
+
+// Generic chapter runner
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { AnimationTargets } from '../animation/AnimationTargets';
+import { AssetManager } from '../managers/AssetManager';
+import { ColorManager } from '../managers/ColorManager';
+import { IAnimationChapter } from '../animation/IAnimationChapter';
+
+async function runChapterTest(chapter: IAnimationChapter) {
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.getElementById('app')?.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    camera.position.z = 5;
+
+    const assetManager = new AssetManager();
+    const colorManager = new ColorManager();
+    await assetManager.loadAll();
+
+    const targets: AnimationTargets = {
+        scene,
+        camera,
+        assetManager,
+        colorManager,
+        cameraTarget: new THREE.Object3D(),
+        lookAtTarget: new THREE.Object3D(),
+        hostFollower: null as any,
+        hostRibbon: null as any,
+        hostSourceObject: new THREE.Object3D(),
+        movementController: null as any,
+        progressCircle: null as any,
+        progressUI: null as any,
+        enableDrawing: () => {},
+    };
+
+    chapter.start(null as any, targets);
+
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+    animate();
+}
+
 
 function loadScene(sceneIdentifier: string) {
     // Clean up previous scene if any
@@ -125,6 +178,6 @@ if (sceneFromUrl) {
     loadScene(sceneFromUrl);
 } else {
     // Load a default scene if none is specified in the URL
-    const defaultScene = '22: Logo Trace Loop';
+    const defaultScene = '24: Chase Camera Test';
     loadScene(defaultScene);
 }

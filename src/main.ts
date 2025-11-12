@@ -15,6 +15,7 @@ import { NavigationIntersection, NavigationChoice } from './core/navigation/Navi
 
 // UI
 import { IntersectionUIController } from './ui/IntersectionUIController';
+import { ColorManager } from './managers/ColorManager';
 
 // Animation Chapters
 import { AnimationTargets } from './animation/AnimationTargets';
@@ -45,6 +46,7 @@ export class IxachiExperience {
   private navigationController: NavigationController;
   private scrollManager: ScrollManager;
   private intersectionUI: IntersectionUIController;
+  private colorManager: ColorManager;
 
   // State & Camera
   private currentMode: ExperienceMode;
@@ -79,6 +81,7 @@ export class IxachiExperience {
     this.scrollManager = new ScrollManager();
     this.navigationController = new NavigationController(this.cameraTarget, this.lookAtTarget);
     this.intersectionUI = new IntersectionUIController(this.camera, this.scene);
+    this.colorManager = new ColorManager();
     // Director is initialized in init() after targets are created
 
     this.init();
@@ -113,12 +116,13 @@ export class IxachiExperience {
         progressCircle: this.progressCircle,
         progressUI: this.progressUI,
         movementController: this.movementController,
-        enableDrawing: () => { this.isDrawingEnabled = true; },
+        enableDrawing: (enabled: boolean = true) => { this.isDrawingEnabled = enabled; },
         scene: this.scene,
         assetManager: assetManager,
+        colorManager: this.colorManager,
     };
     this.director = new AnimationDirector(targets, this);
-    new AnimationControlPanel(assetManager, this.director);
+    new AnimationControlPanel(assetManager, this.director, this.colorManager);
     this.director.addChapter('FadeIn', new FadeInChapter());
     this.director.addChapter('Intro', new IntroChapter());
     this.director.addChapter('Loading', new LoadingChapter(assetManager));
@@ -198,7 +202,7 @@ export class IxachiExperience {
 
   private createHostRibbon(): RibbonLine {
     const config: RibbonConfig = {
-        color: new THREE.Color(0x00ffdd),
+        color: this.colorManager.getColor('accent'),
         width: 3.2,
         maxLength: 150,
         useMode: UseMode.Trail,
@@ -206,14 +210,18 @@ export class IxachiExperience {
         renderMode: RenderMode.Solid,
         fadeTransitionSize: 0.4,
     };
-    return new RibbonLine(config);
+    const ribbon = new RibbonLine(config);
+    this.colorManager.on('update', () => {
+        ribbon.material.uniforms.uColor.value.copy(this.colorManager.getColor('accent'));
+    });
+    return ribbon;
   }
 
   private createProgressCircle(): RibbonLine {
     const ellipse = new THREE.EllipseCurve(0, 0, 1.5, 1.5, 0, 2 * Math.PI, false, 0);
     const circlePoints = ellipse.getPoints(128).map(p => new THREE.Vector3(p.x, p.y, 0));
     const config: RibbonConfig = {
-        color: new THREE.Color(0xffffff),
+        color: this.colorManager.getColor('primary'),
         width: 3.0,
         maxLength: circlePoints.length,
         useMode: UseMode.Reveal,
@@ -223,6 +231,11 @@ export class IxachiExperience {
     circle.material.uniforms.uDrawProgress.value = 0;
     circle.material.uniforms.uWipeProgress.value = 0;
     circle.mesh.visible = false;
+
+    this.colorManager.on('update', () => {
+        circle.material.uniforms.uColor.value.copy(this.colorManager.getColor('primary'));
+    });
+
     return circle;
   }
 

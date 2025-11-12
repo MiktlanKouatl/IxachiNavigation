@@ -50,7 +50,7 @@ export class JourneyChapter implements IAnimationChapter {
                 public start(director: AnimationDirector, targets: AnimationTargets): Promise<void> {
                     return new Promise(resolve => {
                         console.log('JourneyChapter started');
-                        const { scene, camera, hostRibbon, hostFollower, movementController, lookAtTarget } = targets;
+                        const { scene, camera, hostRibbon, hostFollower, movementController, lookAtTarget, colorManager } = targets;
             
                         // --- Takeover ---
                         this.originalStrategy = movementController.getActiveStrategy();
@@ -90,8 +90,8 @@ export class JourneyChapter implements IAnimationChapter {
                             const ribbon = new ProceduralRibbonLine(pathData, {
                                 ...ribbonSettings,
                                 seed: Math.random() * 100,
-                                color: new THREE.Color().setHSL(Math.random(), 0.7, 0.6),
-                                colorEnd: new THREE.Color().setHSL(Math.random(), 0.7, 0.6),
+                                color: colorManager.getColor('ribbonDefault'),
+                                colorEnd: colorManager.getColor('ribbonDefault'),
                                 fadeStyle: FadeStyle.FadeInOut, // FadeIn
                                 fadeTransitionSize: 20.0,
                             });
@@ -100,6 +100,11 @@ export class JourneyChapter implements IAnimationChapter {
                             scene.add(ribbon.mesh);
                             this.disposables.push(ribbon);
                             ribbons.push(ribbon);
+
+                            colorManager.on('update', () => {
+                                ribbon.material.uniforms.uColor.value.copy(colorManager.getColor('ribbonDefault'));
+                                ribbon.material.uniforms.uColorEnd.value.copy(colorManager.getColor('ribbonDefault'));
+                            });
                         }
             
                         ribbons.forEach((ribbon, i) => {
@@ -136,7 +141,7 @@ export class JourneyChapter implements IAnimationChapter {
                             const text = new Text();
                             text.text = chapter.text;
                             text.fontSize = 1.5;
-                            text.color = 0xffffff;
+                            text.color = colorManager.getColor('primary');
                             text.anchorX = 'center';
                             text.material.transparent = true;
                             text.fillOpacity = 0;
@@ -146,6 +151,10 @@ export class JourneyChapter implements IAnimationChapter {
                             scene.add(text);
                             textObjects.push(text);
                             this.disposables.push(text);
+
+                            colorManager.on('update', () => {
+                                (text.material as THREE.MeshBasicMaterial).color.copy(colorManager.getColor('primary'));
+                            });
                         });
             
                         // --- Animation ---

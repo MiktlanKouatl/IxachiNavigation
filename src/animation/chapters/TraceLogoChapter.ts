@@ -54,11 +54,12 @@ export class TraceLogoChapter implements IAnimationChapter {
             }
 
             // --- Create Ribbons ---
+            const { colorManager } = targets;
             for (const curve of logoPathData.curves) {
                 const highResPoints = new PathData([curve.points]).curves[0].getPoints(150);
                 
                 const revealRibbon = new RibbonLine({
-                    color: new THREE.Color(0xffffff),
+                    color: colorManager.getColor('primary'),
                     width: 0.5,
                     maxLength: highResPoints.length,
                     useMode: UseMode.Reveal,
@@ -70,7 +71,7 @@ export class TraceLogoChapter implements IAnimationChapter {
                 this.revealRibbons.push(revealRibbon);
 
                 const trailConfig: RibbonConfig = {
-                    color: new THREE.Color().setHSL(Math.random(), 0.8, 0.6),
+                    color: colorManager.getColor('ribbonDefault'),
                     width: 0.5,
                     maxLength: highResPoints.length,
                     useMode: UseMode.Trail,
@@ -80,6 +81,12 @@ export class TraceLogoChapter implements IAnimationChapter {
                 const trailRibbon = new RibbonLineGPU(highResPoints, trailConfig);
                 this.logoContainer.add(trailRibbon.mesh);
                 this.trailRibbons.push(trailRibbon);
+
+                // Add listener for palette changes
+                colorManager.on('update', () => {
+                    revealRibbon.material.uniforms.uColor.value.copy(colorManager.getColor('primary'));
+                    trailRibbon.material.uniforms.uColor.value.copy(colorManager.getColor('ribbonDefault'));
+                });
             }
 
             // --- Reveal Animation ---

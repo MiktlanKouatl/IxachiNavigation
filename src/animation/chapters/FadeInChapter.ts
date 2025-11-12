@@ -16,24 +16,29 @@ export class FadeInChapter implements IAnimationChapter {
     };
 
     public start(director: AnimationDirector, targets: AnimationTargets): Promise<void> {
-        return new Promise<void>(resolve => {
-            this.timeline = gsap.timeline({
-                onComplete: () => resolve(), // Resolve the promise when the timeline finishes
-            });
+        const { colorManager } = targets;
+        const endColor = colorManager.getColor('background');
 
-            // Animate the body's background color
-            this.timeline.to('body', {
-                backgroundColor: this.params.endColor,
-                duration: this.params.duration,
-                ease: this.params.ease,
+        // Set the initial body background color if it's different
+        // This prevents a flash if the default CSS color is different from the palette's start color
+        gsap.set('body', { backgroundColor: `#${endColor.getHexString()}` });
+
+
+        // The chapter now resolves immediately as it just sets the state.
+        // The background color is now managed by the ColorManager listener.
+        colorManager.on('update', () => {
+            gsap.to('body', {
+                backgroundColor: `#${colorManager.getColor('background').getHexString()}`,
+                duration: 1.0, // Smooth transition on palette change
+                ease: 'power1.inOut',
             });
         });
+
+        return Promise.resolve();
     }
 
     public stop(): void {
-        if (this.timeline) {
-            this.timeline.kill(); // Kill the timeline to stop and clean up animations
-            this.timeline = null;
-        }
+        // No timeline to kill anymore, but we might want to remove the listener
+        // For now, we'll leave it active to allow dynamic palette changes.
     }
 }
