@@ -1,16 +1,18 @@
-// This shader reads particle positions from a texture (calculated by the compute shader)
-// and places a vertex at that position.
+// src/shaders/particle_render.vert.glsl
 
-uniform sampler2D u_positions_texture; // The result of our GPGPU compute pass
-uniform mat4 modelViewMatrix;
-uniform mat4 projectionMatrix;
-
-attribute vec2 uv; // We use UVs to look up the correct texel in the texture
+uniform sampler2D u_particlePositions; // Texture with all particle positions
+uniform float u_numParticles; // Total number of particles
 
 void main() {
-    // Fetch the position from the texture
-    vec3 pos = texture2D(u_positions_texture, uv).xyz;
+    // Use gl_VertexID to figure out which particle this vertex corresponds to
+    float particleIndex = floor(gl_VertexID / 2.0);
+    
+    // Calculate the UV coordinates to look up the particle's position in the texture
+    float u = (particleIndex + 0.5) / u_numParticles; // +0.5 to sample center of texel
+    float v = 0.5;
 
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-    gl_PointSize = 2.0; // We can make this dynamic later
+    vec3 particlePos = texture2D(u_particlePositions, vec2(u, v)).xyz;
+
+    // Final vertex position
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(particlePos, 1.0);
 }

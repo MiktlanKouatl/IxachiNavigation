@@ -10,12 +10,17 @@ uniform float uTransitionSize;
 uniform float uFadeTransitionSize;
 
 varying vec2 vUv;
-// [!code ++] La declaración clave que faltaba en tu archivo
 varying float vTrailUv;
+varying float v_visibility;
 
 void main() {
+  // If the vertex shader determined this particle is not visible, discard immediately.
+  // This is a more robust way to handle visibility.
+  if (v_visibility < 0.5) {
+    discard;
+  }
+
   // --- 1. CÁLCULO DE COLOR BASE ---
-  // El ColorMix sigue usando vUv.x porque se aplica a la textura completa
   float mixFactor = clamp(smoothstep(uColorMix - uTransitionSize, uColorMix, vUv.x), 0.0, 1.0);
   vec3 finalRgb = mix(uColor, uColorEnd, mixFactor);
   
@@ -30,11 +35,9 @@ void main() {
   
   // --- 3. CÁLCULO DE VISIBILIDAD (FadeStyle) ---
   float visibility = 1.0;
-  
   float fadeFactor = 1.0;
   float t = uFadeTransitionSize;
 
-  // [!code ++] Lógica de FADE corregida para usar vTrailUv
   float fadeIn = smoothstep(0.0, t, vTrailUv);
   float fadeOut = 1.0 - smoothstep(1.0 - t, 1.0, vTrailUv);
 

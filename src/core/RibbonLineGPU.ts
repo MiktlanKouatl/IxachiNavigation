@@ -128,9 +128,25 @@ export class RibbonLineGPU {
         this.material.uniforms.uWidth.value = width;
     }
 
+    /**
+     * Sets an external DataTexture to be used as the source for the ribbon's path.
+     * This allows the ribbon to be driven by dynamic data, e.g., from a GPU particle system.
+     * @param texture The DataTexture containing the path points.
+     */
+    public setPathTexture(texture: THREE.DataTexture): void {
+        this.material.uniforms.uPathTexture.value = texture;
+    }
+
+    /**
+     * Updates the path length uniform, essential when using an external path texture.
+     * @param length The number of points in the path.
+     */
+    public setPathLength(length: number): void {
+        this.material.uniforms.uPathLength.value = length;
+    }
+
     public dispose(): void {
         this.geometry.dispose();
         this.material.dispose();
-        this.pathTexture.dispose();
     }
 }

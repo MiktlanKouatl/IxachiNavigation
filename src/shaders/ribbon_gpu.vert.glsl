@@ -4,6 +4,7 @@ attribute float a_index;
 attribute float side;
 varying vec2 vUv;
 varying float vTrailUv;
+varying float v_visibility;
 
 uniform vec2 uResolution;
 uniform float uWidth;
@@ -16,9 +17,9 @@ uniform float uRevealProgress; // For Reveal mode
 uniform float uTrailHead;      // For Trail mode
 uniform float uTrailLength;    // For Trail mode
 
-vec3 getPoint(float progress) {
+vec4 getPoint(float progress) {
     // Use fract to allow paths to loop
-    return texture2D(uPathTexture, vec2(fract(progress), 0.0)).rgb;
+    return texture2D(uPathTexture, vec2(fract(progress), 0.0));
 }
 
 void main() {
@@ -26,7 +27,11 @@ void main() {
     vTrailUv = a_index; // Pass the original index for fragment shader fading
 
     float pointProgress = a_index;
-    float visibility = 1.0;
+    
+    // Read the full vec4 which includes our visibility flag in the 'w' component
+    vec4 currentPointData = getPoint(pointProgress);
+    float visibility = currentPointData.w; // Use visibility from texture
+    v_visibility = visibility;
 
     // --- USE MODE LOGIC ---
     if (uUseMode == 1) { // Reveal Mode
@@ -40,7 +45,7 @@ void main() {
         pointProgress = uTrailHead - a_index * uTrailLength;
         vTrailUv = a_index; // Trail fade is over its own length
     }
-    // For Static mode (0), we just use the default pointProgress = a_index
+    // For Static mode (0), we use the visibility from the texture
 
     // If vertex is not visible, collapse it to the origin to hide it.
     if (visibility == 0.0) {
@@ -49,9 +54,9 @@ void main() {
     }
 
     // --- GEOMETRY CALCULATION (same as before) ---
-    vec3 previousPoint = getPoint(pointProgress - 1.0 / uPathLength);
-    vec3 currentPoint = getPoint(pointProgress);
-    vec3 nextPoint = getPoint(pointProgress + 1.0 / uPathLength);
+    vec3 previousPoint = getPoint(pointProgress - 1.0 / uPathLength).rgb;
+    vec3 currentPoint = currentPointData.rgb;
+    vec3 nextPoint = getPoint(pointProgress + 1.0 / uPathLength).rgb;
 
     vec4 prevProjected = projectionMatrix * modelViewMatrix * vec4(previousPoint, 1.0);
     vec4 currentProjected = projectionMatrix * modelViewMatrix * vec4(currentPoint, 1.0);

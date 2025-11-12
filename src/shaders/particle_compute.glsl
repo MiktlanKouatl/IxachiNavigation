@@ -1,16 +1,28 @@
-// Placeholder for GPGPU Compute Shader
-// This shader will be responsible for updating particle state (position, velocity, age).
+// src/shaders/particle_compute.glsl
 
-// We receive the previous state from a texture and write the new state.
-// uniform sampler2D u_positions_texture;
-// uniform sampler2D u_velocities_texture;
+uniform sampler2D u_positions; // Input positions (read)
+uniform vec3 u_emitterPos;     // The current position of the player
+
+varying vec2 vUv; // UV coordinates passed from the vertex shader
 
 void main() {
-    // TODO: Implement particle physics simulation here.
-    // 1. Read current position and velocity from textures.
-    // 2. Update velocity based on forces (e.g., attraction, noise).
-    // 3. Update position based on new velocity.
-    // 4. Check particle age and respawn if necessary at the emitter's position.
+    float textureWidth = float(textureSize(u_positions, 0).x);
     
-    gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); // Placeholder
+    // Calculate the U coordinate of the *previous* pixel in the texture
+    float previousPixelU = vUv.x - (1.0 / textureWidth);
+
+    vec4 newPos; // We now work with a vec4 to include the visibility flag (w)
+
+    // Check if we are the very first particle in the trail
+    if (previousPixelU < 0.0) {
+        // If so, take the fresh position from the emitter and mark it as visible
+        newPos = vec4(u_emitterPos, 1.0);
+    } else {
+        // Otherwise, take the full vec4 (position + visibility) of the particle in front of us
+        newPos = texture2D(u_positions, vec2(previousPixelU, 0.5));
+    }
+
+    // --- Output ---
+    // Write the calculated new position and visibility to the output texture
+    gl_FragColor = newPos;
 }

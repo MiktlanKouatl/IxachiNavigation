@@ -12,6 +12,7 @@ export class PlayerController {
     public speed: number = 0;
     public turnRate: number = 0; // Yaw rate
     public pitchRate: number = 0; // Pitch rate
+    public velocity: THREE.Vector3; // The direction and magnitude of movement per second
 
     // --- Configuration ---
     public maxSpeed: number = 30.0;
@@ -19,11 +20,12 @@ export class PlayerController {
     public pitchCorrectionSpeed: number = 2.0;
     
     // --- Private Input State ---
-    private keyboardState: { [key: string]: boolean } = {};
+    private keyboardState: { [key:string]: boolean } = {};
 
     constructor() {
         this.position = new THREE.Vector3(0, 0, 0);
         this.quaternion = new THREE.Quaternion();
+        this.velocity = new THREE.Vector3(0, 0, 0);
 
         window.addEventListener('keydown', (e) => { this.keyboardState[e.key.toLowerCase()] = true; });
         window.addEventListener('keyup', (e) => { this.keyboardState[e.key.toLowerCase()] = false; });
@@ -82,11 +84,18 @@ export class PlayerController {
 
         // --- Apply Movement ---
         const forwardVector = new THREE.Vector3(0, 0, -1).applyQuaternion(this.quaternion);
-        this.position.add(forwardVector.multiplyScalar(this.speed * deltaTime));
+        const displacement = forwardVector.multiplyScalar(this.speed * deltaTime);
+        this.position.add(displacement);
+
+        // --- Update Velocity Vector ---
+        if (deltaTime > 0) {
+            this.velocity.copy(displacement).divideScalar(deltaTime);
+        } else {
+            this.velocity.set(0, 0, 0);
+        }
     }
 
     public dispose(): void {
         // In a real app, you'd remove the event listeners here.
-        // For simplicity in the testbed, we'll leave them.
     }
 }
