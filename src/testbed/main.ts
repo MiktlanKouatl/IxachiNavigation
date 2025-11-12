@@ -21,6 +21,7 @@ import { runScene as runScene20 } from './scenes/20_main_journey_prototype';
 import { runScene as runScene21 } from './scenes/21_direct_journey_transition';
 import { runScene as runScene22 } from './scenes/22_logo_trace_loop';
 import { runScene as runScene24 } from './scenes/24_chase_camera_test';
+import { runScene as runScene25 } from './scenes/25_chase_camera_refactored';
 import { CreativeUniverseChapterTest } from './scenes/23_CreativeUniverseChapter_Test';
 
 console.log('🚀 Ixachi Components Testbed Initialized');
@@ -50,6 +51,7 @@ const scenes: { [key: string]: () => void } = {
     '22: Logo Trace Loop': runScene22,
     '23: Creative Universe Chapter': () => runChapterTest(new CreativeUniverseChapterTest()),
     '24: Chase Camera Test': runScene24,
+    '25: Chase Camera (Refactored)': runScene25,
 };
 
 let currentScene: string | null = null;
