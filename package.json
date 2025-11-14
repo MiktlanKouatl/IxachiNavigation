@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@types/kd-tree-javascript": "^1.0.3",
     "lil-gui": "^0.19.1",
     "typescript": "^5.0.2",
     "vite": "^4.4.5"
@@ -16,6 +17,7 @@
   "dependencies": {
     "@types/three": "^0.158.0",
     "gsap": "^3.13.0",
+    "kd-tree-javascript": "^1.0.3",
     "three": "^0.158.0",
     "troika-three-text": "^0.52.4",
     "troika-three-utils": "^0.52.4"

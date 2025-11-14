@@ -22,7 +22,8 @@ import { runScene as runScene21 } from './scenes/21_direct_journey_transition';
 import { runScene as runScene22 } from './scenes/22_logo_trace_loop';
 import { runScene as runScene24 } from './scenes/24_chase_camera_test';
 import { runScene as runScene25 } from './scenes/25_chase_camera_refactored';
-import { runScene as runScene26 } from './scenes/26_gpu_particle_trail';
+// import { runScene as runScene26 } from './scenes/26_gpu_particle_trail';
+import { runScene as runScene27 } from './scenes/27_creative_grid';
 import { CreativeUniverseChapterTest } from './scenes/23_CreativeUniverseChapter_Test';
 
 console.log('🚀 Ixachi Components Testbed Initialized');
@@ -53,7 +54,8 @@ const scenes: { [key: string]: () => void } = {
     '23: Creative Universe Chapter': () => runChapterTest(new CreativeUniverseChapterTest()),
     '24: Chase Camera Test': runScene24,
     '25: Chase Camera (Refactored)': runScene25,
-    '26: GPU Particle Trail': runScene26,
+    // '26: GPU Particle Trail': runScene26,
+    '27: Creative Grid': runScene27,
 };
 
 let currentScene: string | null = null;
@@ -182,6 +184,6 @@ if (sceneFromUrl) {
     loadScene(sceneFromUrl);
 } else {
     // Load a default scene if none is specified in the URL
-    const defaultScene = '26: GPU Particle Trail';
+    const defaultScene = '27: Creative Grid';
     loadScene(defaultScene);
 }
