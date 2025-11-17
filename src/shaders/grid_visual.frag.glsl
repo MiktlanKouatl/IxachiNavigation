@@ -1,12 +1,21 @@
-uniform vec3 uColor;
-uniform float uOpacity;
+// grid_visual.frag.glsl
+
+uniform sampler2D textureGridState;
+varying vec2 vUv;
 
 void main() {
-    // Crea un punto circular suave
-    float dist = length(gl_PointCoord - vec2(0.5));
-    float alpha = 1.0 - smoothstep(0.45, 0.5, dist);
+    // Look up the state of this grid cell
+    float gridValue = texture2D(textureGridState, vUv).r;
 
-    if (alpha < 0.01) discard;
+    if (gridValue < 0.01) {
+        discard; // Don't render pixels that are turned off
+    }
 
-    gl_FragColor = vec4(uColor, uOpacity * alpha);
+    // Make it glow from orange to bright yellow
+    vec3 color = mix(vec3(1.0, 0.5, 0.0), vec3(1.0, 1.0, 0.8), gridValue);
+    
+    // The alpha is also based on the grid value, but maybe not linearly
+    float alpha = smoothstep(0.0, 0.5, gridValue);
+
+    gl_FragColor = vec4(color * gridValue, alpha);
 }

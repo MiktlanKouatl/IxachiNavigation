@@ -1,16 +1,60 @@
-uniform float uTime;
-uniform float uPointSize;
+// grid_visual.vert.glsl
+
+#define PI 3.14159265359
+
+// Uniforms and attributes provided by Three.js
+// uniform mat4 modelViewMatrix;
+// uniform mat4 projectionMatrix;
+// attribute vec3 position;
+// attribute vec2 uv;
+
+// Grid dimensions for coordinate conversion
+uniform float gridColumns;
+uniform float gridRows;
+uniform float gridLayers;
+
+// Cylindrical projection uniforms
+uniform float cylinderRadius; // Base radius
+uniform float rowHeight;
+uniform float layerSpacing; // Spacing between concentric rings
+uniform float layersPerRegion;
+uniform vec3 parallaxSpeeds;
+uniform float cameraRotationY;
+
+varying vec2 vUv;
+
+// Function to convert grid coordinates to 3D concentric ring position
+vec3 gridToConcentricRings(vec3 gridPos) {
+    float column = gridPos.x;
+    float row = gridPos.y;
+    float layer = gridPos.z;
+
+    // --- Parallax Logic ---
+    float regionID = floor(layer / layersPerRegion);
+    float parallaxOffset = cameraRotationY * parallaxSpeeds[int(regionID)];
+
+    // --- Angle (from column) ---
+    float angle = (column / gridColumns) * 2.0 * PI + parallaxOffset;
+
+    // --- Radius (from layer) ---
+    float radius = cylinderRadius + layer * layerSpacing;
+
+    // --- X and Z (from angle and radius) ---
+    float x = radius * cos(angle);
+    float z = radius * sin(angle);
+    
+    // --- Y (from row) ---
+    float y = (row - gridRows / 2.0) * rowHeight;
+    
+    return vec3(x, y, z);
+}
 
 void main() {
-    vec3 pos = position;
-    
-    // Moveremos los puntos en Y para la animación de revelación
-    // pos.y += sin(pos.x * 0.1 + uTime) * 0.5; // Desactivado para depuración
+    vUv = uv;
 
-    vec4 modelViewPosition = modelViewMatrix * vec4(pos, 1.0);
-    gl_Position = projectionMatrix * modelViewPosition;
+    // Convert grid cell coordinate to 3D world position
+    vec3 worldPosition = gridToConcentricRings(position);
     
-    // Atenuación de tamaño corregida: los puntos lejanos son más pequeños,
-    // pero la fórmula está ajustada para ser visible desde lejos.
-    gl_PointSize = (uPointSize * 100.0) / -modelViewPosition.z;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(worldPosition, 1.0);
+    gl_PointSize = 2.0; // Reset to a smaller size
 }
