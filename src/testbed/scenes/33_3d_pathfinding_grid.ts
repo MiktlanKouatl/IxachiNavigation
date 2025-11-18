@@ -14,8 +14,13 @@ import computeShaderGridState from '../../shaders/grid_state_compute.glsl?raw';
 import gridVisualVertexShader from '../../shaders/grid_visual.vert.glsl?raw';
 import gridVisualFragmentShader from '../../shaders/grid_visual.frag.glsl?raw';
 
-export function runScene(app: { scene: THREE.Scene, camera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer }) {
-    const { scene, camera, renderer } = app;
+export function runScene() {
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
     renderer.setClearColor(0x000000, 1); // Set background to black
 
     // 1. Setup
@@ -355,30 +360,4 @@ export function runScene(app: { scene: THREE.Scene, camera: THREE.PerspectiveCam
         renderer.render(scene, camera);
     };
     renderer.setAnimationLoop(animate);
-
-    // 7. Cleanup
-    return () => {
-        renderer.setAnimationLoop(null);
-        scene.remove(points);
-        points.geometry.dispose();
-        points.material.dispose();
-
-        scene.remove(gridVisPoints);
-        gridVisPoints.geometry.dispose();
-        gridVisPoints.material.dispose();
-        
-        agentInfluenceRenderTarget.dispose();
-        agentInfluenceMaterial.dispose();
-        agentPointGeometry.dispose();
-
-        gridStateA.dispose();
-        gridStateB.dispose();
-        gridStateMaterial.dispose();
-        gridStateQuad.geometry.dispose();
-
-        initialAgentStateTexture.dispose();
-        initialGridStateTexture.dispose();
-        initialPositionTexture.dispose();
-        initialVelocityTexture.dispose();
-    };
 }
