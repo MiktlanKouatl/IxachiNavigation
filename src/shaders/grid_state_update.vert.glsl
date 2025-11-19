@@ -1,42 +1,32 @@
-// Vertex Shader for Grid State Update
-// This shader positions a "point" for each agent directly onto the 3D grid cell it occupies.
+// grid_state_update.vert.glsl
 
-uniform sampler2D texturePosition; // The texture containing agent positions (col, row, layer)
+// This vertex shader is used to draw the agent's influence "stamp".
+// It reads an agent's position from a texture and places a point
+// at the corresponding location on the grid's render target.
 
-// Grid dimensions needed to map 3D coords to a flattened 2D texture space
-uniform float gridColumns;
-uniform float gridRows;
-uniform float gridLayers;
-uniform vec2 resolution; // NEW: Declare resolution uniform
+// The texture containing all agent positions
+uniform sampler2D texturePosition; 
+
+// The UV coordinate for which agent we are currently drawing.
+attribute vec2 agentUv;
+
+// The size of the world the grid occupies.
+uniform vec2 worldSize;
 
 void main() {
-    // 'uv' is the lookup coordinate for this specific agent in the texturePosition map.
-    vec4 posData = texture2D(texturePosition, uv);
-    vec3 gridPos = posData.xyz; // (col, row, layer)
-    float is_alive = posData.w;
+    // Fetch the agent's 3D position from the GPGPU texture.
+    vec3 pos = texture2D(texturePosition, agentUv).xyz;
 
-    if (is_alive < 0.5) {
-        // Hide inactive agents by moving them off-screen.
-        gl_Position = vec4(-2.0, -2.0, -2.0, 0.0);
-        gl_PointSize = 0.0;
-    } else {
-        // Flatten the 3D grid coordinate into a 1D index.
-        // This is the core of the mapping logic.
-        float flatIndex = gridPos.x + gridPos.y * gridColumns + gridPos.z * (gridColumns * gridRows);
+    // --- Map 3D world position to 2D grid UV ---
+    // Normalize the agent's XY position from world space [-worldSize/2, +worldSize/2]
+    // to grid UV space [0, 1].
+    vec2 gridUv = (pos.xy / worldSize) + 0.5;
 
-        // Convert the 1D index into a 2D coordinate that matches the texel centers of our render target.
-        // 'resolution' is the dimensions of the texture we are rendering to (e.g., 96x96).
-        float u = mod(flatIndex, resolution.x);
-        float v = floor(flatIndex / resolution.x);
-        
-        // Normalize the coordinate to the range [-1.0, 1.0] for clip space.
-        // We add 0.5 to center the point on the texel.
-        vec2 clipSpacePos = (vec2(u, v) + 0.5) / resolution * 2.0 - 1.0;
-
-        // Set the final position. Z and W are standard for this kind of 2D rendering.
-        gl_Position = vec4(clipSpacePos, 0.0, 1.0);
-        
-        // The point size must be exactly 1.0 to ensure we only color one texel.
-        gl_PointSize = 1.0;
-    }
+    // --- Map grid UV to clip space ---
+    // We are rendering to a render target that covers the whole screen.
+    // We transform our [0, 1] UV to clip space [-1, 1].
+    gl_Position = vec4(gridUv * 2.0 - 1.0, 0.0, 1.0);
+    
+    // Set the point size. This could be a uniform to control brush size.
+    gl_PointSize = 2.0; 
 }

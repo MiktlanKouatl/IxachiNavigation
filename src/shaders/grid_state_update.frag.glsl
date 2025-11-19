@@ -1,20 +1,13 @@
-// grid_state_update.frag.glsl (now Agent Influence Shader)
-// This shader runs for each agent "point".
-// Its job is to output an "influence" vector (r, g, b, a) that will be used
-// by the grid_state_compute shader.
-// r: energy to add
-// a: update rule (0.0 = additive decay, 1.0 = direct write)
+// grid_state_update.frag.glsl
 
-uniform sampler2D textureAgentState;
+// This fragment shader outputs the "color" of the agent's brush.
+// This color represents the "energy" or "influence" that the agent
+// adds to the grid.
+
+uniform float influence;
 
 void main() {
-    // For now, we only have one behavior: the "Glow" brush.
-    // This brush adds 1.0 unit of energy and uses the additive decay rule.
-    
-    // In the future, we could read the agent's state and change the output:
-    // vec4 agentState = texture2D(textureAgentState, gl_PointCoord);
-    // float behaviorID = agentState.r;
-    // if (behaviorID == 1.0) { ... }
-
-    gl_FragColor = vec4(1.0, 0.0, 0.0, 0.0);
+    // Output a constant value. We use the red channel for energy.
+    // The other channels could be used for other properties in the future.
+    gl_FragColor = vec4(influence, 0.0, 0.0, 1.0);
 }

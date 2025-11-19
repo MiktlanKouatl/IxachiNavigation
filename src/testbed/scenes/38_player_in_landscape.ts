@@ -42,7 +42,7 @@ export default () => {
     // =================================================================
     // --- LANDSCAPE PARTICLE SYSTEM (from scene 37) ---
     // =================================================================
-    const LANDSCAPE_WORLD_SIZE = 40; // Make landscape bigger
+    const LANDSCAPE_WORLD_SIZE = 80; // Make landscape bigger
     const LANDSCAPE_AGENT_COUNT = 5000; // More particles for the landscape
     const LANDSCAPE_AGENT_TEXTURE_WIDTH = Math.ceil(Math.sqrt(LANDSCAPE_AGENT_COUNT));
     const LANDSCAPE_AGENT_TEXTURE_HEIGHT = LANDSCAPE_AGENT_TEXTURE_WIDTH;
@@ -129,6 +129,7 @@ export default () => {
         transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
     });
     const landscapeParticles = new THREE.Points(landscapeParticleGeometry, landscapeParticleMaterial);
+    landscapeParticles.frustumCulled = false; // Disable frustum culling
     scene.add(landscapeParticles);
 
     // =================================================================
@@ -144,7 +145,7 @@ export default () => {
 
     const playerRibbon = new RibbonLineGPU([], {
         color: colorManager.getColor('accent'),
-        width: 2.0,
+        width: 0.75, // Make player ribbon thinner
         maxLength: NUM_PLAYER_PARTICLES,
         useMode: UseMode.Static,
     });
