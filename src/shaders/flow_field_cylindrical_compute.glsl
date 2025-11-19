@@ -26,8 +26,10 @@ void main() {
     // The tangent to the circle at worldPos is (-y, x).
     vec3 tangent = vec3(-worldPos.y, worldPos.x, 0.0);
     
-    // Add a vertical component to create a helix
-    vec3 flowVector = normalize(tangent + vec3(0.0, 0.0, verticalSpeed));
+    // Add a bidirectional vertical component using a sine wave based on Y position
+    // This creates zones of upward and downward flow.
+    float bidirectionalZ = sin(worldPos.y * 0.5) * verticalSpeed; // 0.5 is a frequency multiplier
+    vec3 flowVector = normalize(tangent + vec3(0.0, 0.0, bidirectionalZ));
 
     // Safeguard: Avoid normalizing a zero vector, which results in NaN.
     if (length(flowVector) > 0.0) {

@@ -28,6 +28,7 @@ import { runScene as runScene33 } from './scenes/33_3d_pathfinding_grid';
 import runScene35 from './scenes/35_gpu_drawing_simulation';
 import runScene36 from './scenes/36_gpu_ring_landscape';
 import runScene37 from './scenes/37_cylindrical_flow_field';
+import runScene38 from './scenes/38_player_in_landscape';
 import { CreativeUniverseChapterTest } from './scenes/23_CreativeUniverseChapter_Test';
 
 console.log('🚀 Ixachi Components Testbed Initialized');
@@ -64,12 +65,13 @@ const scenes: { [key: string]: () => void } = {
     '35: GPGPU Drawing Simulation': runScene35,
     '36: GPU Ring Landscape': runScene36,
     '37: Cylindrical Flow Field': runScene37,
+    '38: Player in Landscape': runScene38,
 };
 
 let currentScene: string | null = null;
 
 // Generic chapter runner
-import * as THREE from 'three';
+import *as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { AnimationTargets } from '../animation/AnimationTargets';
 import { AssetManager } from '../managers/AssetManager';
@@ -192,6 +194,6 @@ if (sceneFromUrl) {
     loadScene(sceneFromUrl);
 } else {
     // Load a default scene if none is specified in the URL
-    const defaultScene = '37: Cylindrical Flow Field';
+    const defaultScene = '38: Player in Landscape';
     loadScene(defaultScene);
 }
