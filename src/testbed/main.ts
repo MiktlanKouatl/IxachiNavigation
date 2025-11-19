@@ -27,6 +27,7 @@ import { runScene as runScene27 } from './scenes/27_creative_grid';
 import { runScene as runScene33 } from './scenes/33_3d_pathfinding_grid';
 import runScene35 from './scenes/35_gpu_drawing_simulation';
 import runScene36 from './scenes/36_gpu_ring_landscape';
+import runScene37 from './scenes/37_cylindrical_flow_field';
 import { CreativeUniverseChapterTest } from './scenes/23_CreativeUniverseChapter_Test';
 
 console.log('🚀 Ixachi Components Testbed Initialized');
@@ -62,6 +63,7 @@ const scenes: { [key: string]: () => void } = {
     '33: 3D Pathfinding Grid': runScene33,
     '35: GPGPU Drawing Simulation': runScene35,
     '36: GPU Ring Landscape': runScene36,
+    '37: Cylindrical Flow Field': runScene37,
 };
 
 let currentScene: string | null = null;
@@ -190,6 +192,6 @@ if (sceneFromUrl) {
     loadScene(sceneFromUrl);
 } else {
     // Load a default scene if none is specified in the URL
-    const defaultScene = '36: GPU Ring Landscape';
+    const defaultScene = '37: Cylindrical Flow Field';
     loadScene(defaultScene);
 }

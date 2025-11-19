@@ -19,8 +19,9 @@ void main() {
     // Simple Euler integration
     vec3 newPos = pos + vel * delta;
 
-    // Boundary condition: if agent is outside the world, reset to a new random position.
-    if (abs(newPos.x) > worldSize / 2.0 || abs(newPos.y) > worldSize / 2.0) {
+    // Boundary condition: if agent is outside a circular radius, reset to a new random position.
+    float radius = length(newPos.xy);
+    if (radius > worldSize / 2.0) {
         // Use the particle's uv and the time to seed the random function
         float r1 = random(uv * time);
         float r2 = random(uv * time + vec2(0.1, 0.1));
