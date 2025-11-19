@@ -1,13 +1,22 @@
-// src/shaders/particle_render.frag.glsl
 
-varying float v_visibility; // Received from the vertex shader
+// particle_render.frag.glsl
+// Fragment shader to render GPGPU-driven particles.
+
+uniform vec3 particleColor;
 
 void main() {
-    if (v_visibility > 0.5) {
-        // Green for visible particles
-        gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0);
-    } else {
-        // Red for invisible particles (at origin)
-        gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+    // Create a soft, circular shape for the particle.
+    // 'gl_PointCoord' is a special variable for points that goes from 0.0 to 1.0
+    // across the point.
+    float dist = length(gl_PointCoord - vec2(0.5));
+    
+    // Smoothly fade out the edge of the circle.
+    float alpha = 1.0 - smoothstep(0.45, 0.5, dist);
+
+    if (alpha < 0.01) {
+        discard; // Don't render pixels that are fully transparent
     }
+
+    // Output the final color with the calculated alpha.
+    gl_FragColor = vec4(particleColor, alpha);
 }

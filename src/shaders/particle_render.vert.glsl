@@ -1,18 +1,25 @@
-// src/shaders/particle_render.vert.glsl
 
-uniform sampler2D u_particlePositions; // Texture with all particle positions
-uniform float u_numParticles; // Total number of particles
+// particle_render.vert.glsl
+// Vertex shader to render GPGPU-driven particles.
+
+uniform sampler2D texturePosition; // The texture containing all agent positions
+uniform float particleSize;
+uniform float cameraConstant; // Used for perspective-correct particle size
+
+// The 'uv' attribute is passed from our BufferGeometry. It tells this vertex
+// which agent's data to look up in the position texture.
+// It is automatically provided by Three.js, so we don't declare it here.
 
 void main() {
-    // Use gl_VertexID to figure out which particle this vertex corresponds to
-    float particleIndex = floor(gl_VertexID / 2.0);
-    
-    // Calculate the UV coordinates to look up the particle's position in the texture
-    float u = (particleIndex + 0.5) / u_numParticles; // +0.5 to sample center of texel
-    float v = 0.5;
+    // Look up the world position of this particle from the texture.
+    vec3 pos = texture2D(texturePosition, uv).xyz;
 
-    vec3 particlePos = texture2D(u_particlePositions, vec2(u, v)).xyz;
+    // Project the world position to screen space.
+    vec4 modelViewPosition = modelViewMatrix * vec4(pos, 1.0);
+    gl_Position = projectionMatrix * modelViewPosition;
 
-    // Final vertex position
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(particlePos, 1.0);
+    // Calculate particle size so it's consistent regardless of distance.
+    gl_PointSize = particleSize * (cameraConstant / -modelViewPosition.z);
 }
+
+
