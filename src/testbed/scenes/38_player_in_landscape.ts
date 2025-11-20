@@ -40,6 +40,8 @@ export default () => {
         speed: 6.0, // Increased to match the larger world size
         particleSize: 0.5,
         palette: 'NaranjaIxachi',
+        repulsionStrength: 5.0,
+        repulsionRadius: 10.0,
     };
     // The particle color is now managed by the ColorManager and its GUI, so we remove it from here.
 
@@ -98,12 +100,21 @@ export default () => {
     landscapeGpuCompute.setVariableDependencies(landscapeAgentVelocityVariable, [landscapeAgentPositionVariable, landscapeAgentVelocityVariable]);
     landscapeGpuCompute.setVariableDependencies(landscapeAgentPositionVariable, [landscapeAgentPositionVariable, landscapeAgentVelocityVariable]);
 
-    landscapeAgentVelocityVariable.material.uniforms['textureFlowField'] = new THREE.Uniform(flowFieldResult);
-    landscapeAgentVelocityVariable.material.uniforms['worldSize'] = new THREE.Uniform(LANDSCAPE_WORLD_SIZE);
-    landscapeAgentVelocityVariable.material.uniforms['speed'] = new THREE.Uniform(params.speed);
-    landscapeAgentPositionVariable.material.uniforms['delta'] = new THREE.Uniform(0.0);
-    landscapeAgentPositionVariable.material.uniforms['time'] = new THREE.Uniform(0.0);
-    landscapeAgentPositionVariable.material.uniforms['worldSize'] = new THREE.Uniform(LANDSCAPE_WORLD_SIZE);
+    // --- Set velocity shader uniforms ---
+    const velUniforms = landscapeAgentVelocityVariable.material.uniforms;
+    velUniforms['textureFlowField'] = new THREE.Uniform(flowFieldResult);
+    velUniforms['worldSize'] = new THREE.Uniform(LANDSCAPE_WORLD_SIZE);
+    velUniforms['speed'] = new THREE.Uniform(params.speed);
+    // Repulsion uniforms
+    velUniforms['u_playerPosition'] = new THREE.Uniform(new THREE.Vector3());
+    velUniforms['u_repulsionStrength'] = new THREE.Uniform(params.repulsionStrength);
+    velUniforms['u_repulsionRadius'] = new THREE.Uniform(params.repulsionRadius);
+
+    // --- Set position shader uniforms ---
+    const posUniforms = landscapeAgentPositionVariable.material.uniforms;
+    posUniforms['delta'] = new THREE.Uniform(0.0);
+    posUniforms['time'] = new THREE.Uniform(0.0);
+    posUniforms['worldSize'] = new THREE.Uniform(LANDSCAPE_WORLD_SIZE);
     
     const landscapeAgentError = landscapeGpuCompute.init();
     if (landscapeAgentError !== null) { console.error('Landscape GPGPU Error: ' + landscapeAgentError); }
@@ -177,8 +188,9 @@ export default () => {
 
         // --- Update Landscape System ---
         landscapeGpuCompute.compute();
-        landscapeAgentPositionVariable.material.uniforms['delta'].value = delta;
-        landscapeAgentPositionVariable.material.uniforms['time'].value = time;
+        posUniforms.delta.value = delta;
+        posUniforms.time.value = time;
+        velUniforms.u_playerPosition.value.copy(playerController.position);
         landscapeParticleMaterial.uniforms.texturePosition.value = landscapeGpuCompute.getCurrentRenderTarget(landscapeAgentPositionVariable).texture;
 
         // --- Update Player System ---
@@ -207,10 +219,17 @@ export default () => {
     });
 
     // --- UI ---
-    gui.add(params, 'speed', 0.1, 10, 0.1).name('Agent Speed').onChange(v => { landscapeAgentVelocityVariable.material.uniforms.speed.value = v; });
-    gui.add(params, 'particleSize', 0, 1, 0.01).name('Particle Size').onChange(v => { landscapeParticleMaterial.uniforms.particleSize.value = v; });
-    gui.addColor(landscapeParticleMaterial.uniforms.particleColor, 'value').name('Particle Color'); // Directly control the uniform
-    gui.add(params, 'palette', ['NaranjaIxachi', 'BosqueEncantado']).name('Color Palette').onChange((v: string) => {
+    const worldFolder = gui.addFolder('World');
+    worldFolder.add(params, 'speed', 0.1, 20, 0.1).name('Agent Speed').onChange(v => { velUniforms.speed.value = v; });
+    worldFolder.add(params, 'particleSize', 0, 1, 0.01).name('Particle Size').onChange(v => { landscapeParticleMaterial.uniforms.particleSize.value = v; });
+    
+    const interactionFolder = gui.addFolder('Interaction');
+    interactionFolder.add(params, 'repulsionStrength', 0, 20, 0.1).name('Repulsion Strength').onChange(v => { velUniforms.u_repulsionStrength.value = v; });
+    interactionFolder.add(params, 'repulsionRadius', 0, 50, 0.1).name('Repulsion Radius').onChange(v => { velUniforms.u_repulsionRadius.value = v; });
+
+    const colorFolder = gui.addFolder('Colors');
+    colorFolder.addColor(landscapeParticleMaterial.uniforms.particleColor, 'value').name('Particle Color'); // Directly control the uniform
+    colorFolder.add(params, 'palette', ['NaranjaIxachi', 'BosqueEncantado']).name('Color Palette').onChange((v: string) => {
         colorManager.setPalette(v);
     });
 
