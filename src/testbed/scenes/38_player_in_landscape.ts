@@ -24,6 +24,8 @@ export default () => {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x111111);
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+    camera.far = 5000; // Increase far clipping plane for larger world
+    camera.updateProjectionMatrix();
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
@@ -35,7 +37,7 @@ export default () => {
 
     const gui = new GUI();
     const params = {
-        speed: 2.0,
+        speed: 6.0, // Increased to match the larger world size
         particleSize: 0.5,
         palette: 'NaranjaIxachi',
     };
@@ -47,7 +49,7 @@ export default () => {
     // =================================================================
     // --- LANDSCAPE PARTICLE SYSTEM (from scene 37) ---
     // =================================================================
-    const LANDSCAPE_WORLD_SIZE = 80; // Make landscape bigger
+    const LANDSCAPE_WORLD_SIZE = 240; // Make landscape bigger
     const LANDSCAPE_AGENT_COUNT = 5000; // More particles for the landscape
     const LANDSCAPE_AGENT_TEXTURE_WIDTH = Math.ceil(Math.sqrt(LANDSCAPE_AGENT_COUNT));
     const LANDSCAPE_AGENT_TEXTURE_HEIGHT = LANDSCAPE_AGENT_TEXTURE_WIDTH;
