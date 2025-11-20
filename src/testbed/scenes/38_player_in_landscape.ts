@@ -74,9 +74,10 @@ export default () => {
     const landscapeVelArray = landscapeVelData.image.data;
     for (let i = 0; i < LANDSCAPE_AGENT_COUNT; i++) {
         const i4 = i * 4;
-        landscapePosArray[i4 + 0] = (Math.random() - 0.5) * LANDSCAPE_WORLD_SIZE;
-        landscapePosArray[i4 + 1] = (Math.random() - 0.5) * LANDSCAPE_WORLD_SIZE;
-        landscapePosArray[i4 + 2] = (Math.random() - 0.5) * 20; // Start at random heights
+        // Distribute particles on the XZ plane (the ground)
+        landscapePosArray[i4 + 0] = (Math.random() - 0.5) * LANDSCAPE_WORLD_SIZE; // x
+        landscapePosArray[i4 + 1] = (Math.random() - 0.5) * 20; // y (height)
+        landscapePosArray[i4 + 2] = (Math.random() - 0.5) * LANDSCAPE_WORLD_SIZE; // z
 
         landscapeVelArray[i4 + 0] = 0.0;
         landscapeVelArray[i4 + 1] = 0.0;
@@ -152,6 +153,10 @@ export default () => {
     playerRibbon.setPathLength(NUM_PLAYER_PARTICLES);
     scene.add(playerRibbon.mesh);
 
+    // --- Dynamic Ribbon Width ---
+    const ribbonMaxWidth = 0.75;
+    const ribbonMinWidth = 0.1;
+
     // --- Animation Loop ---
     const clock = new THREE.Clock();
     function animate() {
@@ -172,6 +177,11 @@ export default () => {
         // --- Update Player System ---
         playerParticleSystem.update(delta, playerController.position, playerController.velocity);
         playerRibbon.setPathTexture(playerParticleSystem.getPositionTexture());
+
+        // Update ribbon width based on speed
+        const speedRatio = Math.min(Math.abs(playerController.speed) / playerController.maxSpeed, 1.0);
+        const newWidth = THREE.MathUtils.lerp(ribbonMaxWidth, ribbonMinWidth, speedRatio);
+        playerRibbon.setWidth(newWidth);
 
         // --- Render ---
         renderer.render(scene, camera);

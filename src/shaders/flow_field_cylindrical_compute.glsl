@@ -8,7 +8,7 @@ uniform vec3 parallaxSpeeds; // (Fast, Medium, Slow)
 uniform float verticalSpeed;
 
 void main() {
-    // Map the pixel coordinate to a position in our simulation world.
+    // Map the pixel coordinate to a position in our simulation world (X, Z plane).
     vec2 worldPos = (gl_FragCoord.xy / resolution.xy - 0.5) * worldSize;
     float radius = length(worldPos);
 
@@ -22,14 +22,15 @@ void main() {
         speed = parallaxSpeeds.z; // Slow speed
     }
 
-    // --- 2. Calculate Helical Flow Vector ---
-    // The tangent to the circle at worldPos is (-y, x).
-    vec3 tangent = vec3(-worldPos.y, worldPos.x, 0.0);
+    // --- 2. Calculate Helical Flow Vector on XZ Plane ---
+    // The tangent to the circle on the XZ plane at (x,z) is (-z, 0, x).
+    // Here, worldPos.x is x and worldPos.y is z.
+    vec3 tangent = vec3(-worldPos.y, 0.0, worldPos.x);
     
-    // Add a bidirectional vertical component using a sine wave based on Y position
+    // Add a bidirectional vertical (Y-axis) component using a sine wave based on Z position
     // This creates zones of upward and downward flow.
-    float bidirectionalZ = sin(worldPos.y * 0.5) * verticalSpeed; // 0.5 is a frequency multiplier
-    vec3 flowVector = normalize(tangent + vec3(0.0, 0.0, bidirectionalZ));
+    float verticalFlow = sin(worldPos.y * 0.5) * verticalSpeed; // 0.5 is a frequency multiplier
+    vec3 flowVector = tangent + vec3(0.0, verticalFlow, 0.0);
 
     // Safeguard: Avoid normalizing a zero vector, which results in NaN.
     if (length(flowVector) > 0.0) {

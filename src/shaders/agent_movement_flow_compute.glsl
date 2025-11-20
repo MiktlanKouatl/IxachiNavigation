@@ -13,8 +13,8 @@ void main() {
     vec3 vel = texture2D(textureVelocity, uv).xyz;
 
     // --- Flow Field Following ---
-    // 1. Convert the agent's world position to a UV coordinate for the flow field texture.
-    vec2 flowUv = pos.xy / worldSize + 0.5;
+    // 1. Convert the agent's world position (on the XZ plane) to a UV coordinate for the flow field texture.
+    vec2 flowUv = pos.xz / worldSize + 0.5;
 
     // 2. Look up the desired direction from the flow field.
     vec3 desiredDirection = texture2D(textureFlowField, flowUv).xyz;
@@ -35,8 +35,8 @@ void main() {
     }
 
     // --- Boundary Conditions ---
-    // If an agent goes off-screen, reset its position to the center.
-    if (abs(pos.x) > worldSize / 2.0 || abs(pos.y) > worldSize / 2.0) {
+    // If an agent goes off the XZ-plane, reset its position to the center.
+    if (abs(pos.x) > worldSize / 2.0 || abs(pos.z) > worldSize / 2.0) {
         newVel = vec3(0.0, 0.0, 0.0); // This will be handled by the position shader
     }
 
