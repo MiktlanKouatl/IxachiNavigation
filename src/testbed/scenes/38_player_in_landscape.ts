@@ -202,6 +202,12 @@ export default () => {
         const newWidth = THREE.MathUtils.lerp(ribbonMaxWidth, ribbonMinWidth, speedRatio);
         playerRibbon.setWidth(newWidth);
 
+        // Update landscape particle size based on speed
+        const particleMaxSize = params.particleSize;
+        const particleMinSize = 0.1; // Or some other small value
+        const newParticleSize = THREE.MathUtils.lerp(particleMaxSize, particleMinSize, speedRatio);
+        landscapeParticleMaterial.uniforms.particleSize.value = newParticleSize;
+
         // --- Render ---
         renderer.render(scene, camera);
     }
