@@ -31,13 +31,18 @@ export default () => {
     // --- Controllers ---
     const playerController = new PlayerController();
     const cameraController = new ChaseCameraController(camera, playerController);
+    const colorManager = new ColorManager(); // Instantiate ColorManager earlier
 
     const gui = new GUI();
     const params = {
         speed: 2.0,
         particleSize: 0.5,
-        particleColor: '#00ffff',
+        palette: 'NaranjaIxachi',
     };
+    // The particle color is now managed by the ColorManager and its GUI, so we remove it from here.
+
+    // Update scene background from palette
+    scene.background.copy(colorManager.getColor('background'));
 
     // =================================================================
     // --- LANDSCAPE PARTICLE SYSTEM (from scene 37) ---
@@ -124,7 +129,7 @@ export default () => {
         uniforms: {
             texturePosition: { value: null },
             particleSize: { value: params.particleSize },
-            particleColor: { value: new THREE.Color(params.particleColor) },
+            particleColor: { value: colorManager.getColor('ribbonDefault') }, // Use ColorManager
             cameraConstant: { value: getCameraConstant() }
         },
         transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
@@ -137,7 +142,6 @@ export default () => {
     // --- PLAYER PARTICLE SYSTEM (from scene 26) ---
     // =================================================================
     const NUM_PLAYER_PARTICLES = 50;
-    const colorManager = new ColorManager();
 
     const playerParticleSystem = new GPUParticleSystem({
         numParticles: NUM_PLAYER_PARTICLES,
@@ -167,6 +171,7 @@ export default () => {
         // --- Update Controllers ---
         playerController.update(delta);
         cameraController.update();
+        colorManager.update(delta); // Update color transitions
 
         // --- Update Landscape System ---
         landscapeGpuCompute.compute();
@@ -202,7 +207,24 @@ export default () => {
     // --- UI ---
     gui.add(params, 'speed', 0.1, 10, 0.1).name('Agent Speed').onChange(v => { landscapeAgentVelocityVariable.material.uniforms.speed.value = v; });
     gui.add(params, 'particleSize', 0, 1, 0.01).name('Particle Size').onChange(v => { landscapeParticleMaterial.uniforms.particleSize.value = v; });
-    gui.addColor(params, 'particleColor').name('Particle Color').onChange(v => { landscapeParticleMaterial.uniforms.particleColor.value.set(v); });
+    gui.addColor(landscapeParticleMaterial.uniforms.particleColor, 'value').name('Particle Color'); // Directly control the uniform
+    gui.add(params, 'palette', ['NaranjaIxachi', 'BosqueEncantado']).name('Color Palette').onChange((v: string) => {
+        colorManager.setPalette(v);
+    });
+
+    // --- Color Palette Change Handler ---
+    colorManager.on('update', () => {
+        // Update scene background
+        scene.background.copy(colorManager.getColor('background'));
+        // Update landscape particle color
+        landscapeParticleMaterial.uniforms.particleColor.value.copy(colorManager.getColor('ribbonDefault'));
+        // Update player ribbon color
+        playerRibbon.material.uniforms.uColor.value.copy(colorManager.getColor('accent'));
+        // If there's a colorEnd, update it too
+        if (playerRibbon.material.uniforms.uColorEnd) {
+             playerRibbon.material.uniforms.uColorEnd.value.copy(colorManager.getColor('primary'));
+        }
+    });
 
 
     // --- Cleanup ---

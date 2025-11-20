@@ -3,41 +3,40 @@ import { EventEmitter } from '../core/EventEmitter';
 
 export type HarmonyType = 'monochromatic' | 'analogous';
 
-// Un "Rol de Color" ahora define su tipo y, si es fijo, su valor.
 type ColorRole = {
     type: 'fixed';
     value: THREE.Color;
 } | {
-    type: 'harmonic'; // No necesita valor, se genera al momento.
+    type: 'harmonic';
 };
 
 export interface ColorPalette {
-    // Roles de color. Cada uno define su propio comportamiento.
+    name: string; // Add a name to the palette for easier identification
     primary: ColorRole;
     accent: ColorRole;
-    background: ColorRole; // El fondo casi siempre será fijo.
-    ribbonDefault: ColorRole; // Un nuevo rol para cintas genéricas.
-
-    // Reglas de armonía que se aplican a los roles 'harmonic'.
+    background: ColorRole;
+    ribbonDefault: ColorRole;
     harmonyBase: THREE.Color;
     harmonyType: HarmonyType;
 }
 
 const palettes: { [key: string]: ColorPalette } = {
     'NaranjaIxachi': {
-        primary: { type: 'fixed', value: new THREE.Color('#FFFFFF') }, // Logo siempre blanco
+        name: 'NaranjaIxachi',
+        primary: { type: 'fixed', value: new THREE.Color('#FFFFFF') },
         accent: { type: 'fixed', value: new THREE.Color('#FFDDC1') },
         background: { type: 'fixed', value: new THREE.Color('#111111') },
-        ribbonDefault: { type: 'harmonic' }, // Las cintas genéricas serán armónicas
+        ribbonDefault: { type: 'harmonic' },
         harmonyBase: new THREE.Color('#FF8C00'),
         harmonyType: 'monochromatic',
     },
     'BosqueEncantado': {
-        primary: { type: 'harmonic' }, // ¡El logo ahora tendrá colores dinámicos!
-        accent: { type: 'fixed', value: new THREE.Color('#F0E68C') }, // Acento dorado
-        background: { type: 'fixed', value: new THREE.Color('#011C01') }, // Verde muy oscuro
+        name: 'BosqueEncantado',
+        primary: { type: 'harmonic' },
+        accent: { type: 'fixed', value: new THREE.Color('#F0E68C') },
+        background: { type: 'fixed', value: new THREE.Color('#011C01') },
         ribbonDefault: { type: 'harmonic' },
-        harmonyBase: new THREE.Color('#2E8B57'), // Verde mar como base
+        harmonyBase: new THREE.Color('#2E8B57'),
         harmonyType: 'analogous',
     }
 };
@@ -45,47 +44,92 @@ const palettes: { [key: string]: ColorPalette } = {
 export class ColorManager extends EventEmitter {
     private currentPalette: ColorPalette;
 
+    // --- Transition State ---
+    private isTransitioning: boolean = false;
+    private transitionProgress: number = 0;
+    private transitionDuration: number = 1.5; // seconds
+    private sourcePalette: ColorPalette | null = null;
+    private targetPalette: ColorPalette | null = null;
+
     constructor(initialPalette: string = 'NaranjaIxachi') {
         super();
         this.currentPalette = palettes[initialPalette];
     }
 
     public setPalette(name: string): void {
-        if (palettes[name]) {
-            console.log(`🎨 Cambiando paleta de color a: ${name}`);
-            this.currentPalette = palettes[name];
-            this.emit('update', this.currentPalette);
+        if (this.isTransitioning || !palettes[name] || this.currentPalette.name === name) {
+            return;
         }
+
+        console.log(`🎨 Iniciando transición de paleta a: ${name}`);
+        this.sourcePalette = this.currentPalette;
+        this.targetPalette = palettes[name];
+        this.isTransitioning = true;
+        this.transitionProgress = 0;
     }
 
-    /**
-     * API Unificada: Obtiene el color para un rol, aplicando la lógica
-     * definida en la paleta (fijo o armónico).
-     */
-    public getColor(role: keyof Omit<ColorPalette, 'harmonyBase' | 'harmonyType'>): THREE.Color {
-        const colorRole = this.currentPalette[role];
+    public update(deltaTime: number): void {
+        if (!this.isTransitioning || !this.targetPalette) {
+            return;
+        }
+
+        this.transitionProgress += deltaTime / this.transitionDuration;
+        
+        if (this.transitionProgress >= 1.0) {
+            this.transitionProgress = 1.0;
+            this.isTransitioning = false;
+            this.currentPalette = this.targetPalette;
+            this.sourcePalette = null;
+            this.targetPalette = null;
+            console.log(`✅ Transición de paleta completada.`);
+        }
+        
+        // Emit update on every frame of the transition
+        this.emit('update');
+    }
+
+    public getColor(role: keyof Omit<ColorPalette, 'harmonyBase' | 'harmonyType' | 'name'>): THREE.Color {
+        if (!this.isTransitioning || !this.sourcePalette || !this.targetPalette) {
+            return this.getColorFromPalette(this.currentPalette, role);
+        }
+
+        const sourceColor = this.getColorFromPalette(this.sourcePalette, role);
+        const targetColor = this.getColorFromPalette(this.targetPalette, role);
+
+        // For harmonic roles, the generated color can be different each time.
+        // This can cause flickering during transitions. To make it stable, we'll
+        // generate it once and cache it, but for now a direct lerp is a good first step.
+        return sourceColor.clone().lerp(targetColor, this.transitionProgress);
+    }
+    
+    private getColorFromPalette(palette: ColorPalette, role: keyof Omit<ColorPalette, 'harmonyBase' | 'harmonyType' | 'name'>): THREE.Color {
+        const colorRole = palette[role];
 
         if (colorRole.type === 'fixed') {
             return colorRole.value;
         } else { // type === 'harmonic'
-            return this.generateHarmonicColor();
+            return this.generateHarmonicColor(palette);
         }
     }
 
-    private generateHarmonicColor(): THREE.Color {
-        const baseColor = this.currentPalette.harmonyBase;
-        const type = this.currentPalette.harmonyType;
+    private generateHarmonicColor(palette: ColorPalette): THREE.Color {
+        const baseColor = palette.harmonyBase;
+        const type = palette.harmonyType;
         const newColor = baseColor.clone();
         const hsl = { h: 0, s: 0, l: 0 };
         newColor.getHSL(hsl);
 
+        // Use a pseudo-random but deterministic approach to avoid flickering during lerp
+        const seed = hsl.h + hsl.s;
+        const randomValue = Math.sin(seed) * 0.5 + 0.5; // Deterministic "random" value
+
         switch (type) {
             case 'monochromatic':
-                const lightness = Math.random() * 0.4 + 0.3;
+                const lightness = randomValue * 0.4 + 0.3; // 0.3 to 0.7
                 newColor.setHSL(hsl.h, hsl.s, lightness);
                 break;
             case 'analogous':
-                const hueShift = (Math.random() - 0.5) * 0.1;
+                const hueShift = (randomValue - 0.5) * 0.1; // -0.05 to +0.05
                 newColor.setHSL((hsl.h + hueShift + 1) % 1, hsl.s, hsl.l);
                 break;
         }
