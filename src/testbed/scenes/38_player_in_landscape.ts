@@ -143,8 +143,9 @@ export default () => {
     flowFieldVariable.material.uniforms['numLayers'] = new THREE.Uniform(9.0);
     flowFieldVariable.material.uniforms['parallaxSpeeds'] = new THREE.Uniform(new THREE.Vector3(1.0, 0.5, 0.25)); // Fast, Medium, Slow
     flowFieldVariable.material.uniforms['verticalSpeed'] = new THREE.Uniform(0.4);
-
-    flowFieldCompute.compute();
+    flowFieldVariable.material.uniforms['u_time'] = new THREE.Uniform(0.0); // New uniform for time
+    
+    // flowFieldCompute.compute(); // THIS IS MOVED TO THE ANIMATE LOOP
     const flowFieldResult = flowFieldCompute.getCurrentRenderTarget(flowFieldVariable).texture;
 
     // --- 2. Create Landscape Agent Simulation ---
@@ -258,6 +259,10 @@ export default () => {
         cameraController.update();
         colorManager.update(delta); // Update color transitions
         ringController.update(delta, playerController.position);
+
+        // --- Update Flow Field ---
+        flowFieldVariable.material.uniforms['u_time'].value = time;
+        flowFieldCompute.compute();
 
         // --- Update Landscape System ---
         landscapeGpuCompute.compute();
