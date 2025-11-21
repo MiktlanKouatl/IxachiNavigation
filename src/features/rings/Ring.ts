@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { RibbonLineGPU } from '../../core/RibbonLineGPU';
 import { RenderMode, RibbonConfig, UseMode, FadeStyle } from '../../core/RibbonLine';
+import gsap from 'gsap';
 
-export type RingState = 'active' | 'collected';
+export type RingState = 'active' | 'collecting' | 'collected';
 
-// This interface now defines the style properties with actual THREE.Color objects
 export interface RingStyle {
     radius: number;
     width: number;
@@ -26,7 +26,7 @@ export class Ring {
     public position: THREE.Vector3;
     
     private style: RingStyle;
-    private trailHead: number = Math.random(); // Start at a random point
+    private trailHead: number = Math.random();
 
     constructor(position: THREE.Vector3, type: string, tangent: THREE.Vector3, style: RingStyle) {
         this.position = position;
@@ -38,7 +38,7 @@ export class Ring {
 
         const ribbonConfig: RibbonConfig = {
             color: style.color,
-            colorEnd: style.colorEnd, // Use the end color for the gradient
+            colorEnd: style.colorEnd,
             width: style.width,
             maxLength: segments + 1,
             renderMode: RenderMode.Glow,
@@ -52,7 +52,6 @@ export class Ring {
         this.ribbon = new RibbonLineGPU(circlePoints, ribbonConfig);
         this.ribbon.mesh.position.copy(position);
         
-        // Orient the ring to face the direction of the path
         this.ribbon.mesh.lookAt(position.clone().add(tangent));
     }
 
@@ -73,18 +72,51 @@ export class Ring {
     }
 
     public collect() {
-        if (this.state === 'active') {
-            this.state = 'collected';
-            // Make the trail stop and fade to a solid collected color
-            this.ribbon.material.uniforms.uColor.value = this.style.collectedColor;
-            this.ribbon.material.uniforms.uColorEnd.value = this.style.collectedColor;
-            this.ribbon.setTrail(this.trailHead, 0.0);
-            this.ribbon.setOpacity(0.25);
-            console.log(`Ring of type '${this.type}' collected!`);
-        }
+        if (this.state !== 'active') return;
+
+        this.state = 'collecting';
+
+        const tl = gsap.timeline({
+            onComplete: () => {
+                this.ribbon.material.uniforms.uColor.value = this.style.collectedColor;
+                this.ribbon.material.uniforms.uColorEnd.value = this.style.collectedColor;
+                this.ribbon.mesh.scale.set(0.5, 0.5, 0.5);
+                
+                gsap.to(this.ribbon.mesh.scale, {
+                    x: 1, y: 1, z: 1,
+                    duration: 0.5,
+                    ease: 'power2.out'
+                });
+                gsap.to(this.ribbon.material.uniforms.uWidth, {
+                    value: this.style.width,
+                    duration: 0.5,
+                    ease: 'power2.out'
+                });
+                gsap.to(this.ribbon.material.uniforms.uOpacity, {
+                    value: 0.25,
+                    duration: 0.5
+                });
+                
+                this.ribbon.setTrail(0, 1.0);
+                this.state = 'collected';
+            }
+        });
+
+        // Animate out
+        tl.to(this.ribbon.mesh.scale, {
+            x: 4, y: 4, z: 4,
+            duration: 0.5,
+            ease: 'power2.in'
+        }, 0);
+        tl.to(this.ribbon.material.uniforms.uWidth, {
+            value: 0.0,
+            duration: 0.5,
+            ease: 'power1.in'
+        }, 0);
+        
+        console.log(`Ring of type '${this.type}' collection started!`);
     }
 
-    // Getter for backward compatibility with scene.add(ring.mesh)
     public get mesh(): THREE.Mesh {
         return this.ribbon.mesh;
     }
