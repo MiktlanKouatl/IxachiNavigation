@@ -10,6 +10,8 @@ import { ChaseCameraController } from '../../controls/ChaseCameraController';
 import { GPUParticleSystem } from '../../core/GPUParticleSystem';
 import { RibbonLineGPU, UseMode } from '../../core/RibbonLineGPU';
 import { ColorManager } from '../../managers/ColorManager';
+import { PathController } from '../../core/pathing/PathController';
+import { RingController } from '../../features/rings/RingController';
 
 // We will create all these shaders from scratch.
 // The '?raw' import syntax is from Vite and loads the file as a string.
@@ -34,6 +36,18 @@ export default () => {
     const playerController = new PlayerController();
     const cameraController = new ChaseCameraController(camera, playerController);
     const colorManager = new ColorManager(); // Instantiate ColorManager earlier
+    const pathController = new PathController();
+    const ringController = new RingController(scene, pathController);
+
+    // Add test rings
+    ringController.addRingAt(0.25, 'start_zone');
+    ringController.addRingAt(0.50, 'mid_point');
+    ringController.addRingAt(0.75, 'end_zone');
+
+    // Listen for ring collections
+    ringController.onRingCollected.on('collect', (data: { type: string, collectedCount: number }) => {
+        console.log(`Collected ring of type: "${data.type}". Total collected: ${data.collectedCount}.`);
+    });
 
     const gui = new GUI();
     const params = {
@@ -47,6 +61,36 @@ export default () => {
 
     // Update scene background from palette
     scene.background.copy(colorManager.getColor('background'));
+
+    // --- Road Visualization (from PathController) ---
+    const roadLineMaterial = new THREE.LineBasicMaterial({ color: 0x888888 }); // Can be controlled by ColorManager later
+    const pathCurve = pathController.getCurve();
+    const divisions = 200; // Should match PathController's divisions or be a configurable constant
+    const pathPoints = pathCurve.getPoints(divisions);
+    const roadWidth = 10; // This should also be configurable
+
+    const leftRoadPoints: THREE.Vector3[] = [];
+    const rightRoadPoints: THREE.Vector3[] = [];
+    const frenetFrames = pathCurve.computeFrenetFrames(divisions, true); // Closed loop
+
+    for (let i = 0; i <= divisions; i++) {
+        const point = pathPoints[i];
+        const binormal = frenetFrames.binormals[i];
+        const offsetVector = binormal.clone().multiplyScalar(roadWidth / 2);
+        leftRoadPoints.push(point.clone().sub(offsetVector));
+        rightRoadPoints.push(point.clone().add(offsetVector));
+    }
+
+    const leftRoadLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(leftRoadPoints), roadLineMaterial);
+    const rightRoadLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(rightRoadPoints), roadLineMaterial);
+    scene.add(leftRoadLine, rightRoadLine);
+
+    // Optional: Visualize camera path as a dotted line (for debugging)
+    const cameraPathGeometry = new THREE.BufferGeometry().setFromPoints(pathPoints);
+    const cameraPathMaterial = new THREE.LineDashedMaterial({ color: 0xff0000, dashSize: 1, gapSize: 0.5 });
+    const cameraPathObject = new THREE.Line(cameraPathGeometry, cameraPathMaterial);
+    cameraPathObject.computeLineDistances();
+    scene.add(cameraPathObject);
 
     // =================================================================
     // --- LANDSCAPE PARTICLE SYSTEM (from scene 37) ---
@@ -185,6 +229,7 @@ export default () => {
         playerController.update(delta);
         cameraController.update();
         colorManager.update(delta); // Update color transitions
+        ringController.update(playerController.position);
 
         // --- Update Landscape System ---
         landscapeGpuCompute.compute();
