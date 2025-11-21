@@ -1,15 +1,22 @@
 import * as THREE from 'three';
 import { RibbonLineGPU } from '../../core/RibbonLineGPU';
-import { RenderMode, RibbonConfig } from '../../core/RibbonLine';
+import { RenderMode, RibbonConfig, UseMode, FadeStyle } from '../../core/RibbonLine';
 
 export type RingState = 'active' | 'collected';
 
-// This interface is a subset of the one in RingController, defining what a Ring needs to know
-interface RingStyle {
+// This interface now defines the style properties with actual THREE.Color objects
+export interface RingStyle {
     radius: number;
     width: number;
     color: THREE.Color;
+    colorEnd: THREE.Color;
     collectedColor: THREE.Color;
+    trailSpeed: number;
+    trailLength: number;
+    fadeStyle: FadeStyle;
+    fadeTransitionSize: number;
+    colorMix: number;
+    transitionSize: number;
 }
 
 export class Ring {
@@ -19,6 +26,7 @@ export class Ring {
     public position: THREE.Vector3;
     
     private style: RingStyle;
+    private trailHead: number = Math.random(); // Start at a random point
 
     constructor(position: THREE.Vector3, type: string, tangent: THREE.Vector3, style: RingStyle) {
         this.position = position;
@@ -30,9 +38,15 @@ export class Ring {
 
         const ribbonConfig: RibbonConfig = {
             color: style.color,
+            colorEnd: style.colorEnd, // Use the end color for the gradient
             width: style.width,
             maxLength: segments + 1,
             renderMode: RenderMode.Glow,
+            useMode: UseMode.Trail,
+            fadeStyle: style.fadeStyle,
+            fadeTransitionSize: style.fadeTransitionSize,
+            colorMix: style.colorMix,
+            transitionSize: style.transitionSize,
         };
 
         this.ribbon = new RibbonLineGPU(circlePoints, ribbonConfig);
@@ -50,12 +64,22 @@ export class Ring {
         }
         return points;
     }
+    
+    public update(deltaTime: number): void {
+        if (this.state === 'active') {
+            this.trailHead = (this.trailHead + this.style.trailSpeed * deltaTime) % 1.0;
+            this.ribbon.setTrail(this.trailHead, this.style.trailLength);
+        }
+    }
 
     public collect() {
         if (this.state === 'active') {
             this.state = 'collected';
+            // Make the trail stop and fade to a solid collected color
             this.ribbon.material.uniforms.uColor.value = this.style.collectedColor;
-            this.ribbon.setOpacity(0.5); // Fade out slightly
+            this.ribbon.material.uniforms.uColorEnd.value = this.style.collectedColor;
+            this.ribbon.setTrail(this.trailHead, 0.0);
+            this.ribbon.setOpacity(0.25);
             console.log(`Ring of type '${this.type}' collected!`);
         }
     }

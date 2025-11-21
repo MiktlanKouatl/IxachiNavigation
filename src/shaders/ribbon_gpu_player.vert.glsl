@@ -1,4 +1,4 @@
-// src/shaders/ribbon_gpu.vert.glsl
+// src/shaders/ribbon_gpu_player.vert.glsl
 
 attribute float a_index;
 attribute float side;
@@ -17,8 +17,14 @@ uniform float uTrailHead;
 uniform float uTrailLength;
 
 vec4 getPoint(float progress) {
-    // Use fract to allow paths to loop
-    return texture2D(uPathTexture, vec2(fract(progress), 0.0));
+    if (progress < 0.0 || progress > 1.0) {
+        return vec4(0.0/0.0);
+    }
+    vec4 pointData = texture2D(uPathTexture, vec2(progress, 0.0));
+    if (pointData.w < 0.5) {
+        return vec4(0.0/0.0);
+    }
+    return pointData;
 }
 
 vec2 safeNormalize(vec2 v) {
@@ -44,8 +50,7 @@ void main() {
         vTrailUv = a_index / max(0.001, uRevealProgress);
     } else if (uUseMode == 2) {
         pointProgress = uTrailHead - a_index * uTrailLength;
-        // vTrailUv should represent the position within the visible trail segment (0 at tail, 1 at head)
-        vTrailUv = 1.0 - (uTrailHead - pointProgress) / uTrailLength;
+        vTrailUv = a_index;
     }
 
     vec4 currentPointData = getPoint(pointProgress);

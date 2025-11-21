@@ -8,7 +8,7 @@ import { GPUComputationRenderer } from '../../core/GPUComputationRenderer';
 import { PlayerController } from '../../controls/PlayerController';
 import { ChaseCameraController } from '../../controls/ChaseCameraController';
 import { GPUParticleSystem } from '../../core/GPUParticleSystem';
-import { RibbonLineGPU, UseMode } from '../../core/RibbonLineGPU';
+import { RibbonLineGPUPlayer, UseMode } from '../../core/RibbonLineGPUPlayer';
 import { ColorManager } from '../../managers/ColorManager';
 import { PathController } from '../../core/pathing/PathController';
 import { RingController } from '../../features/rings/RingController';
@@ -37,7 +37,7 @@ export default () => {
     const cameraController = new ChaseCameraController(camera, playerController);
     const colorManager = new ColorManager(); // Instantiate ColorManager earlier
     const pathController = new PathController();
-    const ringController = new RingController(scene, pathController);
+    const ringController = new RingController(scene, pathController, colorManager);
 
     // Add test rings
     // Big "event" rings
@@ -104,7 +104,7 @@ export default () => {
     // --- LANDSCAPE PARTICLE SYSTEM (from scene 37) ---
     // =================================================================
     const LANDSCAPE_WORLD_SIZE = 240; // Make landscape bigger
-    const LANDSCAPE_AGENT_COUNT = 5000; // More particles for the landscape
+    const LANDSCAPE_AGENT_COUNT = 500; // More particles for the landscape
     const LANDSCAPE_AGENT_TEXTURE_WIDTH = Math.ceil(Math.sqrt(LANDSCAPE_AGENT_COUNT));
     const LANDSCAPE_AGENT_TEXTURE_HEIGHT = LANDSCAPE_AGENT_TEXTURE_WIDTH;
 
@@ -122,7 +122,7 @@ export default () => {
     flowFieldVariable.material.uniforms['worldSize'] = new THREE.Uniform(LANDSCAPE_WORLD_SIZE);
     flowFieldVariable.material.uniforms['numLayers'] = new THREE.Uniform(9.0);
     flowFieldVariable.material.uniforms['parallaxSpeeds'] = new THREE.Uniform(new THREE.Vector3(1.0, 0.5, 0.25)); // Fast, Medium, Slow
-    flowFieldVariable.material.uniforms['verticalSpeed'] = new THREE.Uniform(0.2);
+    flowFieldVariable.material.uniforms['verticalSpeed'] = new THREE.Uniform(0.4);
 
     flowFieldCompute.compute();
     const flowFieldResult = flowFieldCompute.getCurrentRenderTarget(flowFieldVariable).texture;
@@ -213,7 +213,7 @@ export default () => {
         renderer: renderer,
     });
 
-    const playerRibbon = new RibbonLineGPU([], {
+    const playerRibbon = new RibbonLineGPUPlayer([], {
         color: colorManager.getColor('accent'),
         width: 0.75, // Make player ribbon thinner
         maxLength: NUM_PLAYER_PARTICLES,
@@ -237,7 +237,7 @@ export default () => {
         playerController.update(delta);
         cameraController.update();
         colorManager.update(delta); // Update color transitions
-        ringController.update(playerController.position);
+        ringController.update(delta, playerController.position);
 
         // --- Update Landscape System ---
         landscapeGpuCompute.compute();

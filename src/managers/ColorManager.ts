@@ -10,12 +10,17 @@ type ColorRole = {
     type: 'harmonic';
 };
 
-export interface ColorPalette {
+export type ColorPalette = {
     name: string; // Add a name to the palette for easier identification
     primary: ColorRole;
     accent: ColorRole;
     background: ColorRole;
     ribbonDefault: ColorRole;
+    // New roles for rings
+    ringEventPrimary: ColorRole;
+    ringEventSecondary: ColorRole;
+    ringCollectionPrimary: ColorRole;
+    ringCollectionSecondary: ColorRole;
     harmonyBase: THREE.Color;
     harmonyType: HarmonyType;
 }
@@ -27,6 +32,11 @@ const palettes: { [key: string]: ColorPalette } = {
         accent: { type: 'fixed', value: new THREE.Color('#FFDDC1') },
         background: { type: 'fixed', value: new THREE.Color('#111111') },
         ribbonDefault: { type: 'harmonic' },
+        // Ring Colors
+        ringEventPrimary: { type: 'fixed', value: new THREE.Color('#FF8C00') },
+        ringEventSecondary: { type: 'fixed', value: new THREE.Color('#FFDDC1') },
+        ringCollectionPrimary: { type: 'fixed', value: new THREE.Color('#00FFFF') },
+        ringCollectionSecondary: { type: 'fixed', value: new THREE.Color('#FFFFFF') },
         harmonyBase: new THREE.Color('#FF8C00'),
         harmonyType: 'monochromatic',
     },
@@ -36,6 +46,11 @@ const palettes: { [key: string]: ColorPalette } = {
         accent: { type: 'fixed', value: new THREE.Color('#F0E68C') },
         background: { type: 'fixed', value: new THREE.Color('#011C01') },
         ribbonDefault: { type: 'harmonic' },
+        // Ring Colors
+        ringEventPrimary: { type: 'fixed', value: new THREE.Color('#F0E68C') },
+        ringEventSecondary: { type: 'fixed', value: new THREE.Color('#FFFFFF') },
+        ringCollectionPrimary: { type: 'fixed', value: new THREE.Color('#2E8B57') },
+        ringCollectionSecondary: { type: 'fixed', value: new THREE.Color('#98FB98') },
         harmonyBase: new THREE.Color('#2E8B57'),
         harmonyType: 'analogous',
     }
