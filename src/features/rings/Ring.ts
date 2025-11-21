@@ -65,7 +65,7 @@ export class Ring {
     }
     
     public update(deltaTime: number): void {
-        if (this.state === 'active') {
+        if (this.state === 'active' || this.state === 'collected') {
             this.trailHead = (this.trailHead + this.style.trailSpeed * deltaTime) % 1.0;
             this.ribbon.setTrail(this.trailHead, this.style.trailLength);
         }
@@ -97,7 +97,6 @@ export class Ring {
                     duration: 0.5
                 });
                 
-                this.ribbon.setTrail(0, 1.0);
                 this.state = 'collected';
             }
         });

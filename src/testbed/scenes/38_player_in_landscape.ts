@@ -12,6 +12,7 @@ import { RibbonLineGPUPlayer, UseMode } from '../../core/RibbonLineGPUPlayer';
 import { ColorManager } from '../../managers/ColorManager';
 import { PathController } from '../../core/pathing/PathController';
 import { RingController } from '../../features/rings/RingController';
+import { SoundManager } from '../../managers/SoundManager';
 
 // We will create all these shaders from scratch.
 // The '?raw' import syntax is from Vite and loads the file as a string.
@@ -32,6 +33,20 @@ export default () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
     
+    // --- Audio ---
+    const listener = new THREE.AudioListener();
+    camera.add(listener);
+    const soundManager = new SoundManager(listener);
+
+    // Load sounds - NOTE: You need to place these sound files in the /public/sounds/ directory
+    console.log("INFO: Attempting to load placeholder sounds from /sounds/collect.mp3 and /sounds/event.mp3");
+    soundManager.load([
+        { name: 'collect', path: '/sounds/collect01.wav' },
+        { name: 'event', path: '/sounds/collect.wav' }
+    ]).catch(error => {
+        console.warn("Could not load sounds. Make sure they are in the /public/sounds/ directory.");
+    });
+
     // --- Controllers ---
     const playerController = new PlayerController();
     const cameraController = new ChaseCameraController(camera, playerController);
@@ -55,6 +70,11 @@ export default () => {
     // Listen for ring collections
     ringController.onRingCollected.on('collect', (data: { type: string, collectedCount: number }) => {
         console.log(`Collected ring of type: "${data.type}". Total collected: ${data.collectedCount}.`);
+        if (data.type === 'event') {
+            soundManager.play('event');
+        } else {
+            soundManager.play('collect', 0.5); // Play collection sound at a lower volume
+        }
     });
 
     const gui = new GUI();
