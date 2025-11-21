@@ -40,9 +40,17 @@ export default () => {
     const ringController = new RingController(scene, pathController);
 
     // Add test rings
-    ringController.addRingAt(0.25, 'start_zone');
-    ringController.addRingAt(0.50, 'mid_point');
-    ringController.addRingAt(0.75, 'end_zone');
+    // Big "event" rings
+    ringController.addRingAt(0.25, 'event');
+    ringController.addRingAt(0.50, 'event');
+    ringController.addRingAt(0.75, 'event');
+
+    // Smaller "collection" rings
+    for (let i = 0; i < 1; i += 0.05) {
+        if (i !== 0.25 && i !== 0.50 && i !== 0.75) { // Avoid placing on top of event rings
+            ringController.addRingAt(i, 'collection');
+        }
+    }
 
     // Listen for ring collections
     ringController.onRingCollected.on('collect', (data: { type: string, collectedCount: number }) => {
