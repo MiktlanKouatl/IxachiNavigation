@@ -12,10 +12,15 @@ uniform float uFadeTransitionSize;
 varying vec2 vUv;
 varying float vTrailUv;
 varying float v_visibility;
+varying float v_isDegenerateSegment; // Add this varying
 
 void main() {
+  // Discard if the vertex shader determined this segment is degenerate
+  if (v_isDegenerateSegment > 0.5) {
+    discard;
+  }
+
   // If the vertex shader determined this particle is not visible, discard immediately.
-  // This is a more robust way to handle visibility.
   if (v_visibility < 0.5) {
     discard;
   }

@@ -5,6 +5,7 @@ attribute float side;
 varying vec2 vUv;
 varying float vTrailUv;
 varying float v_visibility;
+varying float v_isDegenerateSegment; // Add this varying
 
 uniform vec2 uResolution;
 uniform float uWidth;
@@ -15,6 +16,8 @@ uniform int uUseMode;
 uniform float uRevealProgress;
 uniform float uTrailHead;
 uniform float uTrailLength;
+
+uniform float uMinSegmentLengthThreshold;
 
 vec4 getPoint(float progress) {
     if (progress < 0.0 || progress > 1.0) {
@@ -38,6 +41,7 @@ vec2 safeNormalize(vec2 v) {
 void main() {
     vUv = uv;
     vTrailUv = a_index;
+    v_isDegenerateSegment = 0.0; // Default to not degenerate
 
     float pointProgress = a_index;
     
@@ -64,6 +68,18 @@ void main() {
     vec4 prevPointData = getPoint(pointProgress - 1.0 / uPathLength);
     vec4 nextPointData = getPoint(pointProgress + 1.0 / uPathLength);
 
+    // Declare hasPrev and hasNext once, and use them throughout
+    bool hasPrev = !isnan(prevPointData.x);
+    bool hasNext = !isnan(nextPointData.x);
+
+    // Check for degenerate segments in 3D world space (segment between current and next point)
+    if (hasNext) {
+        float segmentLength = distance(currentPointData.rgb, nextPointData.rgb); // Distance from current to next point
+        if (segmentLength < uMinSegmentLengthThreshold) {
+            v_isDegenerateSegment = 1.0;
+        }
+    }
+
     // Transform points to View Space
     vec4 currentView = modelViewMatrix * vec4(currentPointData.rgb, 1.0);
     vec4 prevView = modelViewMatrix * vec4(prevPointData.rgb, 1.0);
@@ -71,16 +87,13 @@ void main() {
 
     vec2 dir;
 
-    bool hasPrev = !isnan(prevPointData.x);
-    bool hasNext = !isnan(nextPointData.x);
-
-    // Project to screen space ONLY for direction calculation. This is still a weak point.
-    // A true robust solution would use derivatives or normals calculated in 3D space.
-    // However, for a ribbon that should be camera-facing, this is a common approach.
+    // Project to screen space ONLY for direction calculation.
+    // Declare these variables BEFORE using them in the dir calculation block
     vec2 currentScreen = currentView.xy / currentView.w;
     vec2 prevScreen = prevView.xy / prevView.w;
     vec2 nextScreen = nextView.xy / nextView.w;
 
+    // Use the correctly declared hasPrev and hasNext for direction calculation
     if (hasPrev && hasNext) {
         vec2 dir1 = safeNormalize(currentScreen - prevScreen);
         vec2 dir2 = safeNormalize(nextScreen - currentScreen);
@@ -90,13 +103,12 @@ void main() {
     } else if (hasNext) {
         dir = safeNormalize(nextScreen - currentScreen);
     } else {
+        // If no valid prev or next, this is an isolated point.
+        // If it's a degenerate segment (v_isDegenerateSegment == 1.0), it will be discarded by frag shader.
+        // Otherwise, give it an arbitrary but non-zero direction to avoid issues with normal calculation.
         dir = vec2(1.0, 0.0);
     }
     
-    if (length(dir) < 0.0001) {
-        dir = vec2(1.0, 0.0);
-    }
-
     // The normal is perpendicular to the screen-space direction
     vec2 normal = vec2(-dir.y, dir.x);
     

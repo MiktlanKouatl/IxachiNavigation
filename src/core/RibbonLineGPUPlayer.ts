@@ -81,7 +81,10 @@ export class RibbonLineGPUPlayer {
                 // Mode-specific uniforms
                 uRevealProgress: { value: 1.0 }, // For UseMode.Reveal
                 uTrailHead: { value: 0.0 },      // For UseMode.Trail
-                uTrailLength: { value: 0.2 }     // For UseMode.Trail
+                uTrailLength: { value: 0.2 },     // For UseMode.Trail
+
+                // Artifact control
+                uMinSegmentLengthThreshold: { value: 0.01 } // Added for artifact control
             },
             vertexShader: vertexShader,
             fragmentShader: fragmentShader,

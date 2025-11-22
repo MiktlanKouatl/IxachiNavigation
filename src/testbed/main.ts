@@ -62,7 +62,7 @@ const scenes: { [key: string]: () => void } = {
     '25: Chase Camera (Refactored)': runScene25,
     // '26: GPU Particle Trail': runScene26,
     '27: Creative Grid': runScene27,
-    '33: 3D Pathfinding Grid': runCene33,
+    '33: 3D Pathfinding Grid': runScene33,
     '35: GPGPU Drawing Simulation': runScene35,
     '36: GPU Ring Landscape': runScene36,
     '37: Cylindrical Flow Field': runScene37,

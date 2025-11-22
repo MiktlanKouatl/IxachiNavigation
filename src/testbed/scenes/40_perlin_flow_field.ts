@@ -83,6 +83,7 @@ export default () => {
         speed: 6.0,
         particleSize: 0.5,
         minParticleSize: 0.1,
+        minSegmentLengthThreshold: 0.01, // New parameter
         palette: 'NaranjaIxachi',
         repulsionStrength: 5.0,
         repulsionRadius: 10.0,
@@ -316,6 +317,9 @@ export default () => {
     ribbonFolder.add(playerRibbon.material.uniforms.uFadeTransitionSize, 'value', 0, 1, 0.01).name('Fade Size');
     ribbonFolder.add(playerRibbon.material.uniforms.uColorMix, 'value', 0, 1, 0.01).name('Color Mix');
     ribbonFolder.add(playerRibbon.material.uniforms.uTransitionSize, 'value', 0, 1, 0.01).name('Color Transition');
+    ribbonFolder.add(params, 'minSegmentLengthThreshold', 0.0, 0.1, 0.001).name('Min Segment Length').onChange(v => {
+        playerRibbon.material.uniforms.uMinSegmentLengthThreshold.value = v;
+    });
 
     colorManager.on('update', () => {
         scene.background.copy(colorManager.getColor('background'));
