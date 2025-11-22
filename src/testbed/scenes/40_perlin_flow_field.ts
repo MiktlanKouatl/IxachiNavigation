@@ -9,6 +9,7 @@ import { PlayerController } from '../../controls/PlayerController';
 import { ChaseCameraController } from '../../controls/ChaseCameraController';
 import { GPUParticleSystem } from '../../core/GPUParticleSystem';
 import { RibbonLineGPUPlayer, UseMode } from '../../core/RibbonLineGPUPlayer';
+import { FadeStyle } from '../../core/RibbonLine';
 import { ColorManager } from '../../managers/ColorManager';
 import { PathController } from '../../core/pathing/PathController';
 import { RingController } from '../../features/rings/RingController';
@@ -225,10 +226,15 @@ export default () => {
         renderer: renderer,
     });
     const playerRibbon = new RibbonLineGPUPlayer([], {
-        color: colorManager.getColor('accent'),
+        color: new THREE.Color(0x00eeff),
+        colorEnd: new THREE.Color(0x0062ff),
         width: 0.75,
         maxLength: NUM_PLAYER_PARTICLES,
+        fadeStyle: FadeStyle.FadeOut,
         useMode: UseMode.Static,
+        fadeTransitionSize: 1,
+        colorMix: 0.1,
+        transitionSize: 0.1,
     });
     playerRibbon.setPathLength(NUM_PLAYER_PARTICLES);
     scene.add(playerRibbon.mesh);
@@ -301,13 +307,22 @@ export default () => {
         colorManager.setPalette(v);
     });
 
+    // --- Ribbon GUI ---
+    const ribbonFolder = gui.addFolder('Player Ribbon');
+    ribbonFolder.addColor(playerRibbon.material.uniforms.uColor, 'value').name('Color Start');
+    ribbonFolder.addColor(playerRibbon.material.uniforms.uColorEnd, 'value').name('Color End');
+    ribbonFolder.add(playerRibbon.material.uniforms.uFadeTransitionSize, 'value', 0, 1, 0.01).name('Fade Size');
+    ribbonFolder.add(playerRibbon.material.uniforms.uColorMix, 'value', 0, 1, 0.01).name('Color Mix');
+    ribbonFolder.add(playerRibbon.material.uniforms.uTransitionSize, 'value', 0, 1, 0.01).name('Color Transition');
+
     colorManager.on('update', () => {
         scene.background.copy(colorManager.getColor('background'));
         landscapeParticleMaterial.uniforms.particleColor.value.copy(colorManager.getColor('ribbonDefault'));
-        playerRibbon.material.uniforms.uColor.value.copy(colorManager.getColor('accent'));
-        if (playerRibbon.material.uniforms.uColorEnd) {
-             playerRibbon.material.uniforms.uColorEnd.value.copy(colorManager.getColor('primary'));
-        }
+        // We are now controlling ribbon color with the GUI, so we comment this out
+        // playerRibbon.material.uniforms.uColor.value.copy(colorManager.getColor('accent'));
+        // if (playerRibbon.material.uniforms.uColorEnd) {
+        //      playerRibbon.material.uniforms.uColorEnd.value.copy(colorManager.getColor('primary'));
+        // }
     });
 
     // --- Cleanup ---
