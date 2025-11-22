@@ -29,6 +29,7 @@ import runScene35 from './scenes/35_gpu_drawing_simulation';
 import runScene36 from './scenes/36_gpu_ring_landscape';
 import runScene37 from './scenes/37_cylindrical_flow_field';
 import runScene38 from './scenes/38_player_in_landscape';
+import runScene40 from './scenes/40_perlin_flow_field';
 import { CreativeUniverseChapterTest } from './scenes/23_CreativeUniverseChapter_Test';
 
 console.log('🚀 Ixachi Components Testbed Initialized');
@@ -66,6 +67,7 @@ const scenes: { [key: string]: () => void } = {
     '36: GPU Ring Landscape': runScene36,
     '37: Cylindrical Flow Field': runScene37,
     '38: Player in Landscape': runScene38,
+    '40: Perlin Flow Field': runScene40,
 };
 
 let currentScene: string | null = null;

@@ -1,22 +1,27 @@
-
 // particle_render.frag.glsl
 // Fragment shader to render GPGPU-driven particles.
 
-uniform vec3 particleColor;
+uniform sampler2D textureFlowField;
+uniform float worldSize;
+uniform vec3 particleColor; // We can still use this as a base or tint
+
+varying vec3 v_pos;
 
 void main() {
-    // Create a soft, circular shape for the particle.
-    // 'gl_PointCoord' is a special variable for points that goes from 0.0 to 1.0
-    // across the point.
+    // --- Dynamic Color from Flow Field ---
+    vec2 flowUv = v_pos.xz / worldSize + 0.5;
+    vec3 flowVector = texture2D(textureFlowField, flowUv).xyz;
+    vec3 flowColor = flowVector * 0.5 + 0.5; // Map [-1, 1] to [0, 1]
+
+    // --- Soft Particle Shape ---
     float dist = length(gl_PointCoord - vec2(0.5));
-    
-    // Smoothly fade out the edge of the circle.
     float alpha = 1.0 - smoothstep(0.45, 0.5, dist);
 
     if (alpha < 0.01) {
-        discard; // Don't render pixels that are fully transparent
+        discard;
     }
 
-    // Output the final color with the calculated alpha.
-    gl_FragColor = vec4(particleColor, alpha);
+    // Blend the flow color with a base particle color for more control
+    // For now, we just use the flow color directly.
+    gl_FragColor = vec4(flowColor, alpha);
 }
