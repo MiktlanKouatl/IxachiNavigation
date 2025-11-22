@@ -82,6 +82,7 @@ export default () => {
     const params = {
         speed: 6.0,
         particleSize: 0.5,
+        minParticleSize: 0.1,
         palette: 'NaranjaIxachi',
         repulsionStrength: 5.0,
         repulsionRadius: 10.0,
@@ -269,7 +270,7 @@ export default () => {
         const speedRatio = Math.min(Math.abs(playerController.speed) / playerController.maxSpeed, 1.0);
         const newWidth = THREE.MathUtils.lerp(ribbonMaxWidth, ribbonMinWidth, speedRatio);
         playerRibbon.setWidth(newWidth);
-        const newParticleSize = THREE.MathUtils.lerp(params.particleSize, 0.1, speedRatio);
+        const newParticleSize = THREE.MathUtils.lerp(params.particleSize, params.minParticleSize, speedRatio);
         landscapeParticleMaterial.uniforms.particleSize.value = newParticleSize;
 
         renderer.render(scene, camera);
@@ -291,6 +292,7 @@ export default () => {
     const worldFolder = gui.addFolder('World');
     worldFolder.add(params, 'speed', 0.1, 20, 0.1).name('Agent Speed').onChange(v => { velUniforms.speed.value = v; });
     worldFolder.add(params, 'particleSize', 0, 1, 0.01).name('Particle Size');
+    worldFolder.add(params, 'minParticleSize', 0, 1, 0.01).name('Min Particle Size');
 
     const flowFolder = gui.addFolder('Flow Field');
     flowFolder.add(params, 'noiseScale', 0, 0.1, 0.001).name('Noise Scale').onChange(v => { ffUniforms.u_noiseScale.value = v; });

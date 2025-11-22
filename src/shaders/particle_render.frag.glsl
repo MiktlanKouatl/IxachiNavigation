@@ -15,7 +15,8 @@ void main() {
 
     // --- Soft Particle Shape ---
     float dist = length(gl_PointCoord - vec2(0.5));
-    float alpha = 1.0 - smoothstep(0.45, 0.5, dist);
+    // Softer gradient from the very center to the edge
+    float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
 
     if (alpha < 0.01) {
         discard;
