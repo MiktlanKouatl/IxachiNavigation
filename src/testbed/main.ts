@@ -29,6 +29,7 @@ import runScene35 from './scenes/35_gpu_drawing_simulation';
 import runScene36 from './scenes/36_gpu_ring_landscape';
 import runScene37 from './scenes/37_cylindrical_flow_field';
 import runScene38 from './scenes/38_player_in_landscape';
+import runScene39 from './scenes/39_dynamic_flow_field';
 import { CreativeUniverseChapterTest } from './scenes/23_CreativeUniverseChapter_Test';
 
 console.log('🚀 Ixachi Components Testbed Initialized');
@@ -66,6 +67,7 @@ const scenes: { [key: string]: () => void } = {
     '36: GPU Ring Landscape': runScene36,
     '37: Cylindrical Flow Field': runScene37,
     '38: Player in Landscape': runScene38,
+	 '39: Dynamic Flow Field': runScene39,
 };
 
 let currentScene: string | null = null;
@@ -194,6 +196,6 @@ if (sceneFromUrl) {
     loadScene(sceneFromUrl);
 } else {
     // Load a default scene if none is specified in the URL
-    const defaultScene = '38: Player in Landscape';
+    const defaultScene = '39: Dynamic Flow Field';
     loadScene(defaultScene);
 }
