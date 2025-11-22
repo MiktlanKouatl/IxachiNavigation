@@ -62,7 +62,7 @@ const scenes: { [key: string]: () => void } = {
     '25: Chase Camera (Refactored)': runScene25,
     // '26: GPU Particle Trail': runScene26,
     '27: Creative Grid': runScene27,
-    '33: 3D Pathfinding Grid': runScene33,
+    '33: 3D Pathfinding Grid': runCene33,
     '35: GPGPU Drawing Simulation': runScene35,
     '36: GPU Ring Landscape': runScene36,
     '37: Cylindrical Flow Field': runScene37,
@@ -196,6 +196,6 @@ if (sceneFromUrl) {
     loadScene(sceneFromUrl);
 } else {
     // Load a default scene if none is specified in the URL
-    const defaultScene = '38: Player in Landscape';
+    const defaultScene = '39: Dynamic Flow Field';
     loadScene(defaultScene);
 }
