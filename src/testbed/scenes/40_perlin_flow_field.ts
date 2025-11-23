@@ -22,8 +22,99 @@ import agentMovementShader from '../../shaders/agent_movement_flow_compute.glsl?
 import agentPositionShader from '../../shaders/agent_position_compute.glsl?raw';
 import particleRenderVertexShader from '../../shaders/particle_render.vert.glsl?raw';
 import particleRenderFragmentShader from '../../shaders/particle_render.frag.glsl?raw';
+import cursorVertexShader from '../../shaders/cursor.vert.glsl?raw';
+import cursorFragmentShader from '../../shaders/cursor.frag.glsl?raw';
+
+// A new class for the pulsing cursor
+class PulsingCursor {
+    public mesh: THREE.Mesh;
+    public light: THREE.PointLight;
+    private material: THREE.ShaderMaterial;
+    private currentRoll: number = 0; // For smoothing the banking rotation
+
+    constructor(scene: THREE.Scene) {
+        const geometry = new THREE.PlaneGeometry(0.2, 1.5); // Thin line
+        this.material = new THREE.ShaderMaterial({
+            uniforms: {
+                uTime: { value: 0 },
+                uOpacity: { value: 1.0 }, // Always fully opaque for base pulse
+                uColor: { value: new THREE.Color(0x00eeff) }
+            },
+            vertexShader: cursorVertexShader,
+            fragmentShader: cursorFragmentShader,
+            transparent: true,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+        });
+
+        this.mesh = new THREE.Mesh(geometry, this.material);
+        this.mesh.visible = true; // Always visible
+        scene.add(this.mesh);
+
+        this.light = new THREE.PointLight(0x00eeff, 0, 20); // Color, Intensity, Distance
+        this.light.visible = true; // Always visible
+        scene.add(this.light);
+    }
+
+    setVisible(visible: boolean) {
+        // Now always visible, this method is no longer used for visibility toggling
+    }
+
+    update(time: number, position: THREE.Vector3, direction: THREE.Vector3, ribbonWidth: number, turnRate: number, isMoving: boolean) {
+        this.material.uniforms.uTime.value = time;
+        
+        // Set position and orientation
+        this.mesh.position.copy(position);
+        if (direction.lengthSq() > 0.0001) {
+            const forward = direction.clone().normalize();
+            // This results in a vertical bar whose width is perpendicular to the path.
+            this.mesh.lookAt(position.clone().add(forward));
+
+            // Calculate dynamic roll based on turn rate, with smoothing
+            const targetRoll = -turnRate * 0.6; // User has adjusted this multiplier
+
+            // Use different lerp factors for banking, returning while moving, and returning while stopped
+            let lerpFactor;
+            if (turnRate !== 0) {
+                // 1. Actively turning
+                lerpFactor = 0.12;
+            } else {
+                // Not actively turning, so returning to neutral
+                if (isMoving) {
+                    // 2. Returning to neutral while still moving forward
+                    lerpFactor = 0.02;
+                } else {
+                    // 3. Returning to neutral when completely stopped (slowest)
+                    lerpFactor = 0.025;
+                }
+            }
+            this.currentRoll = THREE.MathUtils.lerp(this.currentRoll, targetRoll, lerpFactor); // Smoothly interpolate
+
+            // Create a single quaternion for the combined horizontal + roll rotation
+            const totalZRotation = (Math.PI / 2) + this.currentRoll;
+            const rollQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), totalZRotation);
+
+            // Multiply the lookAt quaternion by the roll quaternion to apply the banking correctly
+            this.mesh.quaternion.multiply(rollQuat);
+        }
+
+        // Adjust scale to match ribbon width
+        this.mesh.scale.x = ribbonWidth;
+
+        const pulse = (Math.sin(time * 5.0) * 0.5 + 0.5); // range [0, 1]
+        this.light.intensity = pulse * 1.5; // Pulsing intensity for the light
+        this.light.position.copy(position);
+    }
+    
+    setOpacity(opacity: number) {
+        this.material.uniforms.uOpacity.value = opacity;
+    }
+}
 
 export default () => {
+    // let stationaryTime = 0; // Removed
+
     // --- Basic Scene Setup ---
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x111111);
@@ -243,6 +334,8 @@ export default () => {
     const ribbonMaxWidth = 0.75;
     const ribbonMinWidth = 0.1;
 
+    const pulsingCursor = new PulsingCursor(scene);
+
     // --- Animation Loop ---
     const clock = new THREE.Clock();
     function animate() {
@@ -273,6 +366,13 @@ export default () => {
         playerRibbon.setWidth(newWidth);
         const newParticleSize = THREE.MathUtils.lerp(params.particleSize, params.minParticleSize, speedRatio);
         landscapeParticleMaterial.uniforms.particleSize.value = newParticleSize;
+
+        // --- Pulsing Cursor Logic (Always Visible) ---
+        const ribbonCurrentWidth = THREE.MathUtils.lerp(ribbonMaxWidth, ribbonMinWidth, speedRatio);
+        
+        const isMoving = playerController.keyboardState['w'] || playerController.keyboardState['s'];
+        pulsingCursor.update(time, playerController.position, playerController.velocity, ribbonCurrentWidth, playerController.turnRate, isMoving);
+        pulsingCursor.setOpacity(1.0); // Ensure full base opacity for continuous pulse
 
         renderer.render(scene, camera);
     }

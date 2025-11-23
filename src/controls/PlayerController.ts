@@ -20,7 +20,7 @@ export class PlayerController {
     public pitchCorrectionSpeed: number = 2.0;
     
     // --- Private Input State ---
-    private keyboardState: { [key:string]: boolean } = {};
+    public keyboardState: { [key:string]: boolean } = {};
 
     constructor() {
         this.position = new THREE.Vector3(0, 0, 0);
