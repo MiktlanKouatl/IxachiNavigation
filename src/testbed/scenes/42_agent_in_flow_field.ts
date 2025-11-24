@@ -328,8 +328,8 @@ export default () => {
     // =================================================================
     // --- GPGPU AGENT SYSTEM (from 41) ---
     // =================================================================
-    const AGENT_COUNT = 512;
-    const PARTICLES_PER_AGENT = 5;
+    const AGENT_COUNT = 100;
+    const PARTICLES_PER_AGENT = 10;
     const TOTAL_PARTICLES = AGENT_COUNT * PARTICLES_PER_AGENT;
 
     const AGENT_TEXTURE_WIDTH = Math.ceil(Math.sqrt(AGENT_COUNT));
