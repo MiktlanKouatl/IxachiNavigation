@@ -2,10 +2,13 @@
 
 attribute float a_index;
 attribute float side;
+attribute float a_isHead;
+
 varying vec2 vUv;
 varying float vTrailUv;
 varying float v_visibility;
-varying float v_isDegenerateSegment; // Add this varying
+varying float v_isDegenerateSegment;
+varying float v_isHead;
 
 uniform vec2 uResolution;
 uniform float uWidth;
@@ -41,6 +44,7 @@ vec2 safeNormalize(vec2 v) {
 void main() {
     vUv = uv;
     vTrailUv = a_index;
+    v_isHead = a_isHead;
     v_isDegenerateSegment = 0.0; // Default to not degenerate
 
     float pointProgress = a_index;
@@ -115,6 +119,7 @@ void main() {
     // The width is applied in screen space, so it's constant
     float aspect = uResolution.x / uResolution.y;
     normal.x /= aspect;
+
     normal *= uWidth;
 
     // Project back to a 3D offset in view space

@@ -15,7 +15,7 @@ export class RibbonLineGPUPlayer {
     private pathTexture: THREE.DataTexture;
 
     constructor(pathPoints: THREE.Vector3[], config: RibbonConfig) {
-        console.log('🚧 Creando RibbonLineGPUPlayer v3.0 con UseMode...');
+        console.log('🚧 Creando RibbonLineGPUPlayer v3.1 con cabeza integrada...');
         this.pathTexture = this.createPathTexture(pathPoints);
 
         this.geometry = new THREE.BufferGeometry();
@@ -25,6 +25,7 @@ export class RibbonLineGPUPlayer {
         const indices = new Float32Array(maxPoints * 2);
         const sides = new Float32Array(maxPoints * 2);
         const uvs = new Float32Array(maxPoints * 2 * 2);
+        const isHead = new Float32Array(maxPoints * 2);
 
         for (let i = 0; i < maxPoints; i++) {
             const i2 = i * 2;
@@ -43,6 +44,7 @@ export class RibbonLineGPUPlayer {
         this.geometry.setAttribute('a_index', new THREE.BufferAttribute(indices, 1));
         this.geometry.setAttribute('side', new THREE.BufferAttribute(sides, 1));
         this.geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+        this.geometry.setAttribute('a_isHead', new THREE.BufferAttribute(isHead, 1));
 
         const indexBuffer = [];
         for (let i = 0; i < maxPoints - 1; i++) {
@@ -59,6 +61,7 @@ export class RibbonLineGPUPlayer {
             blending: config.renderMode === RenderMode.Glow ? THREE.AdditiveBlending : THREE.NormalBlending,
             
             uniforms: {
+                uTime: { value: 0.0 },
                 // Common uniforms
                 uColor: { value: config.color },
                 uColorEnd: { value: config.colorEnd ?? config.color },
@@ -92,7 +95,7 @@ export class RibbonLineGPUPlayer {
 
         this.mesh = new THREE.Mesh(this.geometry, this.material);
         this.mesh.frustumCulled = false;
-        console.log('✅ Componente RibbonLineGPUPlayer v3.0 ensamblado y listo.');
+        console.log('✅ Componente RibbonLineGPUPlayer v3.1 ensamblado y listo.');
     }
 
     private createPathTexture(points: THREE.Vector3[]): THREE.DataTexture {
@@ -108,11 +111,30 @@ export class RibbonLineGPUPlayer {
         }
         const texture = new THREE.DataTexture(textureData, numPoints, 1, THREE.RGBAFormat, THREE.FloatType);
         texture.needsUpdate = true;
-        console.log(`Textura de ${numPoints}x1 puntos generada.`);
+        // console.log(`Textura de ${numPoints}x1 puntos generada.`);
         return texture;
     }
 
     // --- New explicit methods ---
+    public setTime(time: number): void {
+        this.material.uniforms.uTime.value = time;
+    }
+    
+    public updateHead(): void {
+        const headAttr = this.geometry.getAttribute('a_isHead') as THREE.BufferAttribute;
+        // The head is the very first segment in the trail, which corresponds to the first two vertices.
+        // The GPUParticleSystem writes the newest particle at index 0.
+        if (headAttr.array[0] !== 1.0) {
+            // Reset the previous head if it's not the current one, though with this logic it's not strictly necessary
+            // as we are always setting the first two vertices as the head.
+            for (let i = 0; i < headAttr.array.length; i++) {
+                headAttr.array[i] = 0;
+            }
+            headAttr.array[0] = 1.0;
+            headAttr.array[1] = 1.0;
+            headAttr.needsUpdate = true;
+        }
+    }
 
     public setRevealProgress(progress: number): void {
         this.material.uniforms.uRevealProgress.value = progress;

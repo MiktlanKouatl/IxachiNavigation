@@ -2,6 +2,7 @@
 
 uniform vec3 uColor;
 uniform vec3 uColorEnd;
+uniform float uTime;
 uniform int uFadeStyle;
 uniform int uRenderMode;
 uniform float uOpacity;
@@ -12,7 +13,8 @@ uniform float uFadeTransitionSize;
 varying vec2 vUv;
 varying float vTrailUv;
 varying float v_visibility;
-varying float v_isDegenerateSegment; // Add this varying
+varying float v_isDegenerateSegment;
+varying float v_isHead;
 
 void main() {
   // Discard if the vertex shader determined this segment is degenerate
@@ -57,6 +59,13 @@ void main() {
 
   // --- 4. COMBINACIÓN FINAL ---
   finalAlpha *= visibility;
+
+  // --- 5. LÓGICA DE LA CABEZA ---
+  if (v_isHead > 0.5) {
+      float pulse = (sin(uTime * 5.0) * 0.5 + 0.5) * 0.5 + 0.5; // Pulse between 0.5 and 1.0
+      finalRgb = mix(uColor, vec3(1.0), pulse); // Pulse towards white
+      finalAlpha = 1.0; // Make the head fully opaque
+  }
 
   if (finalAlpha < 0.001) {
     discard;
