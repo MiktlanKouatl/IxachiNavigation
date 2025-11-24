@@ -86,6 +86,10 @@ export class RibbonLineGPUPlayer {
                 uTrailHead: { value: 0.0 },      // For UseMode.Trail
                 uTrailLength: { value: 0.2 },     // For UseMode.Trail
 
+                // Uniforms para estabilización
+                uPlayerForward: { value: new THREE.Vector3(0, 0, 1) }, 
+                uMinHeadLength: { value: 0.5 }, 
+
                 // Artifact control
                 uMinSegmentLengthThreshold: { value: 0.01 } // Added for artifact control
             },
@@ -168,6 +172,15 @@ export class RibbonLineGPUPlayer {
      */
     public setPathLength(length: number): void {
         this.material.uniforms.uPathLength.value = length;
+    }
+
+    public setPlayerForward(direction: THREE.Vector3): void {
+        // Normalizamos aquí para asegurar consistencia
+        this.material.uniforms.uPlayerForward.value.copy(direction).normalize();
+    }
+
+    public setMinHeadLength(length: number): void {
+        this.material.uniforms.uMinHeadLength.value = length;
     }
 
     public dispose(): void {

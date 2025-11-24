@@ -1,5 +1,3 @@
-// src/shaders/ribbon_gpu_player.vert.glsl
-
 attribute float a_index;
 attribute float side;
 attribute float a_isHead;
@@ -14,13 +12,16 @@ uniform vec2 uResolution;
 uniform float uWidth;
 uniform sampler2D uPathTexture;
 uniform float uPathLength;
-
 uniform int uUseMode;
 uniform float uRevealProgress;
 uniform float uTrailHead;
 uniform float uTrailLength;
 
 uniform float uMinSegmentLengthThreshold;
+
+// --- NUEVOS UNIFORMS (Intent Injection) ---
+uniform vec3 uPlayerForward;  // Dirección intencional del jugador
+uniform float uMinHeadLength; // Longitud mínima forzada para la cabeza
 
 vec4 getPoint(float progress) {
     if (progress < 0.0 || progress > 1.0) {
@@ -45,10 +46,11 @@ void main() {
     vUv = uv;
     vTrailUv = a_index;
     v_isHead = a_isHead;
-    v_isDegenerateSegment = 0.0; // Default to not degenerate
+    v_isDegenerateSegment = 0.0; 
 
     float pointProgress = a_index;
     
+    // Lógica de Modos (Reveal / Trail)
     if (uUseMode == 1) {
         pointProgress = a_index;
         if (a_index > uRevealProgress) {
@@ -68,36 +70,45 @@ void main() {
     }
     v_visibility = currentPointData.w;
 
-    // --- GEOMETRY CALCULATION (View Space) ---
-    vec4 prevPointData = getPoint(pointProgress - 1.0 / uPathLength);
+    // --- LÓGICA DE PROTECCIÓN DE CABEZA (Head Protection) ---
+    // Obtenemos el siguiente punto para medir distancia
     vec4 nextPointData = getPoint(pointProgress + 1.0 / uPathLength);
-
-    // Declare hasPrev and hasNext once, and use them throughout
-    bool hasPrev = !isnan(prevPointData.x);
+    vec3 worldPos = currentPointData.rgb;
     bool hasNext = !isnan(nextPointData.x);
 
-    // Check for degenerate segments in 3D world space (segment between current and next point)
-    if (hasNext) {
-        float segmentLength = distance(currentPointData.rgb, nextPointData.rgb); // Distance from current to next point
+    // Si somos la cabeza y el segmento es demasiado corto (colapsado por inmovilidad)
+    if (v_isHead > 0.5 && hasNext) {
+        float dist = distance(worldPos, nextPointData.rgb);
+        
+        if (dist < uMinHeadLength) {
+            // "Inyectamos intención": Proyectamos la cabeza hacia adelante artificialmente
+            worldPos = nextPointData.rgb + normalize(uPlayerForward) * uMinHeadLength;
+            // Garantizamos que no se marque como degenerado
+            v_isDegenerateSegment = 0.0;
+        }
+    }
+
+    // --- GEOMETRÍA ---
+    vec4 currentView = modelViewMatrix * vec4(worldPos, 1.0);
+    vec4 prevPointData = getPoint(pointProgress - 1.0 / uPathLength);
+    vec4 nextView = modelViewMatrix * vec4(nextPointData.rgb, 1.0);
+    vec4 prevView = modelViewMatrix * vec4(prevPointData.rgb, 1.0);
+
+    bool hasPrev = !isnan(prevPointData.x);
+
+    // Check para segmentos normales (no cabeza)
+    if (hasNext && v_isHead < 0.5) {
+        float segmentLength = distance(worldPos, nextPointData.rgb);
         if (segmentLength < uMinSegmentLengthThreshold) {
             v_isDegenerateSegment = 1.0;
         }
     }
 
-    // Transform points to View Space
-    vec4 currentView = modelViewMatrix * vec4(currentPointData.rgb, 1.0);
-    vec4 prevView = modelViewMatrix * vec4(prevPointData.rgb, 1.0);
-    vec4 nextView = modelViewMatrix * vec4(nextPointData.rgb, 1.0);
-
     vec2 dir;
-
-    // Project to screen space ONLY for direction calculation.
-    // Declare these variables BEFORE using them in the dir calculation block
     vec2 currentScreen = currentView.xy / currentView.w;
     vec2 prevScreen = prevView.xy / prevView.w;
     vec2 nextScreen = nextView.xy / nextView.w;
 
-    // Use the correctly declared hasPrev and hasNext for direction calculation
     if (hasPrev && hasNext) {
         vec2 dir1 = safeNormalize(currentScreen - prevScreen);
         vec2 dir2 = safeNormalize(nextScreen - currentScreen);
@@ -105,26 +116,17 @@ void main() {
     } else if (hasPrev) {
         dir = safeNormalize(currentScreen - prevScreen);
     } else if (hasNext) {
+        // En caso de cabeza corregida, la distancia está garantizada aquí
         dir = safeNormalize(nextScreen - currentScreen);
     } else {
-        // If no valid prev or next, this is an isolated point.
-        // If it's a degenerate segment (v_isDegenerateSegment == 1.0), it will be discarded by frag shader.
-        // Otherwise, give it an arbitrary but non-zero direction to avoid issues with normal calculation.
         dir = vec2(1.0, 0.0);
     }
     
-    // The normal is perpendicular to the screen-space direction
     vec2 normal = vec2(-dir.y, dir.x);
-    
-    // The width is applied in screen space, so it's constant
     float aspect = uResolution.x / uResolution.y;
     normal.x /= aspect;
-
     normal *= uWidth;
 
-    // Project back to a 3D offset in view space
     vec4 offset = vec4(normal * currentView.w, 0.0, 0.0);
-    
-    // Final position is the view-space point, plus the offset, projected to clip space
     gl_Position = projectionMatrix * (currentView + offset * side);
 }

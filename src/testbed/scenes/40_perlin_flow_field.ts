@@ -240,6 +240,8 @@ export default () => {
         transitionSize: 0.1,
     });
     playerRibbon.setPathLength(NUM_PLAYER_PARTICLES);
+    // Establecer una longitud mínima de cabeza (ajustar a gusto visual)
+    playerRibbon.setMinHeadLength(0.8); 
     scene.add(playerRibbon.mesh);
     const ribbonMaxWidth = 0.75;
     const ribbonMinWidth = 0.1;
@@ -276,7 +278,13 @@ export default () => {
         const newParticleSize = THREE.MathUtils.lerp(params.particleSize, params.minParticleSize, speedRatio);
         landscapeParticleMaterial.uniforms.particleSize.value = newParticleSize;
 
-        // --- Pulsing Cursor Logic (Always Visible) ---
+        // Lógica de Inyección de Intención
+        const forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(playerController.quaternion);
+        if (playerController.velocity.lengthSq() > 0.01) {
+            forwardDir.copy(playerController.velocity).normalize();
+        }
+        playerRibbon.setPlayerForward(forwardDir);
+
         playerRibbon.updateHead();
         playerRibbon.setTime(time);
 
