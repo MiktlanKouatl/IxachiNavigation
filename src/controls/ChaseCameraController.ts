@@ -55,12 +55,13 @@ export class ChaseCameraController {
         let dynamicRotationSmooth = this.config.rotationSmooth;
 
         if (distance > warningZoneStart) {
-            const factor = THREE.MathUtils.mapLinear(
+            const factor = THREE.MathUtils.clamp(THREE.MathUtils.mapLinear(
                 distance,
                 warningZoneStart,
                 this.config.maxDistance,
                 0, 1 // 0% to 100% of the way through the warning zone
-            );
+            ), 0, 1);
+
             dynamicPositionSmooth = THREE.MathUtils.lerp(this.config.positionSmooth, this.config.maxCatchUpSmooth, factor);
             dynamicLookAtSmooth = THREE.MathUtils.lerp(this.config.lookAtSmooth, this.config.maxCatchUpLookAtSmooth, factor);
             dynamicRotationSmooth = THREE.MathUtils.lerp(this.config.rotationSmooth, this.config.maxCatchUpRotationSmooth, factor);
