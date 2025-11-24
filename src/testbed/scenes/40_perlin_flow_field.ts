@@ -14,6 +14,7 @@ import { ColorManager } from '../../managers/ColorManager';
 import { PathController } from '../../core/pathing/PathController';
 import { RingController } from '../../features/rings/RingController';
 import { SoundManager } from '../../managers/SoundManager';
+import { EnergyOrbController } from '../../features/collectables/EnergyOrbController';
 
 // We will create all these shaders from scratch.
 // The '?raw' import syntax is from Vite and loads the file as a string.
@@ -55,6 +56,11 @@ export default () => {
     const colorManager = new ColorManager(); // Instantiate ColorManager earlier
     const pathController = new PathController();
     const ringController = new RingController(scene, pathController, colorManager);
+    const orbController = new EnergyOrbController(scene, pathController, colorManager);
+
+    // Agregamos una línea de 100 orbes a lo largo de todo el camino
+    orbController.addOrbsSequence(0.0, 100, 0.01);
+
 
     // Add test rings
     // Big "event" rings
@@ -78,6 +84,11 @@ export default () => {
             soundManager.play('collect', 0.5); // Play collection sound at a lower volume
         }
     });
+
+    orbController.onOrbCollected.on('collect', () => {
+        soundManager.play('collect', 0.5);
+    });
+
 
     const gui = new GUI();
     const params = {
@@ -258,6 +269,7 @@ export default () => {
         cameraController.update();
         colorManager.update(delta);
         ringController.update(delta, playerController.position);
+        orbController.update(delta, time, playerController.position);
 
         ffUniforms['u_time'].value = time;
         flowFieldCompute.compute();
