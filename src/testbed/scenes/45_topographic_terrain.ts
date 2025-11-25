@@ -146,8 +146,12 @@ export default () => {
     const LANDSCAPE_AGENT_TEXTURE_WIDTH = GRID_RESOLUTION;
     const LANDSCAPE_AGENT_TEXTURE_HEIGHT = GRID_RESOLUTION;
     const landscapeGpuCompute = new GPUComputationRenderer(LANDSCAPE_AGENT_TEXTURE_WIDTH, LANDSCAPE_AGENT_TEXTURE_HEIGHT, renderer);
+    // --- NUEVO: Usar HalfFloat siempre si sigues viendo bloques ---
+    landscapeGpuCompute.dataType = THREE.HalfFloatType;
     // AHORA: Más resolución para suavizar el terreno
     const flowFieldCompute = new GPUComputationRenderer(512, 512, renderer);
+    // --- NUEVO: Usar HalfFloat aquí es CRÍTICO para el ruido suave ---
+    flowFieldCompute.dataType = THREE.HalfFloatType;
 
     // --- 1. Create Flow Field (Vector Field) ---
     const flowFieldTexture = flowFieldCompute.createTexture();
@@ -176,23 +180,23 @@ export default () => {
     const spacing = LANDSCAPE_WORLD_SIZE / (GRID_RESOLUTION - 1);
     const halfSize = LANDSCAPE_WORLD_SIZE / 2;
 
-    for (let i = 0; i < LANDSCAPE_AGENT_COUNT; i++) {
-        const i4 = i * 4;
-        
-        // Calcular columna y fila en el grid
-        const col = i % GRID_RESOLUTION;
-        const row = Math.floor(i / GRID_RESOLUTION);
+    // CONSTRUCCIÓN ORDENADA: Iterar por FILAS (como se hace en la geometría)
+    for (let row = 0; row < GRID_RESOLUTION; row++) {
+        for (let col = 0; col < GRID_RESOLUTION; col++) {
+            // Índice lineal: row * width + col
+            const i = row * GRID_RESOLUTION + col;
+            const i4 = i * 4;
 
-        // Posición en el grid (centrada en 0,0)
-        landscapePosArray[i4 + 0] = col * spacing - halfSize; // x
-        landscapePosArray[i4 + 1] = 0;                        // y (altura inicial)
-        landscapePosArray[i4 + 2] = row * spacing - halfSize; // z
-        landscapePosArray[i4 + 3] = 1.0;                      // w (no usado por ahora)
+            // Posición en el grid (centrada en 0,0)
+            landscapePosArray[i4 + 0] = col * spacing - halfSize; // x
+            landscapePosArray[i4 + 1] = 0;                        // y (altura inicial)
+            landscapePosArray[i4 + 2] = row * spacing - halfSize; // z
+            landscapePosArray[i4 + 3] = 1.0;                      // w (no usado por ahora)
+        }
     }
 
-    // --- ¡AGREGA ESTA LÍNEA AQUÍ! ---
-    landscapePosData.needsUpdate = true; // <--- LA CLAVE QUE FALTABA
-    // --------------------------------
+    // Marcar que la textura fue actualizada
+    landscapePosData.needsUpdate = true;
 
     // Solo necesitamos una variable: la posición, controlada por nuestro nuevo shader de altura.
     const landscapeAgentPositionVariable = landscapeGpuCompute.addVariable('texturePosition', terrainHeightShader, landscapePosData);
@@ -210,27 +214,29 @@ export default () => {
     posUniforms['textureFlowField'] = new THREE.Uniform(flowFieldResult);
     
     // Nuevos parámetros para controlar el terreno
-    posUniforms['u_heightScale'] = new THREE.Uniform(20.0); // Altura máxima
-    posUniforms['u_lerpFactor'] = new THREE.Uniform(0.5);   // Suavidad (0 a 1)
+    posUniforms['u_heightScale'] = new THREE.Uniform(0.03); // Altura máxima
+    posUniforms['u_lerpFactor'] = new THREE.Uniform(2.0);   // Suavidad (0 a 1) - aumentado para más suavidad
+    posUniforms['u_yOffset'] = new THREE.Uniform(-9.0);     // Nuevo uniform para el offset en Y
     
     const landscapeAgentError = landscapeGpuCompute.init();
     if (landscapeAgentError !== null) { console.error('Landscape GPGPU Error: ' + landscapeAgentError); }
 
     // --- CORRECCIÓN DE FILTROS ROBUSTA ---
 
-    // 1. Suavizar el RUIDO (FlowField)
-    // Iteramos sobre todos los render targets internos para asegurar que el filtro se aplique
+    // 1. Suavizar el RUIDO (FlowField) -> ESTO ELIMINA LOS BLOQUES
     flowFieldVariable.renderTargets.forEach(rt => {
         rt.texture.minFilter = THREE.LinearFilter;
         rt.texture.magFilter = THREE.LinearFilter;
+        rt.texture.type = THREE.HalfFloatType; // Aseguramos el tipo
         rt.texture.needsUpdate = true;
     });
 
-    // 2. Mantener el GRID exacto (Position)
-    // El grid no debe interpolarse o las partículas se desalinearán
+    // 2. Posiciones de partículas -> MANTENER NEAREST
+    // (Si suavizas esto, el grid se desmorona, así que déjalo en Nearest)
     landscapeAgentPositionVariable.renderTargets.forEach(rt => {
         rt.texture.minFilter = THREE.NearestFilter;
         rt.texture.magFilter = THREE.NearestFilter;
+        rt.texture.type = THREE.HalfFloatType; // Aseguramos el tipo
         rt.texture.needsUpdate = true;
     });
 
@@ -239,14 +245,28 @@ export default () => {
     const landscapeParticleUvs = new Float32Array(LANDSCAPE_AGENT_COUNT * 2);
     const landscapeParticlePositions = new Float32Array(LANDSCAPE_AGENT_COUNT * 3);
 
-    for (let i = 0; i < LANDSCAPE_AGENT_COUNT; i++) {
-        const i2 = i * 2;
-        
-        // Sumamos 0.5 para apuntar al centro del texel
-        landscapeParticleUvs[i2 + 0] = ( (i % LANDSCAPE_AGENT_TEXTURE_WIDTH) + 0.5 ) / LANDSCAPE_AGENT_TEXTURE_WIDTH;
-        landscapeParticleUvs[i2 + 1] = ( Math.floor(i / LANDSCAPE_AGENT_TEXTURE_WIDTH) + 0.5 ) / LANDSCAPE_AGENT_TEXTURE_HEIGHT;
+    // CONSTRUCCIÓN ORDENADA: Iterar por FILAS (MISMO ORDEN QUE LA TEXTURA GPU)
+    for (let row = 0; row < GRID_RESOLUTION; row++) {
+        for (let col = 0; col < GRID_RESOLUTION; col++) {
+            // Índice lineal: row * width + col (COINCIDE CON LA TEXTURA)
+            const i = row * GRID_RESOLUTION + col;
+            const i2 = i * 2;
+            const i3 = i * 3;
+            
+            // UVs: muestrear desde el CENTRO del píxel
+            // En texturas GPU de GRID_RESOLUTION x GRID_RESOLUTION:
+            // Cada pixel ocupa 1/GRID_RESOLUTION del espacio
+            landscapeParticleUvs[i2 + 0] = (col + 0.5) / GRID_RESOLUTION;
+            landscapeParticleUvs[i2 + 1] = (row + 0.5) / GRID_RESOLUTION;
+            
+            // Posiciones iniciales en el grid
+            landscapeParticlePositions[i3 + 0] = col * spacing - halfSize;  // X
+            landscapeParticlePositions[i3 + 1] = 0;                         // Y (será actualizado por GPU)
+            landscapeParticlePositions[i3 + 2] = row * spacing - halfSize;  // Z
+        }
     }
-    landscapeParticleGeometry.setAttribute('reference', new THREE.BufferAttribute(landscapeParticleUvs, 2)); // <--- NUEVO NOMBRE
+    
+    landscapeParticleGeometry.setAttribute('reference', new THREE.BufferAttribute(landscapeParticleUvs, 2));
     landscapeParticleGeometry.setAttribute('position', new THREE.BufferAttribute(landscapeParticlePositions, 3));
 
     const landscapeParticleMaterial = new THREE.ShaderMaterial({
@@ -292,6 +312,7 @@ export default () => {
     scene.add(playerRibbon.mesh);
     const ribbonMaxWidth = 0.75;
     const ribbonMinWidth = 0.1;
+
 
 
     // --- Animation Loop ---
@@ -362,6 +383,7 @@ export default () => {
     const terrainFolder = gui.addFolder('Terrain Settings');
     terrainFolder.add(posUniforms.u_heightScale, 'value', 0, 50).name('Height Scale');
     terrainFolder.add(posUniforms.u_lerpFactor, 'value', 0.01, 1.0).name('Smoothness');
+    terrainFolder.add(posUniforms.u_yOffset, 'value', -100, 100).name('Y Offset');
 
     // --- Ribbon GUI ---
     const ribbonFolder = gui.addFolder('Player Ribbon');
