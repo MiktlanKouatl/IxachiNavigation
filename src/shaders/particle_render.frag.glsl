@@ -1,28 +1,35 @@
 // particle_render.frag.glsl
-// Fragment shader to render GPGPU-driven particles.
 
-uniform sampler2D textureFlowField;
-uniform float worldSize;
-uniform vec3 particleColor; // We can still use this as a base or tint
+// Uniforms for height-based color gradient
+uniform vec3 u_terrainLow;
+uniform vec3 u_terrainMid;
+uniform vec3 u_terrainHigh;
+uniform float u_minHeight;
+uniform float u_maxHeight;
 
 varying vec3 v_pos;
+varying float v_height;
 
 void main() {
-    // --- Dynamic Color from Flow Field ---
-    vec2 flowUv = v_pos.xz / worldSize + 0.5;
-    vec3 flowVector = texture2D(textureFlowField, flowUv).xyz;
-    vec3 flowColor = flowVector * 0.5 + 0.5; // Map [-1, 1] to [0, 1]
+    // --- Height-based Color ---
+    float normalizedHeight = smoothstep(u_minHeight, u_maxHeight, v_height);
+
+    vec3 color;
+    if (normalizedHeight < 0.5) {
+        // From low to mid
+        color = mix(u_terrainLow, u_terrainMid, normalizedHeight * 2.0);
+    } else {
+        // From mid to high
+        color = mix(u_terrainMid, u_terrainHigh, (normalizedHeight - 0.5) * 2.0);
+    }
 
     // --- Soft Particle Shape ---
     float dist = length(gl_PointCoord - vec2(0.5));
-    // Softer gradient from the very center to the edge
     float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
 
     if (alpha < 0.01) {
         discard;
     }
 
-    // Blend the flow color with a base particle color for more control
-    // For now, we just use the flow color directly.
-    gl_FragColor = vec4(flowColor, alpha);
+    gl_FragColor = vec4(color, alpha);
 }

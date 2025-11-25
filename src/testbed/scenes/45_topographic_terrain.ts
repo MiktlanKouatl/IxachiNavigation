@@ -140,8 +140,8 @@ export default () => {
     // --- LANDSCAPE PARTICLE SYSTEM (MODIFICADO PARA TERRENO) ---
     // =================================================================
     const LANDSCAPE_WORLD_SIZE = 240;
-    // Definimos la resolución del grid (ej. 128x128 puntos)
-    const GRID_RESOLUTION = 128; 
+    // Definimos la resolución del grid (ej. 64x64 puntos)
+    const GRID_RESOLUTION = 64; 
     const LANDSCAPE_AGENT_COUNT = GRID_RESOLUTION * GRID_RESOLUTION;
     const LANDSCAPE_AGENT_TEXTURE_WIDTH = GRID_RESOLUTION;
     const LANDSCAPE_AGENT_TEXTURE_HEIGHT = GRID_RESOLUTION;
@@ -216,7 +216,7 @@ export default () => {
     // Nuevos parámetros para controlar el terreno
     posUniforms['u_heightScale'] = new THREE.Uniform(0.03); // Altura máxima
     posUniforms['u_lerpFactor'] = new THREE.Uniform(2.0);   // Suavidad (0 a 1) - aumentado para más suavidad
-    posUniforms['u_yOffset'] = new THREE.Uniform(-9.0);     // Nuevo uniform para el offset en Y
+    posUniforms['u_yOffset'] = new THREE.Uniform(-10.0);     // Nuevo uniform para el offset en Y
     
     const landscapeAgentError = landscapeGpuCompute.init();
     if (landscapeAgentError !== null) { console.error('Landscape GPGPU Error: ' + landscapeAgentError); }
@@ -275,11 +275,14 @@ export default () => {
         uniforms: {
             texturePosition: { value: null },
             particleSize: { value: params.particleSize },
-            particleColor: { value: colorManager.getColor('ribbonDefault') },
             cameraConstant: { value: getCameraConstant() },
-            // DEBUG UNIFORMS
-            textureFlowField: { value: flowFieldResult },
-            worldSize: { value: LANDSCAPE_WORLD_SIZE },
+            
+            // New height-based color uniforms
+            u_terrainLow: { value: colorManager.getColor('terrainLow') },
+            u_terrainMid: { value: colorManager.getColor('terrainMid') },
+            u_terrainHigh: { value: colorManager.getColor('terrainHigh') },
+            u_minHeight: { value: -posUniforms.u_heightScale.value + posUniforms.u_yOffset.value },
+            u_maxHeight: { value: posUniforms.u_heightScale.value + posUniforms.u_yOffset.value },
         },
         transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
     });
@@ -375,15 +378,20 @@ export default () => {
     worldFolder.add(params, 'minParticleSize', 0, 1, 0.01).name('Min Particle Size');
 
     const colorFolder = gui.addFolder('Colors');
-    colorFolder.addColor(landscapeParticleMaterial.uniforms.particleColor, 'value').name('Particle Color');
-    colorFolder.add(params, 'palette', ['NaranjaIxachi', 'BosqueEncantado']).name('Color Palette').onChange((v: string) => {
+    colorFolder.add(params, 'palette', ['NaranjaIxachi', 'BosqueEncantado', 'FondoDelMar']).name('Color Palette').onChange((v: string) => {
         colorManager.setPalette(v);
     });
 
     const terrainFolder = gui.addFolder('Terrain Settings');
-    terrainFolder.add(posUniforms.u_heightScale, 'value', 0, 50).name('Height Scale');
+    terrainFolder.add(posUniforms.u_heightScale, 'value', 0, 50).name('Height Scale').onChange(() => {
+        landscapeParticleMaterial.uniforms.u_minHeight.value = -posUniforms.u_heightScale.value + posUniforms.u_yOffset.value;
+        landscapeParticleMaterial.uniforms.u_maxHeight.value = posUniforms.u_heightScale.value + posUniforms.u_yOffset.value;
+    });
     terrainFolder.add(posUniforms.u_lerpFactor, 'value', 0.01, 1.0).name('Smoothness');
-    terrainFolder.add(posUniforms.u_yOffset, 'value', -100, 100).name('Y Offset');
+    terrainFolder.add(posUniforms.u_yOffset, 'value', -100, 100).name('Y Offset').onChange(() => {
+        landscapeParticleMaterial.uniforms.u_minHeight.value = -posUniforms.u_heightScale.value + posUniforms.u_yOffset.value;
+        landscapeParticleMaterial.uniforms.u_maxHeight.value = posUniforms.u_heightScale.value + posUniforms.u_yOffset.value;
+    });
 
     // --- Ribbon GUI ---
     const ribbonFolder = gui.addFolder('Player Ribbon');
@@ -398,7 +406,12 @@ export default () => {
 
     colorManager.on('update', () => {
         scene.background.copy(colorManager.getColor('background'));
-        landscapeParticleMaterial.uniforms.particleColor.value.copy(colorManager.getColor('ribbonDefault'));
+        
+        // Update height-based colors
+        landscapeParticleMaterial.uniforms.u_terrainLow.value.copy(colorManager.getColor('terrainLow'));
+        landscapeParticleMaterial.uniforms.u_terrainMid.value.copy(colorManager.getColor('terrainMid'));
+        landscapeParticleMaterial.uniforms.u_terrainHigh.value.copy(colorManager.getColor('terrainHigh'));
+
         // We are now controlling ribbon color with the GUI, so we comment this out
         // playerRibbon.material.uniforms.uColor.value.copy(colorManager.getColor('accent'));
         // if (playerRibbon.material.uniforms.uColorEnd) {

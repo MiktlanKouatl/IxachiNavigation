@@ -6,6 +6,7 @@ uniform float cameraConstant;
 attribute vec2 reference; 
 
 varying vec3 v_pos;
+varying float v_height;
 
 void main() {
     // USAMOS 'reference' EN LUGAR DE 'uv'
@@ -13,6 +14,7 @@ void main() {
     vec3 pos = texture2D(texturePosition, reference).xyz;
 
     v_pos = pos;
+    v_height = pos.y;
 
     vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
 

@@ -29,6 +29,12 @@ export type ColorPalette = {
     orbActive: ColorRole;
     orbCollectedStart: ColorRole;
     orbCollectedEnd: ColorRole;
+
+    // New roles for terrain height gradient
+    terrainLow?: ColorRole;
+    terrainMid?: ColorRole;
+    terrainHigh?: ColorRole;
+    
     harmonyBase: THREE.Color;
     harmonyType: HarmonyType;
 }
@@ -53,24 +59,65 @@ const palettes: { [key: string]: ColorPalette } = {
         orbActive: { type: 'fixed', value: new THREE.Color('#005eff') },
         orbCollectedStart: { type: 'fixed', value: new THREE.Color('#7401c5') },
         orbCollectedEnd: { type: 'fixed', value: new THREE.Color('#FFFFA0') },
+
+        // Terrain Colors
+        terrainLow: { type: 'fixed', value: new THREE.Color('#7700ff') },   // Dark Orange (Chocolate)
+        terrainMid: { type: 'fixed', value: new THREE.Color('#0800ff') },   // Mid Orange (DarkOrange)
+        terrainHigh: { type: 'fixed', value: new THREE.Color('#0004ff') },  // Light Orange (Orange)
+
         harmonyBase: new THREE.Color('#FF8C00'),
         harmonyType: 'monochromatic',
     },
-    'BosqueEncantado': {
-        name: 'BosqueEncantado',
-        primary: { type: 'harmonic' },
-        accent: { type: 'fixed', value: new THREE.Color('#F0E68C') },
-        background: { type: 'fixed', value: new THREE.Color('#011C01') },
-        ribbonDefault: { type: 'harmonic' },
-        // Ring Colors
-        ringEventPrimary: { type: 'fixed', value: new THREE.Color('#F0E68C') },
-        ringEventSecondary: { type: 'fixed', value: new THREE.Color('#FFFFFF') },
-        ringCollectionPrimary: { type: 'fixed', value: new THREE.Color('#2E8B57') },
-        ringCollectionSecondary: { type: 'fixed', value: new THREE.Color('#98FB98') },
-        harmonyBase: new THREE.Color('#2E8B57'),
-        harmonyType: 'analogous',
-    }
-};
+        'BosqueEncantado': {
+            name: 'BosqueEncantado',
+            primary: { type: 'harmonic' },
+            accent: { type: 'fixed', value: new THREE.Color('#F0E68C') },
+            background: { type: 'fixed', value: new THREE.Color('#011C01') },
+            ribbonDefault: { type: 'harmonic' },
+            // Ring Colors
+            ringEventPrimary: { type: 'fixed', value: new THREE.Color('#F0E68C') },
+            ringEventSecondary: { type: 'fixed', value: new THREE.Color('#FFFFFF') },
+            ringCollectionPrimary: { type: 'fixed', value: new THREE.Color('#2E8B57') },
+                    ringCollectionSecondary: { type: 'fixed', value: new THREE.Color('#98FB98') },
+            
+                    // Terrain Colors
+                    terrainLow: { type: 'fixed', value: new THREE.Color('#006400') },   // Dark Green
+                    terrainMid: { type: 'fixed', value: new THREE.Color('#2E8B57') },   // Sea Green
+                    terrainHigh: { type: 'fixed', value: new THREE.Color('#98FB98') },  // Pale Green
+            
+                    harmonyBase: new THREE.Color('#2E8B57'),            harmonyType: 'analogous',
+        },
+        'FondoDelMar': {
+            name: 'FondoDelMar',
+            primary: { type: 'fixed', value: new THREE.Color('#99FFFF') }, // Light cyan for text, etc.
+            accent: { type: 'fixed', value: new THREE.Color('#33FF99') }, // A bright green accent
+            background: { type: 'fixed', value: new THREE.Color('#0D0D1A') }, // Very dark blue
+            ribbonDefault: { type: 'fixed', value: new THREE.Color('#66CCFF') },
+            
+            // Ring Colors (can be adapted from the new palette)
+            ringEventActiveStart: { type: 'fixed', value: new THREE.Color('#FF00FF') },
+            ringEventActiveEnd: { type: 'fixed', value: new THREE.Color('#00FFFF') },
+            ringEventCollectedStart: { type: 'fixed', value: new THREE.Color('#99FFFF') },
+            ringEventCollectedEnd: { type: 'fixed', value: new THREE.Color('#FFFFFF') },
+            ringCollectionActiveStart: { type: 'fixed', value: new THREE.Color('#33FF99') },
+            ringCollectionActiveEnd: { type: 'fixed', value: new THREE.Color('#99FFFF') },
+            ringCollectionCollectedStart: { type: 'fixed', value: new THREE.Color('#0033FF') },
+            ringCollectionCollectedEnd: { type: 'fixed', value: new THREE.Color('#66CCFF') },
+            
+            // Orb Colors
+            orbActive: { type: 'fixed', value: new THREE.Color('#66CCFF') },
+            orbCollectedStart: { type: 'fixed', value: new THREE.Color('#440066') },
+            orbCollectedEnd: { type: 'fixed', value: new THREE.Color('#99FFFF') },
+            
+            // New roles for terrain height gradient
+            terrainLow: { type: 'fixed', value: new THREE.Color('#440066') },   // Deep Purple
+            terrainMid: { type: 'fixed', value: new THREE.Color('#0033FF') },   // Bright Blue
+            terrainHigh: { type: 'fixed', value: new THREE.Color('#00FF99') },  // Seafoam Green
+            
+            harmonyBase: new THREE.Color('#0033FF'),
+            harmonyType: 'analogous',
+        },
+    };
 
 export class ColorManager extends EventEmitter {
     private currentPalette: ColorPalette;
@@ -135,6 +182,11 @@ export class ColorManager extends EventEmitter {
     
     private getColorFromPalette(palette: ColorPalette, role: keyof Omit<ColorPalette, 'harmonyBase' | 'harmonyType' | 'name'>): THREE.Color {
         const colorRole = palette[role];
+
+        if (!colorRole) {
+            console.warn(`Color role "${String(role)}" not found in palette "${palette.name}". Returning black.`);
+            return new THREE.Color(0x000000); // Return a default color
+        }
 
         if (colorRole.type === 'fixed') {
             return colorRole.value;
