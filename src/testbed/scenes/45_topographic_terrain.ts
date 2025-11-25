@@ -19,8 +19,7 @@ import { EnergyOrbController } from '../../features/collectables/EnergyOrbContro
 // We will create all these shaders from scratch.
 // The '?raw' import syntax is from Vite and loads the file as a string.
 import flowFieldShader from '../../shaders/flow_field_perlin_compute.glsl?raw';
-import agentMovementShader from '../../shaders/agent_movement_flow_compute.glsl?raw';
-import agentPositionShader from '../../shaders/agent_position_compute.glsl?raw';
+import terrainHeightShader from '../../shaders/terrain_height_compute.glsl?raw';
 import particleRenderVertexShader from '../../shaders/particle_render.vert.glsl?raw';
 import particleRenderFragmentShader from '../../shaders/particle_render.frag.glsl?raw';
 export default () => {
@@ -138,15 +137,17 @@ export default () => {
     // scene.add(cameraPathObject);
 
     // =================================================================
-    // --- LANDSCAPE PARTICLE SYSTEM ---
+    // --- LANDSCAPE PARTICLE SYSTEM (MODIFICADO PARA TERRENO) ---
     // =================================================================
     const LANDSCAPE_WORLD_SIZE = 240;
-    const LANDSCAPE_AGENT_COUNT = 500;
-    const LANDSCAPE_AGENT_TEXTURE_WIDTH = Math.ceil(Math.sqrt(LANDSCAPE_AGENT_COUNT));
-    const LANDSCAPE_AGENT_TEXTURE_HEIGHT = LANDSCAPE_AGENT_TEXTURE_WIDTH;
-
+    // Definimos la resolución del grid (ej. 128x128 puntos)
+    const GRID_RESOLUTION = 128; 
+    const LANDSCAPE_AGENT_COUNT = GRID_RESOLUTION * GRID_RESOLUTION;
+    const LANDSCAPE_AGENT_TEXTURE_WIDTH = GRID_RESOLUTION;
+    const LANDSCAPE_AGENT_TEXTURE_HEIGHT = GRID_RESOLUTION;
     const landscapeGpuCompute = new GPUComputationRenderer(LANDSCAPE_AGENT_TEXTURE_WIDTH, LANDSCAPE_AGENT_TEXTURE_HEIGHT, renderer);
-    const flowFieldCompute = new GPUComputationRenderer(128, 128, renderer);
+    // AHORA: Más resolución para suavizar el terreno
+    const flowFieldCompute = new GPUComputationRenderer(512, 512, renderer);
 
     // --- 1. Create Flow Field (Vector Field) ---
     const flowFieldTexture = flowFieldCompute.createTexture();
@@ -167,38 +168,71 @@ export default () => {
 
     // --- 2. Create Landscape Agent Simulation ---
     const landscapePosData = landscapeGpuCompute.createTexture();
-    const landscapeVelData = landscapeGpuCompute.createTexture();
+    // Ya no necesitamos landscapeVelData porque las partículas no tendrán velocidad propia.
 
     const landscapePosArray = landscapePosData.image.data;
+    
+    // Calculamos el espaciado entre puntos del grid
+    const spacing = LANDSCAPE_WORLD_SIZE / (GRID_RESOLUTION - 1);
+    const halfSize = LANDSCAPE_WORLD_SIZE / 2;
+
     for (let i = 0; i < LANDSCAPE_AGENT_COUNT; i++) {
         const i4 = i * 4;
-        landscapePosArray[i4 + 0] = (Math.random() - 0.5) * LANDSCAPE_WORLD_SIZE; // x
-        landscapePosArray[i4 + 1] = (Math.random() - 0.5) * 20; // y (height)
-        landscapePosArray[i4 + 2] = (Math.random() - 0.5) * LANDSCAPE_WORLD_SIZE; // z
+        
+        // Calcular columna y fila en el grid
+        const col = i % GRID_RESOLUTION;
+        const row = Math.floor(i / GRID_RESOLUTION);
+
+        // Posición en el grid (centrada en 0,0)
+        landscapePosArray[i4 + 0] = col * spacing - halfSize; // x
+        landscapePosArray[i4 + 1] = 0;                        // y (altura inicial)
+        landscapePosArray[i4 + 2] = row * spacing - halfSize; // z
+        landscapePosArray[i4 + 3] = 1.0;                      // w (no usado por ahora)
     }
 
-    const landscapeAgentPositionVariable = landscapeGpuCompute.addVariable('texturePosition', agentPositionShader, landscapePosData);
-    const landscapeAgentVelocityVariable = landscapeGpuCompute.addVariable('textureVelocity', agentMovementShader, landscapeVelData);
+    // --- ¡AGREGA ESTA LÍNEA AQUÍ! ---
+    landscapePosData.needsUpdate = true; // <--- LA CLAVE QUE FALTABA
+    // --------------------------------
 
-    landscapeGpuCompute.setVariableDependencies(landscapeAgentVelocityVariable, [landscapeAgentPositionVariable, landscapeAgentVelocityVariable]);
-    landscapeGpuCompute.setVariableDependencies(landscapeAgentPositionVariable, [landscapeAgentPositionVariable, landscapeAgentVelocityVariable]);
+    // Solo necesitamos una variable: la posición, controlada por nuestro nuevo shader de altura.
+    const landscapeAgentPositionVariable = landscapeGpuCompute.addVariable('texturePosition', terrainHeightShader, landscapePosData);
 
-    // --- Set velocity shader uniforms ---
-    const velUniforms = landscapeAgentVelocityVariable.material.uniforms;
-    velUniforms['textureFlowField'] = new THREE.Uniform(flowFieldResult);
-    velUniforms['worldSize'] = new THREE.Uniform(LANDSCAPE_WORLD_SIZE);
-    velUniforms['speed'] = new THREE.Uniform(params.speed);
-    velUniforms['u_playerPosition'] = new THREE.Uniform(new THREE.Vector3());
-    velUniforms['u_repulsionStrength'] = new THREE.Uniform(params.repulsionStrength);
-    velUniforms['u_repulsionRadius'] = new THREE.Uniform(params.repulsionRadius);
+    // La única dependencia es ella misma (para leer la posición anterior y hacer el lerp)
+    landscapeGpuCompute.setVariableDependencies(landscapeAgentPositionVariable, [landscapeAgentPositionVariable]);
 
+    // --- Set terrain height shader uniforms ---
     const posUniforms = landscapeAgentPositionVariable.material.uniforms;
     posUniforms['delta'] = new THREE.Uniform(0.0);
     posUniforms['time'] = new THREE.Uniform(0.0);
     posUniforms['worldSize'] = new THREE.Uniform(LANDSCAPE_WORLD_SIZE);
     
+    // ¡IMPORTANTE! Pasamos el campo de flujo como input
+    posUniforms['textureFlowField'] = new THREE.Uniform(flowFieldResult);
+    
+    // Nuevos parámetros para controlar el terreno
+    posUniforms['u_heightScale'] = new THREE.Uniform(20.0); // Altura máxima
+    posUniforms['u_lerpFactor'] = new THREE.Uniform(0.5);   // Suavidad (0 a 1)
+    
     const landscapeAgentError = landscapeGpuCompute.init();
     if (landscapeAgentError !== null) { console.error('Landscape GPGPU Error: ' + landscapeAgentError); }
+
+    // --- CORRECCIÓN DE FILTROS ROBUSTA ---
+
+    // 1. Suavizar el RUIDO (FlowField)
+    // Iteramos sobre todos los render targets internos para asegurar que el filtro se aplique
+    flowFieldVariable.renderTargets.forEach(rt => {
+        rt.texture.minFilter = THREE.LinearFilter;
+        rt.texture.magFilter = THREE.LinearFilter;
+        rt.texture.needsUpdate = true;
+    });
+
+    // 2. Mantener el GRID exacto (Position)
+    // El grid no debe interpolarse o las partículas se desalinearán
+    landscapeAgentPositionVariable.renderTargets.forEach(rt => {
+        rt.texture.minFilter = THREE.NearestFilter;
+        rt.texture.magFilter = THREE.NearestFilter;
+        rt.texture.needsUpdate = true;
+    });
 
     // --- 3. Landscape Visualization ---
     const landscapeParticleGeometry = new THREE.BufferGeometry();
@@ -207,10 +241,12 @@ export default () => {
 
     for (let i = 0; i < LANDSCAPE_AGENT_COUNT; i++) {
         const i2 = i * 2;
-        landscapeParticleUvs[i2 + 0] = (i % LANDSCAPE_AGENT_TEXTURE_WIDTH) / LANDSCAPE_AGENT_TEXTURE_WIDTH;
-        landscapeParticleUvs[i2 + 1] = Math.floor(i / LANDSCAPE_AGENT_TEXTURE_WIDTH) / LANDSCAPE_AGENT_TEXTURE_HEIGHT;
+        
+        // Sumamos 0.5 para apuntar al centro del texel
+        landscapeParticleUvs[i2 + 0] = ( (i % LANDSCAPE_AGENT_TEXTURE_WIDTH) + 0.5 ) / LANDSCAPE_AGENT_TEXTURE_WIDTH;
+        landscapeParticleUvs[i2 + 1] = ( Math.floor(i / LANDSCAPE_AGENT_TEXTURE_WIDTH) + 0.5 ) / LANDSCAPE_AGENT_TEXTURE_HEIGHT;
     }
-    landscapeParticleGeometry.setAttribute('uv', new THREE.BufferAttribute(landscapeParticleUvs, 2));
+    landscapeParticleGeometry.setAttribute('reference', new THREE.BufferAttribute(landscapeParticleUvs, 2)); // <--- NUEVO NOMBRE
     landscapeParticleGeometry.setAttribute('position', new THREE.BufferAttribute(landscapeParticlePositions, 3));
 
     const landscapeParticleMaterial = new THREE.ShaderMaterial({
@@ -273,14 +309,11 @@ export default () => {
 
         ffUniforms['u_time'].value = time;
         flowFieldCompute.compute();
-        velUniforms.textureFlowField.value = flowFieldCompute.getCurrentRenderTarget(flowFieldVariable).texture;
 
-        landscapeGpuCompute.compute();
         posUniforms.delta.value = delta;
         posUniforms.time.value = time;
-        velUniforms.u_playerPosition.value.copy(playerController.position);
+        landscapeGpuCompute.compute();
         landscapeParticleMaterial.uniforms.texturePosition.value = landscapeGpuCompute.getCurrentRenderTarget(landscapeAgentPositionVariable).texture;
-
         playerParticleSystem.update(delta, playerController.position, playerController.velocity);
         playerRibbon.setPathTexture(playerParticleSystem.getPositionTexture());
 
@@ -317,24 +350,18 @@ export default () => {
 
     // --- UI ---
     const worldFolder = gui.addFolder('World');
-    worldFolder.add(params, 'speed', 0.1, 20, 0.1).name('Agent Speed').onChange(v => { velUniforms.speed.value = v; });
     worldFolder.add(params, 'particleSize', 0, 1, 0.01).name('Particle Size');
     worldFolder.add(params, 'minParticleSize', 0, 1, 0.01).name('Min Particle Size');
-
-    const flowFolder = gui.addFolder('Flow Field');
-    flowFolder.add(params, 'noiseScale', 0, 0.1, 0.001).name('Noise Scale').onChange(v => { ffUniforms.u_noiseScale.value = v; });
-    flowFolder.add(params, 'perturbStrength', 0, 5, 0.01).name('Perturb Strength').onChange(v => { ffUniforms.u_perturbStrength.value = v; });
-    flowFolder.add(params, 'verticalSpeed', 0, 2, 0.01).name('Vertical Speed').onChange(v => { ffUniforms.verticalSpeed.value = v; });
-    
-    const interactionFolder = gui.addFolder('Interaction');
-    interactionFolder.add(params, 'repulsionStrength', 0, 20, 0.1).name('Repulsion Strength').onChange(v => { velUniforms.u_repulsionStrength.value = v; });
-    interactionFolder.add(params, 'repulsionRadius', 0, 50, 0.1).name('Repulsion Radius').onChange(v => { velUniforms.u_repulsionRadius.value = v; });
 
     const colorFolder = gui.addFolder('Colors');
     colorFolder.addColor(landscapeParticleMaterial.uniforms.particleColor, 'value').name('Particle Color');
     colorFolder.add(params, 'palette', ['NaranjaIxachi', 'BosqueEncantado']).name('Color Palette').onChange((v: string) => {
         colorManager.setPalette(v);
     });
+
+    const terrainFolder = gui.addFolder('Terrain Settings');
+    terrainFolder.add(posUniforms.u_heightScale, 'value', 0, 50).name('Height Scale');
+    terrainFolder.add(posUniforms.u_lerpFactor, 'value', 0.01, 1.0).name('Smoothness');
 
     // --- Ribbon GUI ---
     const ribbonFolder = gui.addFolder('Player Ribbon');

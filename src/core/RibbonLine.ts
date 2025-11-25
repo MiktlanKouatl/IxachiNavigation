@@ -34,6 +34,8 @@ export interface RibbonConfig {
   colorMix?: number;
   fadeTransitionSize?: number;
   useMode?: UseMode;
+  uPlayerForward?: THREE.Vector3; // Nueva propiedad para la dirección del jugador
+  uMinHeadLength?: number;      // Nueva propiedad para la longitud mínima de la cabeza
 }
 
 
@@ -90,6 +92,8 @@ export class RibbonLine {
         uTraceSegmentLength: { value: 0.0 },
         uFadeTransitionSize: { value: config.fadeTransitionSize ?? 0.1 },
         uUseMode: { value: config.useMode ?? UseMode.Static },
+        uPlayerForward: { value: config.uPlayerForward ?? new THREE.Vector3(0, 0, 1) }, // Nueva uniform
+        uMinHeadLength: { value: config.uMinHeadLength ?? 0.5 },      // Nueva uniform
       },
 
       // El Vertex Shader construye la geometría.
@@ -172,6 +176,23 @@ export class RibbonLine {
   public setWidth(width: number): void {
     this.material.uniforms.uWidth.value = width;
   }
+
+  /*
+  * Actualiza el vector de dirección del jugador (uPlayerForward) en el shader.
+  * @param vector - THREE.Vector3 que representa la dirección del jugador.
+  */
+  public setPlayerForward(vector: THREE.Vector3): void {
+    this.material.uniforms.uPlayerForward.value.copy(vector);
+  }
+
+  /*
+  * Actualiza la longitud mínima de la cabeza (uMinHeadLength) en el shader.
+  * @param length - Nueva longitud mínima para la cabeza.
+  */
+  public setMinHeadLength(length: number): void {
+    this.material.uniforms.uMinHeadLength.value = length;
+  }
+
   /*
   * Obtiene el número máximo de puntos que la línea puede manejar.
   * Útil para sistemas que necesitan conocer la capacidad máxima de la línea.

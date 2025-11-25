@@ -1,21 +1,21 @@
-// particle_render.vert.glsl
-// Vertex shader to render GPGPU-driven particles.
-
-uniform sampler2D texturePosition; // The texture containing all agent positions
+uniform sampler2D texturePosition;
 uniform float particleSize;
-uniform float cameraConstant; // Used for perspective-correct particle size
+uniform float cameraConstant;
 
-varying vec3 v_pos; // Pass world position to fragment shader
+// AÑADIMOS ESTO: Recibimos el atributo personalizado que acabamos de renombrar
+attribute vec2 reference; 
+
+varying vec3 v_pos;
 
 void main() {
-    // Look up the world position of this particle from the texture.
-    vec3 pos = texture2D(texturePosition, uv).xyz;
-    v_pos = pos; // Store it for the fragment shader
+    // USAMOS 'reference' EN LUGAR DE 'uv'
+    // Esto asegura que cada partícula lea SU propio píxel de posición
+    vec3 pos = texture2D(texturePosition, reference).xyz;
 
-    // Project the world position to screen space.
-    vec4 modelViewPosition = modelViewMatrix * vec4(pos, 1.0);
-    gl_Position = projectionMatrix * modelViewPosition;
+    v_pos = pos;
 
-    // Calculate particle size so it's consistent regardless of distance.
-    gl_PointSize = particleSize * (cameraConstant / -modelViewPosition.z);
+    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+
+    gl_PointSize = particleSize * cameraConstant / (-mvPosition.z);
+    gl_Position = projectionMatrix * mvPosition;
 }

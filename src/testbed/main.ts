@@ -32,6 +32,7 @@ import runScene38 from './scenes/38_player_in_landscape';
 import runScene40 from './scenes/40_perlin_flow_field';
 import runScene41 from './scenes/41_ring_grid_test';
 import runScene42 from './scenes/42_agent_in_flow_field';
+import topographicTerrain from './scenes/45_topographic_terrain';
 
 import { CreativeUniverseChapterTest } from './scenes/23_CreativeUniverseChapter_Test';
 
@@ -73,6 +74,8 @@ const scenes: { [key: string]: () => void } = {
     '40: Perlin Flow Field': runScene40,
     '41: Ring Grid Test': runScene41,
     '42: Agent in Flow Field': runScene42,
+    '45: Topographic Terrain': topographicTerrain,
+
 };
 
 let currentScene: string | null = null;

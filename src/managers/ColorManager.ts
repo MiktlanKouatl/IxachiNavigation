@@ -17,10 +17,18 @@ export type ColorPalette = {
     background: ColorRole;
     ribbonDefault: ColorRole;
     // New roles for rings
-    ringEventPrimary: ColorRole;
-    ringEventSecondary: ColorRole;
-    ringCollectionPrimary: ColorRole;
-    ringCollectionSecondary: ColorRole;
+    ringEventActiveStart: ColorRole;
+    ringEventActiveEnd: ColorRole;
+    ringEventCollectedStart: ColorRole;
+    ringEventCollectedEnd: ColorRole;
+    ringCollectionActiveStart: ColorRole;
+    ringCollectionActiveEnd: ColorRole;
+    ringCollectionCollectedStart: ColorRole;
+    ringCollectionCollectedEnd: ColorRole;
+    // New roles for orbs
+    orbActive: ColorRole;
+    orbCollectedStart: ColorRole;
+    orbCollectedEnd: ColorRole;
     harmonyBase: THREE.Color;
     harmonyType: HarmonyType;
 }
@@ -33,10 +41,18 @@ const palettes: { [key: string]: ColorPalette } = {
         background: { type: 'fixed', value: new THREE.Color('#111111') },
         ribbonDefault: { type: 'harmonic' },
         // Ring Colors
-        ringEventPrimary: { type: 'fixed', value: new THREE.Color('#FF8C00') },
-        ringEventSecondary: { type: 'fixed', value: new THREE.Color('#FFDDC1') },
-        ringCollectionPrimary: { type: 'fixed', value: new THREE.Color('#00FFFF') },
-        ringCollectionSecondary: { type: 'fixed', value: new THREE.Color('#FFFFFF') },
+        ringEventActiveStart: { type: 'fixed', value: new THREE.Color('#ff00dd') },
+        ringEventActiveEnd: { type: 'fixed', value: new THREE.Color('#ff8400') },
+        ringEventCollectedStart: { type: 'fixed', value: new THREE.Color('#0051ff') },
+        ringEventCollectedEnd: { type: 'fixed', value: new THREE.Color('#00eaff') },
+        ringCollectionActiveStart: { type: 'fixed', value: new THREE.Color('#bb00ff') },
+        ringCollectionActiveEnd: { type: 'fixed', value: new THREE.Color('#f200ff') },
+        ringCollectionCollectedStart: { type: 'fixed', value: new THREE.Color('#0051ff') },
+        ringCollectionCollectedEnd: { type: 'fixed', value: new THREE.Color('#00eaff') },
+        // Orb Colors
+        orbActive: { type: 'fixed', value: new THREE.Color('#005eff') },
+        orbCollectedStart: { type: 'fixed', value: new THREE.Color('#7401c5') },
+        orbCollectedEnd: { type: 'fixed', value: new THREE.Color('#FFFFA0') },
         harmonyBase: new THREE.Color('#FF8C00'),
         harmonyType: 'monochromatic',
     },

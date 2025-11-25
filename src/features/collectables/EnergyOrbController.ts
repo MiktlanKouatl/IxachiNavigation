@@ -49,7 +49,7 @@ export class EnergyOrbController {
             fragmentShader: orbFragmentShader,
             uniforms: {
                 uTime: { value: 0.0 },
-                uSize: { value: 2.0 }, // Tamaño base del orbe
+                uSize: { value: 0.4 }, // Tamaño base del orbe
                 uFadeDuration: { value: this.fadeDuration }
             },
             transparent: true,
@@ -103,8 +103,8 @@ export class EnergyOrbController {
         const isCollArray = new Float32Array(count);
         const timeCollArray = new Float32Array(count);
 
-        const cNormal = this.colorManager.getColor('ribbonDefault');
-        const cCollected = this.colorManager.getColor('accent');
+        const cNormal = this.colorManager.getColor('orbActive');
+        const cCollected = this.colorManager.getColor('orbCollectedStart');
 
         for (let i = 0; i < count; i++) {
             const orb = this.orbsData[i];

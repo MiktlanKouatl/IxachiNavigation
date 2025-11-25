@@ -209,6 +209,8 @@ export class IxachiExperience {
         fadeStyle: FadeStyle.FadeInOut,
         renderMode: RenderMode.Solid,
         fadeTransitionSize: 0.4,
+        uPlayerForward: new THREE.Vector3(0, 0, 1), // Initial value, will be updated dynamically
+        uMinHeadLength: 0.5, // Fixed minimum head length
     };
     const ribbon = new RibbonLine(config);
     this.colorManager.on('update', () => {
@@ -264,6 +266,8 @@ export class IxachiExperience {
     this.camera.lookAt(this.smoothLookAtTarget.position);
 
     this.movementController.update(this.hostSourceObject, deltaTime, elapsedTime);
+    // Update the uPlayerForward uniform in the ribbon shader
+    this.hostRibbon.setPlayerForward(this.movementController.getForwardVector());
     if (this.isDrawingEnabled) {
       this.hostRibbon.addPoint(this.hostSourceObject.position);
     }

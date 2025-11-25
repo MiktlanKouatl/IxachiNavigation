@@ -17,11 +17,12 @@ uniform float uRevealProgress;
 uniform float uTrailHead;
 uniform float uTrailLength;
 
+
 uniform float uMinSegmentLengthThreshold;
 
-// --- NUEVOS UNIFORMS (Intent Injection) ---
-uniform vec3 uPlayerForward;  // Dirección intencional del jugador
-uniform float uMinHeadLength; // Longitud mínima forzada para la cabeza
+// Intent Injection Uniforms
+uniform vec3 uPlayerForward; 
+uniform float uMinHeadLength;
 
 vec4 getPoint(float progress) {
     if (progress < 0.0 || progress > 1.0) {
@@ -46,11 +47,11 @@ void main() {
     vUv = uv;
     vTrailUv = a_index;
     v_isHead = a_isHead;
-    v_isDegenerateSegment = 0.0; 
+    v_isDegenerateSegment = 0.0;
 
     float pointProgress = a_index;
     
-    // Lógica de Modos (Reveal / Trail)
+    // 1. Lógica de Modos
     if (uUseMode == 1) {
         pointProgress = a_index;
         if (a_index > uRevealProgress) {
@@ -64,62 +65,94 @@ void main() {
     }
 
     vec4 currentPointData = getPoint(pointProgress);
-    if (isnan(currentPointData.x)) {
+    
+    if (isnan(currentPointData.x) && v_isHead < 0.5) {
         gl_Position = vec4(0.0/0.0);
         return;
     }
-    v_visibility = currentPointData.w;
+    v_visibility = isnan(currentPointData.w) ? 1.0 : currentPointData.w;
 
-    // --- LÓGICA DE PROTECCIÓN DE CABEZA (Head Protection) ---
-    // Obtenemos el siguiente punto para medir distancia
+    vec3 worldPos;
     vec4 nextPointData = getPoint(pointProgress + 1.0 / uPathLength);
-    vec3 worldPos = currentPointData.rgb;
     bool hasNext = !isnan(nextPointData.x);
 
-    // Si somos la cabeza y el segmento es demasiado corto (colapsado por inmovilidad)
+    // Datos del Ancla (Cuello Real)
+    vec4 neckAnchorData = getPoint(1.0 / uPathLength);
+    vec3 neckAnchorPos = neckAnchorData.rgb;
+
+    // Posición forzada de la cabeza
+    vec3 forcedHeadPosFromNeck = vec3(0.0);
+    if (hasNext) {
+         forcedHeadPosFromNeck = nextPointData.rgb + normalize(uPlayerForward) * uMinHeadLength;
+    }
+
+    // Índice numérico aproximado del vértice (0, 1, 2, 3...)
+    float indexVal = pointProgress * (uPathLength - 1.0);
+
     if (v_isHead > 0.5 && hasNext) {
-        float dist = distance(worldPos, nextPointData.rgb);
+        // [CABEZA]: Siempre visible y proyectada
+        worldPos = forcedHeadPosFromNeck;
+        v_isDegenerateSegment = 0.0;
         
-        if (dist < uMinHeadLength) {
-            // "Inyectamos intención": Proyectamos la cabeza hacia adelante artificialmente
-            worldPos = nextPointData.rgb + normalize(uPlayerForward) * uMinHeadLength;
-            // Garantizamos que no se marque como degenerado
-            v_isDegenerateSegment = 0.0;
+    } else {
+        // [CUERPO]: Posición física
+        worldPos = currentPointData.rgb;
+        
+        if (hasNext) {
+            // A. Check de Longitud Local
+            float segmentLength = distance(worldPos, nextPointData.rgb);
+            if (segmentLength < uMinSegmentLengthThreshold) {
+                v_isDegenerateSegment = 1.0;
+            }
+            
+            // B. Check de Singularidad (Global) con PROTECCIÓN DE CUELLO
+            if (!isnan(neckAnchorData.x)) {
+                float distToSingularity = distance(worldPos, neckAnchorPos);
+                
+                // Si la distancia al ancla es despreciable, es basura acumulada.
+                // Usamos 2.0 veces el umbral para ser agresivos con la limpieza cerca de la cabeza.
+                if (distToSingularity < uMinSegmentLengthThreshold * 2.0) {
+                    v_isDegenerateSegment = 1.0;
+                }
+            }
         }
     }
 
-    // --- GEOMETRÍA ---
+    // --- GEOMETRÍA VIEW SPACE ---
     vec4 currentView = modelViewMatrix * vec4(worldPos, 1.0);
-    vec4 prevPointData = getPoint(pointProgress - 1.0 / uPathLength);
     vec4 nextView = modelViewMatrix * vec4(nextPointData.rgb, 1.0);
-    vec4 prevView = modelViewMatrix * vec4(prevPointData.rgb, 1.0);
+    
+    // --- CORRECCIÓN DE TANGENTE (Para que el cuello mire a la cabeza) ---
+    vec4 prevPointData = getPoint(pointProgress - 1.0 / uPathLength);
+    
+    if (indexVal < 1.5 && indexVal > 0.5) {
+        vec3 fixedPrevPos = worldPos + normalize(uPlayerForward) * uMinHeadLength;
+        prevPointData = vec4(fixedPrevPos, 1.0);
+    }
 
+    vec4 prevView = modelViewMatrix * vec4(prevPointData.rgb, 1.0);
     bool hasPrev = !isnan(prevPointData.x);
 
-    // Check para segmentos normales (no cabeza)
-    if (hasNext && v_isHead < 0.5) {
-        float segmentLength = distance(worldPos, nextPointData.rgb);
-        if (segmentLength < uMinSegmentLengthThreshold) {
-            v_isDegenerateSegment = 1.0;
-        }
-    }
-
+    // --- DIRECCIÓN ---
     vec2 dir;
     vec2 currentScreen = currentView.xy / currentView.w;
-    vec2 prevScreen = prevView.xy / prevView.w;
     vec2 nextScreen = nextView.xy / nextView.w;
+    vec2 prevScreen = prevView.xy / prevView.w;
 
-    if (hasPrev && hasNext) {
-        vec2 dir1 = safeNormalize(currentScreen - prevScreen);
-        vec2 dir2 = safeNormalize(nextScreen - currentScreen);
-        dir = safeNormalize(dir1 + dir2);
-    } else if (hasPrev) {
-        dir = safeNormalize(currentScreen - prevScreen);
-    } else if (hasNext) {
-        // En caso de cabeza corregida, la distancia está garantizada aquí
+    if (v_isHead > 0.5) {
         dir = safeNormalize(nextScreen - currentScreen);
     } else {
-        dir = vec2(1.0, 0.0);
+        if (hasPrev && hasNext) {
+            vec2 dir1 = safeNormalize(currentScreen - prevScreen);
+            vec2 dir2 = safeNormalize(nextScreen - currentScreen);
+            dir = safeNormalize(dir1 + dir2);
+        } else if (hasPrev) {
+            dir = safeNormalize(currentScreen - prevScreen);
+        } else if (hasNext) {
+            dir = safeNormalize(nextScreen - currentScreen);
+        } else {
+            dir = vec2(1.0, 0.0);
+        }
     }
     
     vec2 normal = vec2(-dir.y, dir.x);
