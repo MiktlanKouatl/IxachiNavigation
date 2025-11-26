@@ -33,6 +33,7 @@ import runScene40 from './scenes/40_perlin_flow_field';
 import runScene41 from './scenes/41_ring_grid_test';
 import runScene42 from './scenes/42_agent_in_flow_field';
 import topographicTerrain from './scenes/45_topographic_terrain';
+import { runScene as runScene46 } from './scenes/46_interactive_track_builder';
 
 import { CreativeUniverseChapterTest } from './scenes/23_CreativeUniverseChapter_Test';
 
@@ -75,6 +76,7 @@ const scenes: { [key: string]: () => void } = {
     '41: Ring Grid Test': runScene41,
     '42: Agent in Flow Field': runScene42,
     '45: Topographic Terrain': topographicTerrain,
+    '46: Interactive Track Builder': runScene46,
 
 };
 
@@ -115,7 +117,7 @@ async function runChapterTest(chapter: IAnimationChapter) {
         movementController: null as any,
         progressCircle: null as any,
         progressUI: null as any,
-        enableDrawing: () => {},
+        enableDrawing: () => { },
     };
 
     chapter.start(null as any, targets);
