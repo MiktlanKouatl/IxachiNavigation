@@ -292,6 +292,7 @@ export function runScene() {
         uniforms: {
             texturePosition: { value: null },
             particleSize: { value: params.particleSize },
+            minParticleSize: { value: params.minParticleSize },
             cameraConstant: { value: window.innerHeight / (Math.tan(THREE.MathUtils.DEG2RAD * 0.5 * camera.fov) / camera.zoom) },
             u_terrainLow: { value: colorManager.getColor('terrainLow') },
             u_terrainMid: { value: colorManager.getColor('terrainMid') },
@@ -333,13 +334,38 @@ export function runScene() {
 
     // --- RESTORE GUI FROM SCENE 45 ---
     const worldFolder = gui.addFolder('World');
-    worldFolder.add(params, 'particleSize', 0, 1, 0.01).name('Particle Size');
-    worldFolder.add(params, 'minParticleSize', 0, 1, 0.01).name('Min Particle Size');
+    worldFolder.add(params, 'particleSize', 0, 1, 0.01).name('Particle Size').onChange(v => {
+        landscapeParticleMaterial.uniforms.particleSize.value = v;
+    });
+    worldFolder.add(params, 'minParticleSize', 0, 20, 0.1).name('Min Particle Size (Px)').onChange(v => {
+        landscapeParticleMaterial.uniforms.minParticleSize.value = v;
+    });
+
 
     const colorFolder = gui.addFolder('Colors');
     colorFolder.add(params, 'palette', ['NaranjaIxachi', 'BosqueEncantado', 'FondoDelMar']).name('Color Palette').onChange((v: string) => {
         colorManager.setPalette(v);
     });
+
+    // Custom Colors
+    const customColors = {
+        enabled: false,
+        background: '#111111',
+        terrainLow: '#000000',
+        terrainMid: '#0044aa',
+        terrainHigh: '#00aaff',
+        ringColor: '#ffaa00',
+        orbColor: '#00ffaa'
+    };
+
+    const customColorFolder = colorFolder.addFolder('Custom Overrides');
+    customColorFolder.add(customColors, 'enabled').name('Enable Custom Colors');
+    customColorFolder.addColor(customColors, 'background').name('Background');
+    customColorFolder.addColor(customColors, 'terrainLow').name('Terrain Low');
+    customColorFolder.addColor(customColors, 'terrainMid').name('Terrain Mid');
+    customColorFolder.addColor(customColors, 'terrainHigh').name('Terrain High');
+    customColorFolder.addColor(customColors, 'ringColor').name('Rings');
+    customColorFolder.addColor(customColors, 'orbColor').name('Orbs');
 
     const terrainFolder = gui.addFolder('Terrain Settings');
     terrainFolder.add(posUniforms.u_heightScale, 'value', 0, 50).name('Height Scale').onChange(() => {
@@ -365,17 +391,78 @@ export function runScene() {
     });
 
     const ribbonFolder = gui.addFolder('Player Ribbon');
-    ribbonFolder.addColor(playerRibbon.material.uniforms.uColor, 'value').name('Color Start');
-    ribbonFolder.addColor(playerRibbon.material.uniforms.uColorEnd, 'value').name('Color End');
+    ribbonFolder.addColor(playerRibbon.material.uniforms.uColor, 'value').name('Color Start').listen();
+    ribbonFolder.addColor(playerRibbon.material.uniforms.uColorEnd, 'value').name('Color End').listen();
     ribbonFolder.add(playerRibbon.material.uniforms.uFadeTransitionSize, 'value', 0, 1, 0.01).name('Fade Size');
     ribbonFolder.add(playerRibbon.material.uniforms.uColorMix, 'value', 0, 1, 0.01).name('Color Mix');
     ribbonFolder.add(playerRibbon.material.uniforms.uTransitionSize, 'value', 0, 1, 0.01).name('Color Transition');
 
     colorManager.on('update', () => {
-        scene.background.copy(colorManager.getColor('background'));
-        landscapeParticleMaterial.uniforms.u_terrainLow.value.copy(colorManager.getColor('terrainLow'));
-        landscapeParticleMaterial.uniforms.u_terrainMid.value.copy(colorManager.getColor('terrainMid'));
-        landscapeParticleMaterial.uniforms.u_terrainHigh.value.copy(colorManager.getColor('terrainHigh'));
+        if (customColors.enabled) {
+            scene.background.set(customColors.background);
+            landscapeParticleMaterial.uniforms.u_terrainLow.value.set(customColors.terrainLow);
+            landscapeParticleMaterial.uniforms.u_terrainMid.value.set(customColors.terrainMid);
+            landscapeParticleMaterial.uniforms.u_terrainHigh.value.set(customColors.terrainHigh);
+            // Player colors are handled by Ribbon Folder manually when custom is on
+
+
+            // Update Rings and Orbs
+            // We need to access the materials of the rings and orbs.
+            // RingController and EnergyOrbController don't expose materials directly easily?
+            // They use ColorManager usually.
+            // If custom colors are enabled, we might need to force them.
+            // But RingController uses `colorManager.getColor('ring')` etc.
+            // We can override the ColorManager's palette or just set the values if we can access them.
+            // Better approach: When custom colors are enabled, we can tell ColorManager to use these overrides?
+            // Or just manually update if we can access the meshes.
+
+            // Actually, `RingController` has `rings` array.
+            // `EnergyOrbController` has `orbs` array.
+
+            // Let's try to access them if possible.
+            // But `RingController` is imported. Let's see if we can access the materials.
+            // If not, we might need to modify the controllers or just rely on ColorManager.
+            // BUT the user wants SPECIFIC control for these.
+
+            // Let's assume we can iterate and update.
+            // We need to cast to any or check the class.
+
+            // Hacky but effective for now:
+            (ringController as any).rings.forEach((ring: any) => {
+                // Ring uses RibbonLineGPU which has a ShaderMaterial with uniforms
+                if (ring.ribbon && ring.ribbon.material && ring.ribbon.material.uniforms) {
+                    ring.ribbon.material.uniforms.uColor.value.set(customColors.ringColor);
+                    ring.ribbon.material.uniforms.uColorEnd.value.set(customColors.ringColor);
+                }
+            });
+
+            const orbCtrl = (orbController as any);
+            if (orbCtrl.geometry && orbCtrl.geometry.attributes) {
+                const count = orbCtrl.orbsData.length;
+                const colStartAttr = orbCtrl.geometry.attributes.a_colorStart;
+                const colCollAttr = orbCtrl.geometry.attributes.a_colorCollected;
+
+                const cNormal = new THREE.Color(customColors.orbColor);
+                // For collected, maybe use a lighter version or same? Let's use same for now or white
+                const cCollected = new THREE.Color(customColors.orbColor).offsetHSL(0, 0, 0.2);
+
+                for (let i = 0; i < count; i++) {
+                    colStartAttr.setXYZ(i, cNormal.r, cNormal.g, cNormal.b);
+                    colCollAttr.setXYZ(i, cCollected.r, cCollected.g, cCollected.b);
+                }
+                colStartAttr.needsUpdate = true;
+                colCollAttr.needsUpdate = true;
+            }
+        } else {
+            scene.background.copy(colorManager.getColor('background'));
+            landscapeParticleMaterial.uniforms.u_terrainLow.value.copy(colorManager.getColor('terrainLow'));
+            landscapeParticleMaterial.uniforms.u_terrainMid.value.copy(colorManager.getColor('terrainMid'));
+            landscapeParticleMaterial.uniforms.u_terrainHigh.value.copy(colorManager.getColor('terrainHigh'));
+
+            // Sync Player Ribbon to Palette
+            playerRibbon.material.uniforms.uColor.value.copy(colorManager.getColor('accent'));
+            playerRibbon.material.uniforms.uColorEnd.value.copy(colorManager.getColor('primary'));
+        }
     });
 
     // --- Animation Loop ---

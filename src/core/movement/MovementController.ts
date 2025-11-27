@@ -6,6 +6,9 @@ import { IMovementStrategy } from './IMovementStrategy';
  */
 export class MovementController {
     private activeStrategy: IMovementStrategy | null = null;
+    private currentForward: THREE.Vector3 = new THREE.Vector3(0, 0, 1);
+    private _tempPos: THREE.Vector3 = new THREE.Vector3();
+    private _tempDiff: THREE.Vector3 = new THREE.Vector3();
 
     /**
      * Sets or changes the active movement strategy.
@@ -20,6 +23,10 @@ export class MovementController {
         return this.activeStrategy;
     }
 
+    public getForwardVector(): THREE.Vector3 {
+        return this.currentForward;
+    }
+
     /**
      * Executes the update method of the active strategy, if one is set.
      * @param target The object to be moved.
@@ -28,7 +35,19 @@ export class MovementController {
      */
     public update(target: THREE.Object3D, deltaTime: number, elapsedTime: number): void {
         if (this.activeStrategy) {
+            // 1. Capture position BEFORE update
+            this._tempPos.copy(target.position);
+
+            // 2. Run strategy
             this.activeStrategy.update(target, deltaTime, elapsedTime);
+
+            // 3. Calculate displacement
+            this._tempDiff.subVectors(target.position, this._tempPos);
+
+            // 4. If moved enough, update forward vector
+            if (this._tempDiff.lengthSq() > 0.000001) {
+                this.currentForward.copy(this._tempDiff).normalize();
+            }
         }
     }
 }

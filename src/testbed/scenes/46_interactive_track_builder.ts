@@ -50,6 +50,7 @@ export function runScene() {
         heightChange: 10,
         roadWidth: 10, // New: Road Width
         mandalaMode: false, // New: Mandala Mode
+        showWireframe: false, // New: Wireframe Toggle
         autoUpdate: true,
     };
 
@@ -139,16 +140,34 @@ export function runScene() {
                 color: 0x00ff00, side: THREE.DoubleSide, wireframe: false, roughness: 0.4, metalness: 0.1
             });
             const baseMesh = new THREE.Mesh(geometry, material);
+            const wireframe = new THREE.LineSegments(new THREE.WireframeGeometry(geometry), new THREE.LineBasicMaterial({ color: 0x0044aa, transparent: true, opacity: 0.5 }));
+            wireframe.visible = uiState.showWireframe;
 
             if (uiState.mandalaMode) {
                 const group = new THREE.Group();
+
+                // Q1
                 group.add(baseMesh.clone());
+                const w1 = wireframe.clone(); w1.visible = uiState.showWireframe; group.add(w1);
+
+                // Q2 (Mirror X)
                 const meshX = baseMesh.clone(); meshX.scale.set(-1, 1, 1); group.add(meshX);
+                const w2 = wireframe.clone(); w2.scale.set(-1, 1, 1); w2.visible = uiState.showWireframe; group.add(w2);
+
+                // Q3 (Mirror Z)
                 const meshZ = baseMesh.clone(); meshZ.scale.set(1, 1, -1); group.add(meshZ);
+                const w3 = wireframe.clone(); w3.scale.set(1, 1, -1); w3.visible = uiState.showWireframe; group.add(w3);
+
+                // Q4 (Mirror XZ)
                 const meshXZ = baseMesh.clone(); meshXZ.scale.set(-1, 1, -1); group.add(meshXZ);
+                const w4 = wireframe.clone(); w4.scale.set(-1, 1, -1); w4.visible = uiState.showWireframe; group.add(w4);
+
                 trackMesh = group;
             } else {
-                trackMesh = baseMesh;
+                const group = new THREE.Group();
+                group.add(baseMesh);
+                group.add(wireframe);
+                trackMesh = group;
             }
             scene.add(trackMesh);
         }
@@ -350,6 +369,7 @@ export function runScene() {
     const viewFolder = gui.addFolder('Visualization');
     viewFolder.add(uiState, 'roadWidth', 1, 50).name('Road Width').onChange(updateTrackVisuals);
     viewFolder.add(uiState, 'mandalaMode').name('Mandala Mode').onChange(updateTrackVisuals);
+    viewFolder.add(uiState, 'showWireframe').name('Show Wireframe').onChange(updateTrackVisuals);
 
     const actionFolder = gui.addFolder('Actions');
     actionFolder.add(actions, 'addSegment').name('ADD SEGMENT');

@@ -1,22 +1,27 @@
 import * as THREE from 'three';
 
-export type TrackOperationType = 'straight' | 'turn' | 'ramp' | 'move';
+export type TrackOperationType = 'straight' | 'turn' | 'ramp' | 'move' | 'section_trigger';
 
 export interface TrackOperation {
     type: TrackOperationType;
     // Common
     id?: string;
+    sectionId?: string; // For section_trigger
     // Straight / Ramp
     length?: number;
     heightChange?: number; // For Ramp and Turn (Helix)
     // Turn
-    angle?: number; // Degrees. Positive = Left, Negative = Right (or vice versa, we'll define)
     angle?: number; // Degrees. Positive = Left, Negative = Right (or vice versa, we'll define)
     radius?: number;
     roll?: number; // Banking angle in degrees. Positive = Bank Left, Negative = Bank Right
     // Move (Jump to position)
     position?: THREE.Vector3;
     direction?: THREE.Vector3;
+}
+
+export interface SectionTrigger {
+    id: string;
+    progress: number; // 0.0 to 1.0
 }
 
 export class TrackBuilder {
@@ -26,6 +31,8 @@ export class TrackBuilder {
 
     private startPosition: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
     private startDirection: THREE.Vector3 = new THREE.Vector3(0, 0, -1);
+
+    private calculatedTriggers: SectionTrigger[] = [];
 
     constructor() { }
 
@@ -37,6 +44,11 @@ export class TrackBuilder {
 
     public addOperation(op: TrackOperation): TrackBuilder {
         this.operations.push(op);
+        return this;
+    }
+
+    public addSectionTrigger(sectionId: string): TrackBuilder {
+        this.operations.push({ type: 'section_trigger', sectionId });
         return this;
     }
 
@@ -55,6 +67,10 @@ export class TrackBuilder {
         return [...this.operations];
     }
 
+    public getSectionTriggers(): SectionTrigger[] {
+        return this.calculatedTriggers;
+    }
+
     private resetState() {
         this.currentPosition.copy(this.startPosition);
         this.currentDirection.copy(this.startDirection);
@@ -63,29 +79,54 @@ export class TrackBuilder {
     public build(): THREE.CurvePath<THREE.Vector3> {
         this.resetState();
         const curvePath = new THREE.CurvePath<THREE.Vector3>();
+        this.calculatedTriggers = [];
+
+        // Temporary storage for triggers with absolute length
+        const tempTriggers: { id: string, length: number }[] = [];
+        let currentLength = 0;
 
         for (const op of this.operations) {
+            let addedCurve: THREE.Curve<THREE.Vector3> | null = null;
+
             switch (op.type) {
                 case 'straight':
-                    this.buildStraight(curvePath, op);
+                    addedCurve = this.buildStraight(curvePath, op);
                     break;
                 case 'turn':
-                    this.buildTurn(curvePath, op);
+                    addedCurve = this.buildTurn(curvePath, op);
                     break;
                 case 'ramp':
-                    this.buildRamp(curvePath, op);
+                    addedCurve = this.buildRamp(curvePath, op);
                     break;
                 case 'move':
                     if (op.position) this.currentPosition.copy(op.position);
                     if (op.direction) this.currentDirection.copy(op.direction).normalize();
                     break;
+                case 'section_trigger':
+                    if (op.sectionId) {
+                        tempTriggers.push({ id: op.sectionId, length: currentLength });
+                    }
+                    break;
             }
+
+            if (addedCurve) {
+                currentLength += addedCurve.getLength();
+            }
+        }
+
+        // Normalize triggers
+        const totalLength = currentLength; // curvePath.getLength() should match this
+        if (totalLength > 0) {
+            this.calculatedTriggers = tempTriggers.map(t => ({
+                id: t.id,
+                progress: t.length / totalLength
+            }));
         }
 
         return curvePath;
     }
 
-    private buildStraight(path: THREE.CurvePath<THREE.Vector3>, op: TrackOperation) {
+    private buildStraight(path: THREE.CurvePath<THREE.Vector3>, op: TrackOperation): THREE.Curve<THREE.Vector3> {
         const length = op.length || 10;
         const start = this.currentPosition.clone();
         const end = this.currentPosition.clone().add(this.currentDirection.clone().multiplyScalar(length));
@@ -95,9 +136,10 @@ export class TrackBuilder {
 
         // Update state
         this.currentPosition.copy(end);
+        return line;
     }
 
-    private buildRamp(path: THREE.CurvePath<THREE.Vector3>, op: TrackOperation) {
+    private buildRamp(path: THREE.CurvePath<THREE.Vector3>, op: TrackOperation): THREE.Curve<THREE.Vector3> {
         const length = op.length || 10;
         const height = op.heightChange || 0;
 
@@ -119,9 +161,10 @@ export class TrackBuilder {
         // we often keep the 2D projected direction or update the 3D one.
         // Let's update the 3D direction to match the ramp slope.
         this.currentDirection.copy(displacement).normalize();
+        return line;
     }
 
-    private buildTurn(path: THREE.CurvePath<THREE.Vector3>, op: TrackOperation) {
+    private buildTurn(path: THREE.CurvePath<THREE.Vector3>, op: TrackOperation): THREE.Curve<THREE.Vector3> {
         const angleDeg = op.angle || 90;
         const radius = op.radius || 20;
         const angleRad = THREE.MathUtils.DEG2RAD * angleDeg;
@@ -130,17 +173,8 @@ export class TrackBuilder {
         // If angle is positive (Left Turn), center is to the Left.
         // Left vector = Up x Forward
         const up = new THREE.Vector3(0, 1, 0);
-        const right = new THREE.Vector3().crossVectors(this.currentDirection, up).normalize(); // Actually this is Left if Dir is -Z? 
-        // Let's standardize: 
         // Forward = (0,0,-1). Up = (0,1,0). Right = (-1, 0, 0) -> Wait. (0,0,-1)x(0,1,0) = (1,0,0) which is +X (Right).
         // So Right is +X.
-
-        // If we turn LEFT (positive angle), center is -Right * Radius
-        // If we turn RIGHT (negative angle), center is +Right * Radius
-
-        // Let's assume Angle > 0 is LEFT turn.
-        // Center direction from current pos = Cross(Up, Dir) = Left.
-        // Wait, Cross(Dir, Up) = Right.
 
         const rightDir = new THREE.Vector3().crossVectors(this.currentDirection, up).normalize();
         const leftDir = rightDir.clone().negate();
@@ -160,22 +194,8 @@ export class TrackBuilder {
         }
 
         // 2. Create the curve
-        // EllipseCurve is 2D. We can use it and map to 3D, or use QuadraticBezier for approximation.
-        // But for a perfect circular arc in 3D, we can write a custom Curve or use EllipseCurve and rotate it.
-        // Let's use a series of points for now to create a CatmullRom or just a custom ArcCurve3 class?
-        // THREE.EllipseCurve is easiest if we rotate the result.
-
         // Calculate start angle
-        // The angle of the vector FROM center TO start, relative to X axis?
-        // It's easier to work in local space of the turn.
-
         const startAngle = Math.atan2(centerToStartDir.z, centerToStartDir.x);
-
-        // In 3D (Y-Up), Forward is -Z.
-        // In 2D (EllipseCurve), Y is mapped to Z. So +Y is +Z (Backwards).
-        // A "Left Turn" (turning towards -X) corresponds to a CW rotation in the XZ plane (if looking from top).
-        // So Left Turn = Negative Angle Change, Clockwise = true.
-        // Right Turn = Positive Angle Change, Clockwise = false.
 
         let endAngle: number;
         let clockwise: boolean;
@@ -197,19 +217,7 @@ export class TrackBuilder {
         );
 
         // Convert 2D points to 3D LineCurve or Spline
-        // Since CurvePath expects 3D curves, and EllipseCurve is 2D...
-        // We can wrap it. Or just sample it.
-        // Let's sample it into a CatmullRom for smoothness or just small line segments?
-        // Better: Create a custom ArcCurve3.
-
         // For now, let's sample it into a CatmullRomCurve3 to be safe and compatible with everything.
-        const points2D = curve2D.getPoints(10); // Low res for structure, high res for rendering
-        const points3D = points2D.map(p => new THREE.Vector3(p.x, this.currentPosition.y, p.y));
-
-        // Note: CatmullRom might not be a perfect circle.
-        // For "Slot Car" precision, we might want exact arcs.
-        // But for this visual test, CatmullRom is okay if points are sufficient.
-        // Actually, let's use more points.
         const precisePoints = curve2D.getPoints(Math.max(5, Math.abs(angleDeg) / 5));
 
         // Apply height change linearly
@@ -222,10 +230,7 @@ export class TrackBuilder {
             return new THREE.Vector3(p.x, y, p.y);
         });
 
-        // We can add multiple LineCurve3s to the path to approximate the arc?
-        // Or just one CatmullRom.
         const arcCurve = new THREE.CatmullRomCurve3(precisePoints3D, false, 'catmullrom', 0.0); // tension 0 for straight lines? No.
-        // CatmullRom with many points is fine.
 
         path.add(arcCurve);
 
@@ -239,9 +244,6 @@ export class TrackBuilder {
         this.currentDirection.applyAxisAngle(axis, angleRad);
 
         // If there was a height change, the direction vector also needs to pitch up/down?
-        // For a "Slot Car" logic, usually the "Forward" vector stays flat-ish or follows the slope.
-        // If we want to be precise, we should rotate the direction vector to match the slope.
-        // Slope angle = atan(heightChange / arcLength)
         if (heightChange !== 0) {
             const arcLength = Math.abs(angleRad * radius);
             const slopeAngle = Math.atan2(heightChange, arcLength);
@@ -251,5 +253,6 @@ export class TrackBuilder {
         }
 
         this.currentDirection.normalize();
+        return arcCurve;
     }
 }

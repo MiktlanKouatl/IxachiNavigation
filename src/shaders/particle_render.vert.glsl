@@ -1,5 +1,6 @@
 uniform sampler2D texturePosition;
 uniform float particleSize;
+uniform float minParticleSize;
 uniform float cameraConstant;
 
 // AÑADIMOS ESTO: Recibimos el atributo personalizado que acabamos de renombrar
@@ -18,6 +19,6 @@ void main() {
 
     vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
 
-    gl_PointSize = particleSize * cameraConstant / (-mvPosition.z);
+    gl_PointSize = max(minParticleSize, particleSize * cameraConstant / (-mvPosition.z));
     gl_Position = projectionMatrix * mvPosition;
 }
