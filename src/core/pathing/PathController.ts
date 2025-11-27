@@ -4,10 +4,28 @@ import { PathData } from './PathData';
 
 export class PathController {
     public pathData: PathData;
-    public pathCurve: THREE.CatmullRomCurve3;
+    public pathCurve: THREE.Curve<THREE.Vector3>; // Relaxed type
 
-    constructor() {
-        this.createPath();
+    constructor(customCurve?: THREE.CurvePath<THREE.Vector3>) {
+        if (customCurve) {
+            this.pathCurve = customCurve as THREE.CatmullRomCurve3; // Cast or handle generic CurvePath
+            // Note: CurvePath doesn't have all CatmullRom methods, but usually we just need getPointAt.
+            // If we strictly need CatmullRom, we might need to sample the custom curve into points and create one.
+            // For now, let's assume the custom curve is compatible or we wrap it.
+
+            // Actually, TrackBuilder returns CurvePath.
+            // PathController expects CatmullRomCurve3 in the type definition above (line 7).
+            // We should relax the type to THREE.Curve<THREE.Vector3> or CurvePath.
+        } else {
+            this.createPath();
+        }
+
+        // If we passed a custom curve, we need to init pathData
+        if (customCurve) {
+            const divisions = 2000; // Higher res for long tracks
+            const points = this.pathCurve.getPoints(divisions);
+            this.pathData = new PathData([points], true);
+        }
     }
 
     private createPath(): void {
@@ -28,7 +46,7 @@ export class PathController {
         return this.pathData;
     }
 
-    public getCurve(): THREE.CatmullRomCurve3 {
+    public getCurve(): THREE.Curve<THREE.Vector3> {
         return this.pathCurve;
     }
 

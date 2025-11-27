@@ -8,10 +8,12 @@ export interface TrackOperation {
     id?: string;
     // Straight / Ramp
     length?: number;
-    heightChange?: number;
+    heightChange?: number; // For Ramp and Turn (Helix)
     // Turn
     angle?: number; // Degrees. Positive = Left, Negative = Right (or vice versa, we'll define)
+    angle?: number; // Degrees. Positive = Left, Negative = Right (or vice versa, we'll define)
     radius?: number;
+    roll?: number; // Banking angle in degrees. Positive = Bank Left, Negative = Bank Right
     // Move (Jump to position)
     position?: THREE.Vector3;
     direction?: THREE.Vector3;
@@ -209,7 +211,16 @@ export class TrackBuilder {
         // But for this visual test, CatmullRom is okay if points are sufficient.
         // Actually, let's use more points.
         const precisePoints = curve2D.getPoints(Math.max(5, Math.abs(angleDeg) / 5));
-        const precisePoints3D = precisePoints.map(p => new THREE.Vector3(p.x, this.currentPosition.y, p.y));
+
+        // Apply height change linearly
+        const heightChange = op.heightChange || 0;
+        const totalPoints = precisePoints.length;
+
+        const precisePoints3D = precisePoints.map((p, i) => {
+            const progress = i / (totalPoints - 1);
+            const y = this.currentPosition.y + (heightChange * progress);
+            return new THREE.Vector3(p.x, y, p.y);
+        });
 
         // We can add multiple LineCurve3s to the path to approximate the arc?
         // Or just one CatmullRom.
@@ -226,6 +237,19 @@ export class TrackBuilder {
         // Rotate the current direction by the angle
         const axis = new THREE.Vector3(0, 1, 0);
         this.currentDirection.applyAxisAngle(axis, angleRad);
+
+        // If there was a height change, the direction vector also needs to pitch up/down?
+        // For a "Slot Car" logic, usually the "Forward" vector stays flat-ish or follows the slope.
+        // If we want to be precise, we should rotate the direction vector to match the slope.
+        // Slope angle = atan(heightChange / arcLength)
+        if (heightChange !== 0) {
+            const arcLength = Math.abs(angleRad * radius);
+            const slopeAngle = Math.atan2(heightChange, arcLength);
+            // Rotate around the Right vector (Cross product of Up and Dir)
+            const right = new THREE.Vector3().crossVectors(this.currentDirection, new THREE.Vector3(0, 1, 0)).normalize();
+            this.currentDirection.applyAxisAngle(right, slopeAngle);
+        }
+
         this.currentDirection.normalize();
     }
 }

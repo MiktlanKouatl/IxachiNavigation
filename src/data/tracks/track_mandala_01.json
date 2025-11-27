@@ -1,0 +1,106 @@
+[
+    {
+        "type": "straight",
+        "length": 119.13
+    },
+    {
+        "type": "turn",
+        "angle": 90,
+        "radius": 90.45,
+        "roll": 0
+    },
+    {
+        "type": "turn",
+        "angle": 90,
+        "radius": 90.45,
+        "roll": 0
+    },
+    {
+        "type": "turn",
+        "angle": 90,
+        "radius": 90.45,
+        "roll": 0
+    },
+    {
+        "type": "straight",
+        "length": 135.47
+    },
+    {
+        "type": "straight",
+        "length": 119.13
+    },
+    {
+        "type": "turn",
+        "angle": 90,
+        "radius": 90.45,
+        "roll": 0
+    },
+    {
+        "type": "turn",
+        "angle": 90,
+        "radius": 90.45,
+        "roll": 0
+    },
+    {
+        "type": "turn",
+        "angle": 90,
+        "radius": 90.45,
+        "roll": 0
+    },
+    {
+        "type": "straight",
+        "length": 135.47
+    },
+    {
+        "type": "straight",
+        "length": 119.13
+    },
+    {
+        "type": "turn",
+        "angle": 90,
+        "radius": 90.45,
+        "roll": 0
+    },
+    {
+        "type": "turn",
+        "angle": 90,
+        "radius": 90.45,
+        "roll": 0
+    },
+    {
+        "type": "turn",
+        "angle": 90,
+        "radius": 90.45,
+        "roll": 0
+    },
+    {
+        "type": "straight",
+        "length": 135.47
+    },
+    {
+        "type": "straight",
+        "length": 119.13
+    },
+    {
+        "type": "turn",
+        "angle": 90,
+        "radius": 90.45,
+        "roll": 0
+    },
+    {
+        "type": "turn",
+        "angle": 90,
+        "radius": 90.45,
+        "roll": 0
+    },
+    {
+        "type": "turn",
+        "angle": 90,
+        "radius": 90.45,
+        "roll": 0
+    },
+    {
+        "type": "straight",
+        "length": 135.47
+    }
+]

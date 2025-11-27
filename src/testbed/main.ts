@@ -34,6 +34,8 @@ import runScene41 from './scenes/41_ring_grid_test';
 import runScene42 from './scenes/42_agent_in_flow_field';
 import topographicTerrain from './scenes/45_topographic_terrain';
 import { runScene as runScene46 } from './scenes/46_interactive_track_builder';
+import { runScene as runScene47 } from './scenes/47_track_loader';
+import { runScene as runScene48 } from './scenes/48_track_loader';
 
 import { CreativeUniverseChapterTest } from './scenes/23_CreativeUniverseChapter_Test';
 
@@ -77,6 +79,8 @@ const scenes: { [key: string]: () => void } = {
     '42: Agent in Flow Field': runScene42,
     '45: Topographic Terrain': topographicTerrain,
     '46: Interactive Track Builder': runScene46,
+    '47: Track Loader': runScene47,
+    '48: Mandala Drive': runScene48,
 
 };
 
