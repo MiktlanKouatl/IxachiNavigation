@@ -24,14 +24,15 @@ export class Scene49_WaypointContentBuilderTest {
 
     private trackBuilder!: TrackBuilder;
     private pathController!: PathController;
-    private pathFollower!: PathFollower;
+
     private waypointContentManager!: WaypointContentManager;
 
-    private player!: THREE.Mesh;
+    private progressMarker!: THREE.Mesh;
     private trackLine!: THREE.Line;
 
     private waypointContentEditorUI!: WaypointContentEditorUI;
-    private speed: number = 0.05; // Velocidad de movimiento del jugador
+    private waypoints: WaypointContentData[] = [];
+    private masterProgress: number = 0;
 
     constructor() {
         this.clock = new THREE.Clock();
@@ -59,48 +60,13 @@ export class Scene49_WaypointContentBuilderTest {
         // Build Track
         this.buildTrack();
 
-        // Create Player
-        this.createPlayer();
+        // Create Progress Marker
+        this.createProgressMarker();
 
         // Setup Waypoint Content Manager
         this.setupWaypointContentManager();
 
-        // Initialize WaypointContentEditorUI
-        const testWaypointContents: WaypointContentData[] = [
-            {
-                id: 'editable_zone',
-                trackProgress: 0.1, // Initial value
-                screens: [
-                    {
-                        id: 'editor_screen',
-                        trigger: 'manual', // Will be activated manually for editing
-                        elements: [
-                            {
-                                id: 'editor_text_element',
-                                type: 'text',
-                                content: 'Hello Waypoint!',
-                                transform: {
-                                    position: { x: 0, y: 10, z: 0 },
-                                    rotation: { x: 0, y: 0, z: 0 },
-                                    scale: { x: 1, y: 1, z: 1 }
-                                }
-                            }
-                        ],
-                        enterTransition: { type: 'fade', duration: 0.5, easing: 'power2.out' },
-                        exitTransition: { type: 'fade', duration: 0.5, easing: 'power2.in' }
-                    }
-                ]
-            }
-        ];
-        this.waypointContentManager.loadSections(testWaypointContents); // Load the editable one
 
-        // Editor for a single Waypoint Content
-        const editableWaypointContent = testWaypointContents[0];
-        this.waypointContentEditorUI = new WaypointContentEditorUI(editableWaypointContent, (updatedData) => {
-            console.log('Waypoint Content Updated from Editor:', updatedData);
-            // This is where you would typically trigger an update in the WaypointContentManager
-            // For now, the WaypointContentManager will pick up changes on its next update cycle.
-        });
 
         // GUI
         this.gui = new GUI();
@@ -154,38 +120,87 @@ export class Scene49_WaypointContentBuilderTest {
             this.scene.add(marker);
         });
 
-        // PathFollower
-        this.pathFollower = new PathFollower(this.pathController.getPathData());
+
     }
 
-    private createPlayer(): void {
+    private createProgressMarker(): void {
         const geometry = new THREE.BoxGeometry(2, 2, 4);
         const material = new THREE.MeshStandardMaterial({ color: 0x00aaff });
-        this.player = new THREE.Mesh(geometry, material);
-        this.scene.add(this.player);
+        this.progressMarker = new THREE.Mesh(geometry, material);
+        this.scene.add(this.progressMarker);
 
-        // Position player at start
-        this.player.position.copy(this.pathFollower.position);
+        // Position marker at start
+        this.updateMarkerPosition(0);
     }
 
     private setupWaypointContentManager(): void {
         this.waypointContentManager = new WaypointContentManager(this.scene, this.pathController);
     }
 
+    private addWaypoint(): void {
+        const newWaypoint: WaypointContentData = {
+            id: `waypoint_${this.waypoints.length}`,
+            trackProgress: this.masterProgress,
+            disappearProgress: this.masterProgress + 0.1, // Default disappear after 10% of the track
+            screens: [
+                {
+                    id: `screen_${this.waypoints.length}`,
+                    trigger: 'manual',
+                    elements: [
+                        {
+                            id: `text_${this.waypoints.length}`,
+                            type: 'text',
+                            content: 'New Waypoint',
+                            transform: {
+                                position: { x: 0, y: 5, z: 0 },
+                                rotation: { x: 0, y: 0, z: 0 },
+                                scale: { x: 1, y: 1, z: 1 }
+                            }
+                        }
+                    ],
+                    enterTransition: { type: 'fade', duration: 0.5, easing: 'power2.out' },
+                    exitTransition: { type: 'fade', duration: 0.5, easing: 'power2.in' }
+                }
+            ]
+        };
+
+        this.waypoints.push(newWaypoint);
+        this.waypointContentManager.addWaypoint(newWaypoint);
+        this.waypointContentManager.currentlyEditingId = newWaypoint.id;
+
+        // Update editor to point to the new waypoint
+        if (this.waypointContentEditorUI) {
+            this.waypointContentEditorUI.destroy();
+        }
+        this.waypointContentEditorUI = new WaypointContentEditorUI(newWaypoint, this.waypointContentManager);
+    }
+
     private setupGUI(): void {
         const params = {
-            speed: this.speed,
+            masterProgress: this.masterProgress,
+            addWaypoint: () => this.addWaypoint(),
             resetPosition: () => {
-                this.pathFollower.seek(0);
-                this.player.position.copy(this.pathFollower.position);
+                this.masterProgress = 0;
+                this.updateMarkerPosition(0);
+                this.gui.controllers[0].setValue(0);
             }
         };
 
-        this.gui.add(params, 'speed', 0, 0.2).onChange((value: number) => {
-            this.speed = value;
+        this.gui.add(params, 'masterProgress', 0, 1, 0.001).name('Master Progress').onChange((value: number) => {
+            this.masterProgress = value;
+            this.updateMarkerPosition(value);
         });
 
         this.gui.add(params, 'resetPosition').name('Reset Position');
+
+        this.gui.add(params, 'addWaypoint').name('Add Waypoint');
+    }
+
+    private updateMarkerPosition(progress: number): void {
+        const point = this.pathController.getPointAt(progress);
+        this.progressMarker.position.copy(point);
+        const tangent = this.pathController.getTangentAt(progress);
+        this.progressMarker.lookAt(point.add(tangent));
     }
 
     private animate = (): void => {
@@ -193,18 +208,11 @@ export class Scene49_WaypointContentBuilderTest {
 
         const deltaTime = this.clock.getDelta();
 
-        // Update path follower
-        this.pathFollower.update(deltaTime);
-        this.player.position.copy(this.pathFollower.position);
-
-        // Update camera to follow player
-        this.camera.position.x = this.player.position.x;
-        this.camera.position.z = this.player.position.z + 50;
-        this.camera.lookAt(this.player.position);
+        // Update camera to look at the center of the scene
+        this.camera.lookAt(0, 0, 0);
 
         // Update Waypoint Content Manager
-        const trackProgress = this.pathFollower.progress;
-        this.waypointContentManager.update(deltaTime, this.clock.elapsedTime, trackProgress);
+        this.waypointContentManager.update(deltaTime, this.clock.elapsedTime, this.masterProgress);
 
         this.renderer.render(this.scene, this.camera);
     };

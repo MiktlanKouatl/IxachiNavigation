@@ -104,6 +104,18 @@ export class ElementFactory {
         return object;
     }
 
+    public updateElement(data: SceneElementData): void {
+        const object = this.elementMap[data.id];
+        if (!object || !(object instanceof THREE.Object3D)) return;
+
+        this.applyTransform(object, data.transform);
+
+        if (data.type === 'text' && object instanceof Text) {
+            object.text = data.content || '';
+            object.sync();
+        }
+    }
+
     public getSceneObjectsByIds(ids: string[]): THREE.Object3D[] {
         return ids.map(id => {
             const element = this.elementMap[id];

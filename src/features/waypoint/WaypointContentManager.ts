@@ -22,6 +22,7 @@ export class WaypointContentManager {
     private activeBehaviors: IBehaviorModule[] = [];
     private elementFactory: ElementFactory;
     private waypointContentAnchor: THREE.Object3D; // Punto de anclaje del contenido al Track
+    public currentlyEditingId: string | null = null;
 
     constructor(scene: THREE.Scene, pathController: PathController) {
         this.scene = scene;
@@ -36,11 +37,15 @@ export class WaypointContentManager {
     /**
      * Carga el JSON con la configuración de todos los elementos de contenido.
      */
-    public loadSections(waypointContents: WaypointContentData[]): void {
+    public loadWaypoints(waypointContents: WaypointContentData[]): void {
         waypointContents.forEach(waypointContent => {
-            this.allSections.set(waypointContent.id, waypointContent);
+            this.addWaypoint(waypointContent);
         });
-        console.log(`[WaypointContentManager] Cargadas ${waypointContents.length} elementos de contenido.`);
+        console.log(`[WaypointContentManager] Cargados ${waypointContents.length} elementos de contenido.`);
+    }
+
+    public addWaypoint(waypointContent: WaypointContentData): void {
+        this.allSections.set(waypointContent.id, waypointContent);
     }
 
     /**
@@ -71,51 +76,29 @@ export class WaypointContentManager {
             this.previousProgress = trackProgress;
         }
 
-        // Lógica de detección de activación de sección
+        // Deactivation logic
+        if (this.activeWaypointContent) {
+            const isInRange = trackProgress >= this.activeWaypointContent.trackProgress && trackProgress < this.activeWaypointContent.disappearProgress;
+            if (!isInRange && this.activeWaypointContent.id !== this.currentlyEditingId) {
+                this.disposeActiveWaypointContent();
+            }
+        }
+
+        // Activation logic
         if (!this.activeWaypointContent) {
             for (const waypointContent of this.allSections.values()) {
-                // Detect crossing of the trigger point
-                // Case 1: Standard crossing (prev < target <= curr)
-                const crossed = this.previousProgress < waypointContent.trackProgress && trackProgress >= waypointContent.trackProgress;
-
-                // Case 2: Loop wrapping (prev > curr, e.g. 0.99 -> 0.01) AND target is near 0
-                // This is a bit complex without knowing if it's a loop. 
-                // For now, we'll assume linear crossing or simple tolerance for start.
-
-                // Case 3: Direct proximity (useful if we spawn right on it)
-                const near = Math.abs(trackProgress - waypointContent.trackProgress) < 0.005;
-
-                if (crossed || near) {
+                const isInRange = trackProgress >= waypointContent.trackProgress && trackProgress < waypointContent.disappearProgress;
+                if (isInRange) {
                     this.activateWaypointContent(waypointContent.id, trackProgress);
                     break;
                 }
             }
         }
+
+        // Update logic for the active waypoint
         if (this.activeWaypointContent) {
-            // Mover el ancla de la sección con el track? 
-            // NO, el ancla debe quedarse fija en el punto de inicio de la sección.
-            // Si queremos que la sección se mueva con el jugador (HUD), es diferente.
-            // Pero el diseño dice "Waypoint Content Anchor". Asumimos que es estático en el track.
-            // Wait, el código original decía updateAnchorPosition(trackProgress).
-            // Si actualizamos con trackProgress, la sección se mueve con el jugador.
-            // Si es un "Billboard" que viaja contigo, está bien.
-            // Si es un "Lugar" en el mapa, debería fijarse en waypointContent.trackProgress.
-
-            // CORRECCIÓN: Fijar el ancla en la posición de la sección, no del jugador.
-            // this.updateAnchorPosition(this.activeSection.trackProgress); 
-            // Pero si queremos que aparezca frente al jugador, tal vez sea un HUD 3D.
-            // El usuario pidió "espacio donde se muestre primero el nombre de la sección".
-            // Vamos a asumir que se queda fijo en el mundo en el punto trackProgress.
-
-            // Sin embargo, para efectos visuales, a veces queremos que flote cerca.
-            // Por ahora, lo dejaré fijo en el punto de la sección.
             this.updateAnchorPosition(this.activeWaypointContent.trackProgress);
-
-            // Actualizar todos los módulos de comportamiento activos
             this.activeBehaviors.forEach(b => b.update(deltaTime, time));
-
-            // Lógica de transición de Screen (TO-DO)
-            // ...
         }
 
         this.previousProgress = trackProgress;
@@ -203,5 +186,17 @@ export class WaypointContentManager {
         this.activeScreen = null;
         this.waypointContentAnchor.visible = false;
         console.log(`[WaypointContentManager] Contenido de Waypoint desactivado.`);
+    }
+
+    public updateWaypoint(waypointData: WaypointContentData): void {
+        if (!this.allSections.has(waypointData.id)) return;
+
+        this.allSections.set(waypointData.id, waypointData);
+
+        waypointData.screens.forEach(screen => {
+            screen.elements.forEach(elementData => {
+                this.elementFactory.updateElement(elementData);
+            });
+        });
     }
 }

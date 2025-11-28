@@ -67,5 +67,6 @@ export interface WaypointContentData {
     id: string;
     // Progreso del Path (0.0 a 1.0) para activarse
     trackProgress: number;
+    disappearProgress: number; // Progreso del Path (0.0 a 1.0) para desactivarse
     screens: ScreenData[];
 }
