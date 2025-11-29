@@ -1,13 +1,14 @@
 import * as THREE from 'three';
-import { WaypointContentData, ScreenData } from './types/WaypointContentData';
-import { IBehaviorModule } from './types/IBehaviorModule';
-import { ElementFactory } from './ElementFactory';
+import { WaypointContentData } from './types/WaypointContentData';
 import { EventEmitter } from '../../core/EventEmitter';
 import { PathController } from '../../core/pathing/PathController';
+import { WaypointRuntime } from './WaypointRuntime';
 
 /**
  * Clase central que gestiona la carga, activación, y el ciclo de vida 
  * de los Waypoint Content y las Screens. Es el motor en tiempo de ejecución.
+ * 
+ * [REFACTORED] Now supports multiple concurrent waypoints via WaypointRuntime.
  */
 export class WaypointContentManager {
     // Evento que se dispara cuando una interacción de un nodo de lógica ocurre
@@ -16,22 +17,18 @@ export class WaypointContentManager {
     private scene: THREE.Scene;
     private pathController: PathController;
     private allSections: Map<string, WaypointContentData> = new Map();
-    private activeWaypointContent: WaypointContentData | null = null;
-    private activeScreen: ScreenData | null = null;
-    private currentScreenIndex: number = -1;
-    private activeBehaviors: IBehaviorModule[] = [];
-    private elementFactory: ElementFactory;
-    private waypointContentAnchor: THREE.Object3D; // Punto de anclaje del contenido al Track
+
+    // Map of active runtimes: ID -> Runtime Instance
+    private activeWaypoints: Map<string, WaypointRuntime> = new Map();
+
     public currentlyEditingId: string | null = null;
+    private markerGroup: THREE.Group = new THREE.Group();
+    private markers: Map<string, THREE.Object3D> = new Map();
 
     constructor(scene: THREE.Scene, pathController: PathController) {
         this.scene = scene;
         this.pathController = pathController;
-        // Creamos un grupo para contener todos los elementos de la sección
-        this.waypointContentAnchor = new THREE.Object3D();
-        this.scene.add(this.waypointContentAnchor);
-
-        this.elementFactory = new ElementFactory(this.waypointContentAnchor, this.onLogicAction);
+        this.scene.add(this.markerGroup);
     }
 
     /**
@@ -46,23 +43,48 @@ export class WaypointContentManager {
 
     public addWaypoint(waypointContent: WaypointContentData): void {
         this.allSections.set(waypointContent.id, waypointContent);
+        this.createMarker(waypointContent);
+    }
+
+    private createMarker(waypoint: WaypointContentData): void {
+        const markerGeometry = new THREE.SphereGeometry(1, 16, 16);
+        const markerMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+        const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+
+        const point = this.pathController.getPointAt(waypoint.trackProgress);
+        marker.position.copy(point);
+        marker.userData.waypointId = waypoint.id;
+
+        this.markerGroup.add(marker);
+        this.markers.set(waypoint.id, marker);
+    }
+
+    private forceShowEditing: boolean = false;
+
+    /**
+     * Activa el modo edición para un waypoint específico.
+     * Esto fuerza la visualización del contenido independientemente del progreso del track.
+     */
+    public startEditing(id: string): void {
+        this.currentlyEditingId = id;
+        this.forceShowEditing = true;
+
+        // In edit mode, we clear everything else and just show this one
+        this.disposeAll();
+
+        const waypoint = this.allSections.get(id);
+        if (waypoint) {
+            this.activateWaypoint(waypoint);
+        }
     }
 
     /**
-     * Mueve el punto de anclaje de la sección a la posición actual del Path.
+     * Activa el modo simulación.
+     * El contenido solo se mostrará si el progreso del track está dentro del rango.
      */
-    private updateAnchorPosition(progress: number): void {
-        const point = this.pathController.getPointAt(progress);
-        const tangent = this.pathController.getTangentAt(progress);
-
-        // Posicionar el ancla
-        this.waypointContentAnchor.position.copy(point);
-
-        // Orientar el ancla para que "mire" hacia adelante (con el Y vertical, NO inclinado)
-        // Usamos una matriz temporal para alinear XZ con la tangente
-        const m = new THREE.Matrix4();
-        m.lookAt(point, point.clone().add(tangent), new THREE.Vector3(0, 1, 0));
-        this.waypointContentAnchor.rotation.setFromRotationMatrix(m);
+    public startSimulation(): void {
+        this.forceShowEditing = false;
+        // We don't necessarily need to clear everything, the update loop will handle it
     }
 
     private previousProgress: number = -1;
@@ -71,132 +93,89 @@ export class WaypointContentManager {
      * Bucle principal: verifica triggers y actualiza lógica.
      */
     public update(deltaTime: number, time: number, trackProgress: number): void {
-        // Initialize previousProgress on first run
         if (this.previousProgress === -1) {
             this.previousProgress = trackProgress;
         }
 
-        // Deactivation logic
-        if (this.activeWaypointContent) {
-            const isInRange = trackProgress >= this.activeWaypointContent.trackProgress && trackProgress < this.activeWaypointContent.disappearProgress;
-            if (!isInRange && this.activeWaypointContent.id !== this.currentlyEditingId) {
-                this.disposeActiveWaypointContent();
-            }
-        }
-
-        // Activation logic
-        if (!this.activeWaypointContent) {
-            for (const waypointContent of this.allSections.values()) {
-                const isInRange = trackProgress >= waypointContent.trackProgress && trackProgress < waypointContent.disappearProgress;
-                if (isInRange) {
-                    this.activateWaypointContent(waypointContent.id, trackProgress);
-                    break;
+        // EDIT MODE LOGIC
+        if (this.forceShowEditing && this.currentlyEditingId) {
+            const runtime = this.activeWaypoints.get(this.currentlyEditingId);
+            if (runtime) {
+                runtime.update(deltaTime, time, trackProgress);
+            } else {
+                // Should be active but isn't (maybe just switched to edit mode)
+                const waypoint = this.allSections.get(this.currentlyEditingId);
+                if (waypoint) {
+                    this.activateWaypoint(waypoint);
                 }
             }
+            return;
         }
 
-        // Update logic for the active waypoint
-        if (this.activeWaypointContent) {
-            this.updateAnchorPosition(this.activeWaypointContent.trackProgress);
-            this.activeBehaviors.forEach(b => b.update(deltaTime, time));
+        // SIMULATION MODE LOGIC
+        // Check ALL waypoints to see if they should be active
+        for (const waypointContent of this.allSections.values()) {
+            const isInRange = trackProgress >= waypointContent.trackProgress && trackProgress < waypointContent.disappearProgress;
+            const isActive = this.activeWaypoints.has(waypointContent.id);
+
+            if (isInRange) {
+                if (!isActive) {
+                    // Enter range -> Activate
+                    this.activateWaypoint(waypointContent);
+                } else {
+                    // Already active -> Update
+                    const runtime = this.activeWaypoints.get(waypointContent.id);
+                    runtime?.update(deltaTime, time, trackProgress);
+                }
+            } else {
+                if (isActive) {
+                    // Exit range -> Dispose
+                    this.disposeWaypoint(waypointContent.id);
+                }
+            }
         }
 
         this.previousProgress = trackProgress;
     }
 
-    /**
-     * Instancia la sección y sus primeros elementos.
-     */
-    public activateWaypointContent(id: string, progress: number): void {
-        const waypointContent = this.allSections.get(id);
-        if (!waypointContent) return;
+    private activateWaypoint(data: WaypointContentData): void {
+        if (this.activeWaypoints.has(data.id)) return;
 
-        if (this.activeWaypointContent === waypointContent) return; // Ya está activa
-
-        if (this.activeWaypointContent) {
-            this.disposeActiveWaypointContent();
-        }
-
-        this.activeWaypointContent = waypointContent;
-        this.currentScreenIndex = -1; // Arrancamos antes del primer Screen
-
-        console.log(`[WaypointContentManager] Contenido de Waypoint '${id}' activado.`);
-        this.updateAnchorPosition(waypointContent.trackProgress);
-        this.waypointContentAnchor.visible = true;
-
-        this.playNextScreen();
+        const runtime = new WaypointRuntime(this.scene, this.pathController, data, this.onLogicAction);
+        this.activeWaypoints.set(data.id, runtime);
     }
 
-    private playNextScreen(): void {
-        this.currentScreenIndex++;
-        const nextScreen = this.activeWaypointContent?.screens[this.currentScreenIndex];
-
-        if (nextScreen) {
-            this.activeScreen = nextScreen;
-            console.log(`[WaypointContentManager] Transicionando a Screen '${nextScreen.id}'.`);
-
-            // Aquí iría la lógica de transición animada (TO-DO)
-
-            this.loadScreenElements(nextScreen);
-        } else {
-            // Fin de la sección
-            // Opcional: Dispose automático o esperar a salir del rango
-            // Por ahora, no hacemos dispose automático para que se quede visible un rato
+    private disposeWaypoint(id: string): void {
+        const runtime = this.activeWaypoints.get(id);
+        if (runtime) {
+            runtime.dispose();
+            this.activeWaypoints.delete(id);
         }
     }
 
-    private loadScreenElements(screen: ScreenData): void {
-        // Limpiamos la lógica anterior y los elementos visuales (TO-DO)
-
-        // Instanciar nuevos elementos
-        screen.elements.forEach(data => {
-            const element = this.elementFactory.createElement(data);
-
-            // Si es un nodo de lógica, lo guardamos para el update loop
-            if (data.type === 'logic') {
-                const behaviorModule = element as IBehaviorModule;
-
-                // Mapear targetElementIds a objetos 3D
-                if (data.targetElementIds) {
-                    const targetObjects = this.elementFactory.getSceneObjectsByIds(data.targetElementIds);
-                    behaviorModule.init(data.config, targetObjects);
-                } else {
-                    behaviorModule.init(data.config, []);
-                }
-
-                this.activeBehaviors.push(behaviorModule);
-            }
-        });
-    }
-
-    /**
-     * Limpia la sección actual.
-     */
-    public disposeActiveWaypointContent(): void {
-        if (!this.activeWaypointContent) return;
-
-        // Limpiar la lógica
-        this.activeBehaviors.forEach(b => b.dispose());
-        this.activeBehaviors = [];
-
-        // Limpiar elementos visuales
-        this.elementFactory.disposeAllElements();
-
-        this.activeWaypointContent = null;
-        this.activeScreen = null;
-        this.waypointContentAnchor.visible = false;
-        console.log(`[WaypointContentManager] Contenido de Waypoint desactivado.`);
+    public disposeAll(): void {
+        this.activeWaypoints.forEach(runtime => runtime.dispose());
+        this.activeWaypoints.clear();
     }
 
     public updateWaypoint(waypointData: WaypointContentData): void {
         if (!this.allSections.has(waypointData.id)) return;
-
         this.allSections.set(waypointData.id, waypointData);
 
-        waypointData.screens.forEach(screen => {
-            screen.elements.forEach(elementData => {
-                this.elementFactory.updateElement(elementData);
-            });
-        });
+        // If it's active, we might need to refresh it. 
+        // For simplicity, let's just dispose and let the next update loop recreate it if in range.
+        if (this.activeWaypoints.has(waypointData.id)) {
+            this.disposeWaypoint(waypointData.id);
+        }
+
+        const marker = this.markers.get(waypointData.id);
+        if (marker) {
+            const point = this.pathController.getPointAt(waypointData.trackProgress);
+            marker.position.copy(point);
+        }
+    }
+
+    public getMarkers(): THREE.Object3D[] {
+        return this.markerGroup.children;
     }
 }

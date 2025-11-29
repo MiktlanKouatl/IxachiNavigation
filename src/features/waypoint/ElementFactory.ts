@@ -78,7 +78,7 @@ export class ElementFactory {
                     const color = data.style?.color || 0xffffff;
                     object = new THREE.Mesh(
                         new THREE.BoxGeometry(1, 1, 1),
-                        new THREE.MeshStandardMaterial({ color })
+                        new THREE.MeshBasicMaterial({ color })
                     );
                     (object as THREE.Mesh).name = `MODEL_${data.id}`;
                     break;
@@ -98,6 +98,7 @@ export class ElementFactory {
             }
 
             this.anchorGroup.add(object as THREE.Object3D);
+            console.log(`[ElementFactory] Created and added ${data.type} (${data.id}) to anchor. Visible: ${(object as THREE.Object3D).visible}, Pos: ${(object as THREE.Object3D).position.toArray()}, WorldPos: ${(object as THREE.Object3D).getWorldPosition(new THREE.Vector3()).toArray()}`);
         }
 
         this.elementMap[data.id] = object;
@@ -127,13 +128,37 @@ export class ElementFactory {
         });
     }
 
-    public disposeAllElements(): void {
-        for (const element of Object.values(this.elementMap)) {
-            if (element instanceof THREE.Object3D) {
-                this.anchorGroup.remove(element);
-                // Aquí iría la lógica de dispose de geometría/material (TO-DO al implementar)
+    public disposeElements(elements: SceneElementData[]): void {
+        for (const elementData of elements) {
+            const element = this.elementMap[elementData.id];
+            if (element) {
+                if (element instanceof THREE.Object3D) {
+                    this.anchorGroup.remove(element);
+
+                    // Dispose Troika Text
+                    if (element instanceof Text) {
+                        element.dispose();
+                    }
+
+                    // Dispose Geometries and Materials if standard mesh
+                    if (element instanceof THREE.Mesh) {
+                        if (element.geometry) element.geometry.dispose();
+                        if (element.material) {
+                            if (Array.isArray(element.material)) {
+                                element.material.forEach(m => m.dispose());
+                            } else {
+                                element.material.dispose();
+                            }
+                        }
+                    }
+                }
+                // Dispose Logic Modules
+                if ((element as any).dispose && typeof (element as any).dispose === 'function') {
+                    (element as any).dispose();
+                }
+
+                delete this.elementMap[elementData.id];
             }
         }
-        this.elementMap = {};
     }
 }

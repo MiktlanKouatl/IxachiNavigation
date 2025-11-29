@@ -33,6 +33,8 @@ export class Scene49_WaypointContentBuilderTest {
     private waypointContentEditorUI!: WaypointContentEditorUI;
     private waypoints: WaypointContentData[] = [];
     private masterProgress: number = 0;
+    private raycaster: THREE.Raycaster = new THREE.Raycaster();
+    private mouse: THREE.Vector2 = new THREE.Vector2();
 
     constructor() {
         this.clock = new THREE.Clock();
@@ -74,6 +76,7 @@ export class Scene49_WaypointContentBuilderTest {
 
         // Handle resize
         window.addEventListener('resize', () => this.onWindowResize());
+        document.addEventListener('click', (e) => this.onMouseClick(e));
 
         // Start animation
         this.animate();
@@ -141,7 +144,7 @@ export class Scene49_WaypointContentBuilderTest {
         const newWaypoint: WaypointContentData = {
             id: `waypoint_${this.waypoints.length}`,
             trackProgress: this.masterProgress,
-            disappearProgress: this.masterProgress + 0.1, // Default disappear after 10% of the track
+            disappearProgress: this.masterProgress + 0.25, // Default disappear after 10% of the track
             screens: [
                 {
                     id: `screen_${this.waypoints.length}`,
@@ -156,6 +159,16 @@ export class Scene49_WaypointContentBuilderTest {
                                 rotation: { x: 0, y: 0, z: 0 },
                                 scale: { x: 1, y: 1, z: 1 }
                             }
+                        },
+                        {
+                            id: `cube_${this.waypoints.length}`,
+                            type: 'model',
+                            style: { color: 0x00ff00 },
+                            transform: {
+                                position: { x: 0, y: 2, z: 0 },
+                                rotation: { x: 0, y: 0, z: 0 },
+                                scale: { x: 5, y: 5, z: 5 }
+                            }
                         }
                     ],
                     enterTransition: { type: 'fade', duration: 0.5, easing: 'power2.out' },
@@ -165,15 +178,43 @@ export class Scene49_WaypointContentBuilderTest {
         };
 
         this.waypoints.push(newWaypoint);
+        console.log(`[Scene49] Added Waypoint ${newWaypoint.id}. Range: [${newWaypoint.trackProgress.toFixed(3)}, ${newWaypoint.disappearProgress.toFixed(3)}]`);
         this.waypointContentManager.addWaypoint(newWaypoint);
-        this.waypointContentManager.currentlyEditingId = newWaypoint.id;
+        this.selectWaypoint(newWaypoint);
+    }
+
+    private selectWaypoint(waypoint: WaypointContentData): void {
+        this.waypointContentManager.startEditing(waypoint.id);
 
         // Update editor to point to the new waypoint
         if (this.waypointContentEditorUI) {
             this.waypointContentEditorUI.destroy();
         }
-        this.waypointContentEditorUI = new WaypointContentEditorUI(newWaypoint, this.waypointContentManager);
+        this.waypointContentEditorUI = new WaypointContentEditorUI(waypoint, this.waypointContentManager);
     }
+
+    private onMouseClick(event: MouseEvent): void {
+        // Calculate mouse position in normalized device coordinates
+        // (-1 to +1) for both components
+        this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        this.mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+
+        const intersects = this.raycaster.intersectObjects(this.waypointContentManager.getMarkers());
+
+        if (intersects.length > 0) {
+            const clickedMarker = intersects[0].object;
+            const waypointId = clickedMarker.userData.waypointId;
+            const selectedWaypoint = this.waypoints.find(w => w.id === waypointId);
+
+            if (selectedWaypoint) {
+                this.selectWaypoint(selectedWaypoint);
+            }
+        }
+    }
+
+    private isCameraFollowing: boolean = false;
 
     private setupGUI(): void {
         const params = {
@@ -183,17 +224,28 @@ export class Scene49_WaypointContentBuilderTest {
                 this.masterProgress = 0;
                 this.updateMarkerPosition(0);
                 this.gui.controllers[0].setValue(0);
-            }
+                this.waypointContentManager.startSimulation();
+            },
+            followPlayer: false
         };
 
         this.gui.add(params, 'masterProgress', 0, 1, 0.001).name('Master Progress').onChange((value: number) => {
             this.masterProgress = value;
             this.updateMarkerPosition(value);
+            this.waypointContentManager.startSimulation();
         });
 
         this.gui.add(params, 'resetPosition').name('Reset Position');
 
         this.gui.add(params, 'addWaypoint').name('Add Waypoint');
+
+        this.gui.add(params, 'followPlayer').name('Follow Player').onChange((value: boolean) => {
+            this.isCameraFollowing = value;
+            if (!value) {
+                // Reset camera look at when disabling follow
+                this.camera.lookAt(0, 0, 0);
+            }
+        });
     }
 
     private updateMarkerPosition(progress: number): void {
@@ -208,8 +260,28 @@ export class Scene49_WaypointContentBuilderTest {
 
         const deltaTime = this.clock.getDelta();
 
-        // Update camera to look at the center of the scene
-        this.camera.lookAt(0, 0, 0);
+        if (this.isCameraFollowing) {
+            // Camera Follow Logic
+            const markerPos = this.progressMarker.position.clone();
+            const markerRot = this.progressMarker.rotation;
+
+            // Calculate offset relative to marker orientation
+            // We want the camera behind and slightly above
+            const offset = new THREE.Vector3(0, 20, 40);
+            offset.applyEuler(markerRot);
+
+            const targetCamPos = markerPos.clone().add(offset);
+
+            // Smoothly interpolate camera position
+            this.camera.position.lerp(targetCamPos, 0.1);
+            this.camera.lookAt(markerPos);
+        } else {
+            // Update camera to look at the center of the scene (default behavior)
+            // this.camera.lookAt(0, 0, 0); 
+            // Commented out to allow manual orbit controls if they were added, 
+            // but for now let's keep the original lookAt behavior if not following
+            this.camera.lookAt(0, 0, 0);
+        }
 
         // Update Waypoint Content Manager
         this.waypointContentManager.update(deltaTime, this.clock.elapsedTime, this.masterProgress);

@@ -20,13 +20,26 @@ export class WaypointContentEditorUI {
         const folder = this.gui.addFolder('Waypoint Content');
         folder.add(this.waypointContent, 'id').disable(); // ID should not be editable
 
-        folder.add(this.waypointContent, 'trackProgress', 0, 1, 0.01)
-            .name('Track Progress')
-            .onChange(() => this.waypointContentManager.updateWaypoint(this.waypointContent));
+        let duration = this.waypointContent.disappearProgress - this.waypointContent.trackProgress;
 
-        folder.add(this.waypointContent, 'disappearProgress', 0, 1, 0.01)
+        const disappearProgressController = folder.add(this.waypointContent, 'disappearProgress', 0, 1, 0.01)
             .name('Disappear Progress')
-            .onChange(() => this.waypointContentManager.updateWaypoint(this.waypointContent));
+            .onChange((value) => {
+                duration = value - this.waypointContent.trackProgress;
+                // trackProgressController.max(value); // Optional: constrain start? Let's keep it flexible.
+                this.waypointContentManager.updateWaypoint(this.waypointContent);
+            });
+
+        const trackProgressController = folder.add(this.waypointContent, 'trackProgress', 0, 1, 0.01)
+            .name('Track Progress')
+            .onChange((value) => {
+                // Maintain duration
+                this.waypointContent.disappearProgress = value + duration;
+                disappearProgressController.updateDisplay();
+
+                disappearProgressController.min(value);
+                this.waypointContentManager.updateWaypoint(this.waypointContent);
+            });
 
         const textElement = this.waypointContent.screens[0].elements.find(e => e.type === 'text');
         if (textElement) {
