@@ -138,8 +138,69 @@ export class Scene49_WaypointContentBuilderTest {
 
     private setupWaypointContentManager(): void {
         this.waypointContentManager = new WaypointContentManager(this.scene, this.pathController);
+
+        // Add verification examples
+        this.addScrubbingTest();
+        this.addTriggeredTest();
     }
 
+    private addScrubbingTest(): void {
+        const waypoint: WaypointContentData = {
+            id: 'scrub-test',
+            trackProgress: 0.1,
+            disappearProgress: 0.2,
+            screens: [{
+                id: 's1',
+                trigger: 'time',
+                elements: [{
+                    id: 'cube1',
+                    type: 'model',
+                    style: { color: 0x00ffff },
+                    transform: { position: { x: 0, y: 2, z: 0 }, rotation: { x: 0, y: 0, z: 0 }, scale: { x: 0, y: 0, z: 0 } }
+                }],
+                enterTransition: { type: 'none', duration: 0, easing: 'none' },
+                exitTransition: { type: 'none', duration: 0, easing: 'none' }
+            }],
+            animations: {
+                mode: 'scrub',
+                steps: [
+                    { targetId: 'cube1', props: { scale: 2 }, duration: 0.1, position: 0 },
+                    { targetId: 'cube1', props: { scale: 0 }, duration: 0.1, position: 0.9 }
+                ]
+            }
+        };
+        this.waypointContentManager.addWaypoint(waypoint);
+        console.log('[Scene49] Added Scrubbing Test Waypoint (0.1 - 0.2)');
+    }
+
+    private addTriggeredTest(): void {
+        const waypoint: WaypointContentData = {
+            id: 'trigger-test',
+            trackProgress: 0.3,
+            disappearProgress: 0.4,
+            screens: [{
+                id: 's1',
+                trigger: 'time',
+                elements: [{
+                    id: 'text1',
+                    type: 'text',
+                    content: 'TRIGGERED!',
+                    transform: { position: { x: 0, y: 5, z: 0 }, rotation: { x: 0, y: 0, z: 0 }, scale: { x: 1, y: 1, z: 1 } }
+                }],
+                enterTransition: { type: 'none', duration: 0, easing: 'none' },
+                exitTransition: { type: 'none', duration: 0, easing: 'none' }
+            }],
+            animations: {
+                mode: 'trigger',
+                exitBehavior: 'reverse',
+                steps: [
+                    { targetId: 'text1', method: 'from', props: { y: 15, opacity: 0 }, duration: 1 }
+                ]
+            }
+        };
+        this.waypointContentManager.addWaypoint(waypoint);
+        console.log('[Scene49] Added Triggered Test Waypoint (0.3 - 0.4)');
+    }
     private addWaypoint(): void {
         const newWaypoint: WaypointContentData = {
             id: `waypoint_${this.waypoints.length}`,
@@ -179,6 +240,50 @@ export class Scene49_WaypointContentBuilderTest {
 
         this.waypoints.push(newWaypoint);
         console.log(`[Scene49] Added Waypoint ${newWaypoint.id}. Range: [${newWaypoint.trackProgress.toFixed(3)}, ${newWaypoint.disappearProgress.toFixed(3)}]`);
+        this.waypointContentManager.addWaypoint(newWaypoint);
+        this.selectWaypoint(newWaypoint);
+    }
+
+    private addFollowWaypoint(): void {
+        const newWaypoint: WaypointContentData = {
+            id: `follow_waypoint_${this.waypoints.length}`,
+            trackProgress: this.masterProgress,
+            disappearProgress: this.masterProgress + 0.3, // Longer range for follow
+            behavior: 'follow_player',
+            screens: [
+                {
+                    id: `screen_follow_${this.waypoints.length}`,
+                    trigger: 'manual',
+                    elements: [
+                        {
+                            id: `text_follow_${this.waypoints.length}`,
+                            type: 'text',
+                            content: 'Following You!',
+                            transform: {
+                                position: { x: 0, y: 8, z: 0 },
+                                rotation: { x: 0, y: 0, z: 0 },
+                                scale: { x: 1, y: 1, z: 1 }
+                            }
+                        },
+                        {
+                            id: `cube_follow_${this.waypoints.length}`,
+                            type: 'model',
+                            style: { color: 0xffaa00 },
+                            transform: {
+                                position: { x: 0, y: 3, z: 0 },
+                                rotation: { x: 0, y: 0, z: 0 },
+                                scale: { x: 2, y: 2, z: 2 }
+                            }
+                        }
+                    ],
+                    enterTransition: { type: 'fade', duration: 0.5, easing: 'power2.out' },
+                    exitTransition: { type: 'fade', duration: 0.5, easing: 'power2.in' }
+                }
+            ]
+        };
+
+        this.waypoints.push(newWaypoint);
+        console.log(`[Scene49] Added Follow Waypoint ${newWaypoint.id}.`);
         this.waypointContentManager.addWaypoint(newWaypoint);
         this.selectWaypoint(newWaypoint);
     }
@@ -238,6 +343,7 @@ export class Scene49_WaypointContentBuilderTest {
         this.gui.add(params, 'resetPosition').name('Reset Position');
 
         this.gui.add(params, 'addWaypoint').name('Add Waypoint');
+        this.gui.add({ addFollow: () => this.addFollowWaypoint() }, 'addFollow').name('Add Follow Waypoint');
 
         this.gui.add(params, 'followPlayer').name('Follow Player').onChange((value: boolean) => {
             this.isCameraFollowing = value;

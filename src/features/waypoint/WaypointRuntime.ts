@@ -4,6 +4,7 @@ import { IBehaviorModule } from './types/IBehaviorModule';
 import { ElementFactory } from './ElementFactory';
 import { EventEmitter } from '../../core/EventEmitter';
 import { PathController } from '../../core/pathing/PathController';
+import { WaypointAnimationManager } from './WaypointAnimationManager';
 
 /**
  * Manages the runtime lifecycle of a SINGLE active waypoint.
@@ -18,6 +19,7 @@ export class WaypointRuntime {
     private anchor: THREE.Object3D;
     private elementFactory: ElementFactory;
     private activeBehaviors: IBehaviorModule[] = [];
+    private animationManager: WaypointAnimationManager | null = null;
 
     private currentScreenIndex: number = -1;
     private activeScreen: ScreenData | null = null;
@@ -49,6 +51,13 @@ export class WaypointRuntime {
         this.updateAnchorPosition(this.data.trackProgress);
         this.anchor.visible = true;
         this.playNextScreen();
+
+        // Initialize Animation Manager if config exists
+        if (this.data.animations) {
+            const elements = this.elementFactory.getElementMap();
+            this.animationManager = new WaypointAnimationManager(this.data.animations, elements);
+            this.animationManager.enter();
+        }
     }
 
     public update(deltaTime: number, time: number, trackProgress: number): void {
@@ -56,9 +65,26 @@ export class WaypointRuntime {
         // For now, we assume waypoints are static on the track, so we might not need to update position every frame
         // UNLESS we want it to slide with the player? No, waypoints are usually fixed.
         // BUT, the original code updated it every frame. Let's keep it for safety or if we add "moving waypoints".
-        this.updateAnchorPosition(this.data.trackProgress);
+
+        if (this.data.behavior === 'follow_player') {
+            this.updateAnchorPosition(trackProgress);
+        } else {
+            // Ensure it stays at its start position (in case it was moved or just initialized)
+            // We can optimize this by checking a dirty flag, but for now this ensures correctness.
+            this.updateAnchorPosition(this.data.trackProgress);
+        }
 
         this.activeBehaviors.forEach(b => b.update(deltaTime, time));
+
+        // Update Animation Manager
+        if (this.animationManager) {
+            // Calculate local progress (0.0 to 1.0) within the waypoint's range
+            const range = this.data.disappearProgress - this.data.trackProgress;
+            if (range > 0) {
+                const localProgress = (trackProgress - this.data.trackProgress) / range;
+                this.animationManager.update(localProgress);
+            }
+        }
 
         // Debug info
         // console.log(`[WaypointRuntime:${this.id}] Children: ${this.anchor.children.length}`);
@@ -109,6 +135,13 @@ export class WaypointRuntime {
         // Dispose behaviors
         this.activeBehaviors.forEach(b => b.dispose());
         this.activeBehaviors = [];
+
+        // Dispose animation manager
+        if (this.animationManager) {
+            this.animationManager.exit(); // Trigger exit animation if any
+            this.animationManager.dispose();
+            this.animationManager = null;
+        }
 
         // Dispose elements
         if (this.activeScreen) {

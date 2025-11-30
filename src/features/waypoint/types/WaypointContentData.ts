@@ -68,5 +68,25 @@ export interface WaypointContentData {
     // Progreso del Path (0.0 a 1.0) para activarse
     trackProgress: number;
     disappearProgress: number; // Progreso del Path (0.0 a 1.0) para desactivarse
+    behavior?: 'static' | 'follow_player'; // Comportamiento de posición en el track
     screens: ScreenData[];
+    animations?: WaypointAnimationConfig;
+}
+
+export type AnimationMode = 'scrub' | 'trigger';
+
+export interface AnimationStep {
+    targetId: string; // ID of the element to animate
+    method?: 'to' | 'from' | 'fromTo'; // Default 'to'
+    props: any; // GSAP properties (x, y, opacity, scale, etc.)
+    fromProps?: any; // Only for 'fromTo' method
+    duration: number; // Relative duration (0.0 to 1.0 represents 0% to 100% of the waypoint range)
+    position?: number | string; // GSAP position parameter (e.g., 0 for start, ">" for sequence, or specific time 0.9)
+}
+
+export interface WaypointAnimationConfig {
+    mode: AnimationMode;
+    steps: AnimationStep[];
+    // For 'trigger' mode:
+    exitBehavior?: 'reverse' | 'reset' | 'none';
 }

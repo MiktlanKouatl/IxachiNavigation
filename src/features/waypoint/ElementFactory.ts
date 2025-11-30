@@ -55,7 +55,7 @@ export class ElementFactory {
                     const textMesh = new Text();
                     textMesh.text = data.content || '';
                     textMesh.fontSize = 2;
-                    textMesh.color = 0xffffff;
+                    textMesh.color = 0xffffff; // Troika text uses 'color' property
                     textMesh.anchorX = 'center';
                     textMesh.anchorY = 'middle';
                     textMesh.sync(); // Important to update the text geometry
@@ -160,5 +160,18 @@ export class ElementFactory {
                 delete this.elementMap[elementData.id];
             }
         }
+    }
+    public getElementMap(): Map<string, THREE.Object3D> {
+        // Convert the internal object map to a Map<string, THREE.Object3D>
+        // Filtering out logic modules for now as they might not be animatable by GSAP directly in this way
+        // or we cast them if they have properties we want to animate.
+        const map = new Map<string, THREE.Object3D>();
+        for (const id in this.elementMap) {
+            const element = this.elementMap[id];
+            if (element instanceof THREE.Object3D) {
+                map.set(id, element);
+            }
+        }
+        return map;
     }
 }
