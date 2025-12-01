@@ -5,6 +5,7 @@ import { ElementFactory } from './ElementFactory';
 import { EventEmitter } from '../../core/EventEmitter';
 import { PathController } from '../../core/pathing/PathController';
 import { WaypointAnimationManager } from './WaypointAnimationManager';
+import { SectionRegistry } from '../sections/SectionRegistry';
 
 /**
  * Manages the runtime lifecycle of a SINGLE active waypoint.
@@ -13,16 +14,23 @@ import { WaypointAnimationManager } from './WaypointAnimationManager';
 export class WaypointRuntime {
     public id: string;
     public data: WaypointContentData;
+    public active: boolean = false;
 
     private scene: THREE.Scene;
     private pathController: PathController;
-    private anchor: THREE.Object3D;
+    private anchor: THREE.Group;
     private elementFactory: ElementFactory;
     private activeBehaviors: IBehaviorModule[] = [];
     private animationManager: WaypointAnimationManager | null = null;
 
     private currentScreenIndex: number = -1;
     private activeScreen: ScreenData | null = null;
+    private currentScreenId: string | null = null;
+    private createdElements: Map<string, THREE.Object3D> = new Map();
+
+    // Resolved data (either from section or inline)
+    private screens: ScreenData[] = [];
+    private animationConfig?: WaypointAnimationConfig;
 
     constructor(
         scene: THREE.Scene,
@@ -35,6 +43,22 @@ export class WaypointRuntime {
         this.data = data;
         this.id = data.id;
 
+        // Resolve content (Section vs Inline)
+        if (this.data.sectionId) {
+            const section = SectionRegistry.get(this.data.sectionId);
+            if (section) {
+                this.screens = section.screens;
+                this.animationConfig = section.animations;
+            } else {
+                console.warn(`[WaypointRuntime] Section '${this.data.sectionId}' not found. Fallback to inline data.`);
+                this.screens = this.data.screens || [];
+                this.animationConfig = this.data.animations;
+            }
+        } else {
+            this.screens = this.data.screens || [];
+            this.animationConfig = this.data.animations;
+        }
+
         // Create anchor for this specific waypoint
         this.anchor = new THREE.Object3D();
         this.scene.add(this.anchor);
@@ -46,16 +70,42 @@ export class WaypointRuntime {
         this.activate();
     }
 
-    private activate(): void {
-        console.log(`[WaypointRuntime] Activating ${this.id}`);
-        this.updateAnchorPosition(this.data.trackProgress);
+    public activate(): void {
+        this.active = true;
         this.anchor.visible = true;
-        this.playNextScreen();
+        console.log(`[WaypointRuntime] Activating ${this.id}`);
 
-        // Initialize Animation Manager if config exists
-        if (this.data.animations) {
-            const elements = this.elementFactory.getElementMap();
-            this.animationManager = new WaypointAnimationManager(this.data.animations, elements);
+        // Load initial screen (if any)
+        if (this.screens.length > 0) {
+            this.showScreen(this.screens[0].id);
+        }
+
+        // Initialize Animation Manager
+        if (this.animationConfig) {
+            // Pass the map of created objects to the animation manager
+            const objectsMap = this.elementFactory.getElementMap();
+            // We need to filter or scope this map to only objects created by THIS waypoint?
+            // Currently ElementFactory map is global or per-session? 
+            // ElementFactory seems to be shared. 
+            // Ideally we should only pass the objects belonging to this waypoint.
+            // But for now, passing the global map works if IDs are unique.
+
+            // Better approach: filter createdElements by this waypoint's elements
+            // But createdElements is private to this class and populated in showScreen -> createElements
+            // So we need to ensure elements are created BEFORE initializing animation manager.
+
+            // Since showScreen is called above, elements for the first screen are created.
+            // However, animations might target elements in other screens? 
+            // Assuming single screen for now or that all animatable elements are present.
+
+            // Let's use the local createdElements map if possible, but ElementFactory creates them.
+            // We need to capture them. 
+
+            // Actually, ElementFactory adds to the scene/anchor. 
+            // We need a way to get the specific objects for this waypoint.
+            // Let's rely on unique IDs for now as per current design.
+
+            this.animationManager = new WaypointAnimationManager(this.animationConfig, objectsMap);
             this.animationManager.enter();
         }
     }
@@ -101,9 +151,30 @@ export class WaypointRuntime {
         this.anchor.rotation.setFromRotationMatrix(m);
     }
 
+    private showScreen(screenId: string): void {
+        const screen = this.screens.find(s => s.id === screenId);
+        if (!screen) {
+            console.warn(`[WaypointRuntime] Screen '${screenId}' not found.`);
+            return;
+        }
+
+        console.log(`[WaypointRuntime:${this.id}] Transitioning to Screen '${screenId}'.`);
+
+        // Clear previous elements if any (simple approach for now)
+        // Ideally we should dispose them properly
+        if (this.activeScreen) {
+            const elementsToDispose = this.activeScreen.elements;
+            this.elementFactory.disposeElements(elementsToDispose);
+        }
+
+        this.activeScreen = screen;
+        this.currentScreenId = screenId;
+        this.loadScreenElements(screen);
+    }
+
     private playNextScreen(): void {
         this.currentScreenIndex++;
-        const nextScreen = this.data.screens[this.currentScreenIndex];
+        const nextScreen = this.screens[this.currentScreenIndex];
 
         if (nextScreen) {
             this.activeScreen = nextScreen;

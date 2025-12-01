@@ -89,6 +89,12 @@ export class WaypointAnimationManager {
                     // For now assume number
                 }
             }
+            else if (key === 'rotationX' || key === 'rotationY' || key === 'rotationZ') {
+                const p = getPropsFor(target.rotation);
+                // Map rotationX -> x, rotationY -> y, rotationZ -> z
+                const axis = key.charAt(key.length - 1).toLowerCase();
+                p[axis] = value;
+            }
             else if (key === 'opacity') {
                 if ('fillOpacity' in target) {
                     // Troika Text

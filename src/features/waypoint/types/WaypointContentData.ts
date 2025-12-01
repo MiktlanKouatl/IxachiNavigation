@@ -68,8 +68,12 @@ export interface WaypointContentData {
     // Progreso del Path (0.0 a 1.0) para activarse
     trackProgress: number;
     disappearProgress: number; // Progreso del Path (0.0 a 1.0) para desactivarse
-    behavior?: 'static' | 'follow_player'; // Comportamiento de posición en el track
-    screens: ScreenData[];
+
+    // Reference to a registered section (preferred)
+    sectionId?: string;
+
+    // Legacy/Inline definition (optional if sectionId is provided)
+    screens?: ScreenData[];
     animations?: WaypointAnimationConfig;
 }
 

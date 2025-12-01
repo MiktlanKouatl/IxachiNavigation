@@ -37,6 +37,7 @@ import { runScene as runScene46 } from './scenes/46_interactive_track_builder';
 import { runScene as runScene47 } from './scenes/47_track_loader';
 import { runScene as runScene48 } from './scenes/48_track_loader';
 import { Scene49_WaypointContentBuilderTest } from './scenes/49_waypoint_content_builder_test';
+import { Scene50_SectionSystemTest } from './scenes/50_section_system_test';
 
 import { CreativeUniverseChapterTest } from './scenes/23_CreativeUniverseChapter_Test';
 
@@ -82,8 +83,8 @@ const scenes: { [key: string]: () => void } = {
     '46: Interactive Track Builder': runScene46,
     '47: Track Loader': runScene47,
     '48: Mandala Drive': runScene48,
-    '49: Waypoint Content Builder': () => new Scene49_WaypointContentBuilderTest(),
-
+    '49: Waypoint Content Builder': () => { new Scene49_WaypointContentBuilderTest(); },
+    '50: Section System Test': () => { const s = new Scene50_SectionSystemTest(); s.init(); },
 };
 
 let currentScene: string | null = null;

@@ -158,6 +158,12 @@ export class WaypointContentManager {
         this.activeWaypoints.clear();
     }
 
+    public dispose(): void {
+        this.disposeAll();
+        this.scene.remove(this.markerGroup);
+        this.markers.clear();
+    }
+
     public updateWaypoint(waypointData: WaypointContentData): void {
         if (!this.allSections.has(waypointData.id)) return;
         this.allSections.set(waypointData.id, waypointData);
