@@ -54,31 +54,42 @@ export class ElementFactory {
                 case 'text':
                     const textMesh = new Text();
                     textMesh.text = data.content || '';
-                    textMesh.fontSize = 2;
-                    textMesh.color = 0xffffff; // Troika text uses 'color' property
+                    textMesh.fontSize = data.style?.fontSize || 2;
+                    textMesh.color = data.style?.color || 0xffffff;
+                    textMesh.fillOpacity = data.style?.opacity ?? 1; // Troika uses fillOpacity
                     textMesh.anchorX = 'center';
                     textMesh.anchorY = 'middle';
-                    textMesh.sync(); // Important to update the text geometry
+                    textMesh.sync();
                     object = textMesh;
                     (object as THREE.Mesh).name = `TEXT_${data.id}`;
                     break;
                 case 'image':
                 case 'video':
-                    // TO-DO: Implementar VideoTexture/ImageTexture
-                    object = new THREE.Mesh(new THREE.PlaneGeometry(2, 1), new THREE.MeshBasicMaterial({ color: 0xff00ff }));
+                    // TO-DO: Implement VideoTexture/ImageTexture
+                    const planeMat = new THREE.MeshBasicMaterial({
+                        color: 0xff00ff,
+                        transparent: true,
+                        opacity: data.style?.opacity ?? 1
+                    });
+                    object = new THREE.Mesh(new THREE.PlaneGeometry(2, 1), planeMat);
                     (object as THREE.Mesh).name = `${data.type.toUpperCase()}_${data.id}`;
                     break;
                 case 'line':
-                    // TO-DO: Implementar Line Path
+                    // TO-DO: Implement Line Path
                     object = new THREE.Object3D();
                     (object as THREE.Object3D).name = `LINE_${data.id}`;
                     break;
                 case 'model':
                     // Placeholder: Create a colored cube
                     const color = data.style?.color || 0xffffff;
+                    const opacity = data.style?.opacity ?? 1;
                     object = new THREE.Mesh(
                         new THREE.BoxGeometry(1, 1, 1),
-                        new THREE.MeshBasicMaterial({ color })
+                        new THREE.MeshBasicMaterial({
+                            color,
+                            transparent: opacity < 1,
+                            opacity
+                        })
                     );
                     (object as THREE.Mesh).name = `MODEL_${data.id}`;
                     break;
@@ -113,7 +124,17 @@ export class ElementFactory {
 
         if (data.type === 'text' && object instanceof Text) {
             object.text = data.content || '';
+            object.fontSize = data.style?.fontSize || 2;
+            object.color = data.style?.color || 0xffffff;
+            object.fillOpacity = data.style?.opacity ?? 1;
             object.sync();
+        } else if (object instanceof THREE.Mesh && object.material) {
+            const mat = object.material as THREE.MeshBasicMaterial;
+            if (data.style?.color) mat.color.set(data.style.color);
+            if (data.style?.opacity !== undefined) {
+                mat.opacity = data.style.opacity;
+                mat.transparent = mat.opacity < 1;
+            }
         }
     }
 

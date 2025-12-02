@@ -1,5 +1,5 @@
 import { SectionData } from './types/SectionData';
-import { ScreenData, ElementData, AnimationStep, AnimationMode } from '../../waypoint/types/WaypointContentData';
+import { ScreenData, SceneElementData, AnimationStep, AnimationMode } from '../../waypoint/types/WaypointContentData';
 import { Vector3 } from 'three';
 
 /**
@@ -36,13 +36,17 @@ export class SectionBuilder {
     /**
      * Adds a text element to the current screen.
      */
-    public addText(id: string, content: string, position: { x: number, y: number, z: number }, options?: Partial<ElementData>): this {
+    public addText(id: string, content: string, position: { x: number, y: number, z: number }, options?: Partial<SceneElementData>): this {
         this.ensureScreen();
-        const element: ElementData = {
+        const element: SceneElementData = {
             id,
             type: 'text',
             content,
-            position,
+            transform: {
+                position,
+                rotation: { x: 0, y: 0, z: 0 },
+                scale: { x: 1, y: 1, z: 1 }
+            },
             ...options
         };
         this.getCurrentScreen().elements.push(element);
@@ -52,13 +56,17 @@ export class SectionBuilder {
     /**
      * Adds a 3D model element to the current screen.
      */
-    public addModel(id: string, url: string, position: { x: number, y: number, z: number }, options?: Partial<ElementData>): this {
+    public addModel(id: string, url: string, position: { x: number, y: number, z: number }, options?: Partial<SceneElementData>): this {
         this.ensureScreen();
-        const element: ElementData = {
+        const element: SceneElementData = {
             id,
             type: 'model',
             url,
-            position,
+            transform: {
+                position,
+                rotation: { x: 0, y: 0, z: 0 },
+                scale: { x: 1, y: 1, z: 1 }
+            },
             ...options
         };
         this.getCurrentScreen().elements.push(element);
@@ -68,13 +76,17 @@ export class SectionBuilder {
     /**
      * Adds an image element to the current screen.
      */
-    public addImage(id: string, url: string, position: { x: number, y: number, z: number }, options?: Partial<ElementData>): this {
+    public addImage(id: string, url: string, position: { x: number, y: number, z: number }, options?: Partial<SceneElementData>): this {
         this.ensureScreen();
-        const element: ElementData = {
+        const element: SceneElementData = {
             id,
             type: 'image',
             url,
-            position,
+            transform: {
+                position,
+                rotation: { x: 0, y: 0, z: 0 },
+                scale: { x: 1, y: 1, z: 1 }
+            },
             ...options
         };
         this.getCurrentScreen().elements.push(element);

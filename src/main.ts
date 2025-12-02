@@ -96,7 +96,7 @@ export class IxachiExperience {
     // --- Create all animatable objects ---
     this.hostSourceObject = new THREE.Object3D();
     this.scene.add(this.hostSourceObject);
-    const dummyPath = new PathData([[new THREE.Vector3(0,0,35), new THREE.Vector3(0,0,30)]]);
+    const dummyPath = new PathData([[new THREE.Vector3(0, 0, 35), new THREE.Vector3(0, 0, 30)]]);
     this.hostFollower = new PathFollower(dummyPath, { speed: 0 });
     this.hostRibbon = this.createHostRibbon();
     this.progressUI = new ProgressUI();
@@ -107,19 +107,19 @@ export class IxachiExperience {
 
     // --- Initialize Cinematic System (AnimationDirector) ---
     const targets: AnimationTargets = {
-        camera: this.camera,
-        cameraTarget: this.cameraTarget,
-        lookAtTarget: this.lookAtTarget,
-        hostFollower: this.hostFollower,
-        hostSourceObject: this.hostSourceObject,
-        hostRibbon: this.hostRibbon,
-        progressCircle: this.progressCircle,
-        progressUI: this.progressUI,
-        movementController: this.movementController,
-        enableDrawing: (enabled: boolean = true) => { this.isDrawingEnabled = enabled; },
-        scene: this.scene,
-        assetManager: assetManager,
-        colorManager: this.colorManager,
+      camera: this.camera,
+      cameraTarget: this.cameraTarget,
+      lookAtTarget: this.lookAtTarget,
+      hostFollower: this.hostFollower,
+      hostSourceObject: this.hostSourceObject,
+      hostRibbon: this.hostRibbon,
+      progressCircle: this.progressCircle,
+      progressUI: this.progressUI,
+      movementController: this.movementController,
+      enableDrawing: (enabled: boolean = true) => { this.isDrawingEnabled = enabled; },
+      scene: this.scene,
+      assetManager: assetManager,
+      colorManager: this.colorManager,
     };
     this.director = new AnimationDirector(targets, this);
     new AnimationControlPanel(assetManager, this.director, this.colorManager);
@@ -147,9 +147,9 @@ export class IxachiExperience {
     // --- Start Experience ---
     this.setMode(ExperienceMode.Cinematic);
     this.director.play().then(() => {
-        console.log('🎬 Cinematic intro finished. Switching to Navigation mode.');
-        this.navigationController.setPath('pathB'); // Set the initial path for navigation
-        this.setMode(ExperienceMode.Navigation);
+      console.log('🎬 Cinematic intro finished. Switching to Navigation mode.');
+      this.navigationController.setPath('pathB'); // Set the initial path for navigation
+      this.setMode(ExperienceMode.Navigation);
     });
   }
 
@@ -202,19 +202,19 @@ export class IxachiExperience {
 
   private createHostRibbon(): RibbonLine {
     const config: RibbonConfig = {
-        color: this.colorManager.getColor('accent'),
-        width: 3.2,
-        maxLength: 150,
-        useMode: UseMode.Trail,
-        fadeStyle: FadeStyle.FadeInOut,
-        renderMode: RenderMode.Solid,
-        fadeTransitionSize: 0.4,
-        uPlayerForward: new THREE.Vector3(0, 0, 1), // Initial value, will be updated dynamically
-        uMinHeadLength: 0.5, // Fixed minimum head length
+      color: this.colorManager.getColor('accent'),
+      width: 3.2,
+      maxLength: 150,
+      useMode: UseMode.Trail,
+      fadeStyle: FadeStyle.FadeInOut,
+      renderMode: RenderMode.Solid,
+      fadeTransitionSize: 0.4,
+      uPlayerForward: new THREE.Vector3(0, 0, 1), // Initial value, will be updated dynamically
+      uMinHeadLength: 0.5, // Fixed minimum head length
     };
     const ribbon = new RibbonLine(config);
     this.colorManager.on('update', () => {
-        ribbon.material.uniforms.uColor.value.copy(this.colorManager.getColor('accent'));
+      ribbon.material.uniforms.uColor.value.copy(this.colorManager.getColor('accent'));
     });
     return ribbon;
   }
@@ -223,10 +223,10 @@ export class IxachiExperience {
     const ellipse = new THREE.EllipseCurve(0, 0, 1.5, 1.5, 0, 2 * Math.PI, false, 0);
     const circlePoints = ellipse.getPoints(128).map(p => new THREE.Vector3(p.x, p.y, 0));
     const config: RibbonConfig = {
-        color: this.colorManager.getColor('primary'),
-        width: 3.0,
-        maxLength: circlePoints.length,
-        useMode: UseMode.Reveal,
+      color: this.colorManager.getColor('primary'),
+      width: 3.0,
+      maxLength: circlePoints.length,
+      useMode: UseMode.Reveal,
     };
     const circle = new RibbonLine(config);
     circle.setPoints(circlePoints);
@@ -235,7 +235,7 @@ export class IxachiExperience {
     circle.mesh.visible = false;
 
     this.colorManager.on('update', () => {
-        circle.material.uniforms.uColor.value.copy(this.colorManager.getColor('primary'));
+      circle.material.uniforms.uColor.value.copy(this.colorManager.getColor('primary'));
     });
 
     return circle;
@@ -257,7 +257,7 @@ export class IxachiExperience {
     if (this.currentMode === ExperienceMode.Navigation) {
       this.navigationController.update();
     }
-    
+
     this.intersectionUI.update();
 
     // Smooth camera movement is always on
@@ -276,4 +276,14 @@ export class IxachiExperience {
   }
 }
 
-new IxachiExperience();
+import { SectionCreatorUI } from './features/sections/editor/ui/SectionCreatorUI';
+
+// Check for Editor Mode
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('editor') === 'true') {
+  console.log('🛠️ Starting Section Creator...');
+  const editor = new SectionCreatorUI();
+  editor.mount(document.body);
+} else {
+  new IxachiExperience();
+}
