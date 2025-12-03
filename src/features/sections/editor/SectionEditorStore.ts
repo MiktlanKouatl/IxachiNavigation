@@ -83,6 +83,27 @@ export class SectionEditorStore extends EventEmitter {
         }
     }
 
+    public deleteElement(elementId: string): void {
+        const screen = this.getCurrentScreen();
+        if (!screen) return;
+
+        const index = screen.elements.findIndex(e => e.id === elementId);
+        if (index !== -1) {
+            const element = screen.elements[index];
+            screen.elements.splice(index, 1);
+
+            if (this.activeElementId === elementId) {
+                this.selectElement(null);
+            }
+
+            this.emit('sectionUpdated', this.getCurrentSection());
+            // We can emit a specific event or just rely on sectionUpdated. 
+            // For the factory to remove it, we might need a specific event or the factory needs to diff.
+            // Let's emit 'elementDeleted' so the UI/Factory can react specifically.
+            this.emit('elementDeleted', element);
+        }
+    }
+
     // --- Getters ---
 
     public getSections(): SectionData[] {

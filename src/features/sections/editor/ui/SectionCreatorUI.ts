@@ -124,6 +124,8 @@ export class SectionCreatorUI {
                 <h3>Elements</h3>
                 <button id="btn-add-text">+ Text</button>
                 <button id="btn-add-model">+ Model</button>
+                <button id="btn-add-image">+ Image</button>
+                <button id="btn-add-video">+ Video</button>
                 <div id="element-list"></div>
             </div>
             
@@ -163,6 +165,92 @@ export class SectionCreatorUI {
                 }
             };
             input.click();
+        });
+
+        this.container.querySelector('#btn-add-text')?.addEventListener('click', () => {
+            if (!this.store.getCurrentScreen()) {
+                alert('Please select a screen first');
+                return;
+            }
+            const id = `text_${Date.now()}`;
+            this.store.addElementToCurrentScreen({
+                id,
+                type: 'text',
+                content: 'New Text',
+                transform: {
+                    position: { x: 0, y: 0, z: 0 },
+                    rotation: { x: 0, y: 0, z: 0 },
+                    scale: { x: 1, y: 1, z: 1 }
+                },
+                style: {
+                    color: '#ffffff',
+                    fontSize: 1,
+                    opacity: 1
+                }
+            });
+        });
+
+        this.container.querySelector('#btn-add-model')?.addEventListener('click', () => {
+            if (!this.store.getCurrentScreen()) {
+                alert('Please select a screen first');
+                return;
+            }
+            const id = `model_${Date.now()}`;
+            this.store.addElementToCurrentScreen({
+                id,
+                type: 'model',
+                url: 'assets/models/default.glb', // Placeholder
+                transform: {
+                    position: { x: 0, y: 0, z: 0 },
+                    rotation: { x: 0, y: 0, z: 0 },
+                    scale: { x: 1, y: 1, z: 1 }
+                },
+                style: {
+                    opacity: 1
+                }
+            });
+        });
+
+        this.container.querySelector('#btn-add-image')?.addEventListener('click', () => {
+            if (!this.store.getCurrentScreen()) {
+                alert('Please select a screen first');
+                return;
+            }
+            const id = `image_${Date.now()}`;
+            this.store.addElementToCurrentScreen({
+                id,
+                type: 'image',
+                url: 'assets/images/placeholder.png', // Placeholder
+                transform: {
+                    position: { x: 0, y: 0, z: 0 },
+                    rotation: { x: 0, y: 0, z: 0 },
+                    scale: { x: 1, y: 1, z: 1 }
+                },
+                style: {
+                    opacity: 1
+                }
+            });
+        });
+
+        this.container.querySelector('#btn-add-video')?.addEventListener('click', () => {
+            if (!this.store.getCurrentScreen()) {
+                alert('Please select a screen first');
+                return;
+            }
+            const id = `video_${Date.now()}`;
+            this.store.addElementToCurrentScreen({
+                id,
+                type: 'video',
+                url: 'assets/videos/placeholder.mp4', // Placeholder
+                transform: {
+                    position: { x: 0, y: 0, z: 0 },
+                    rotation: { x: 0, y: 0, z: 0 },
+                    scale: { x: 1, y: 1, z: 1 }
+                },
+                style: {
+                    opacity: 1
+                }
+            });
         });
 
         // Listen for store updates to refresh UI
@@ -227,7 +315,25 @@ export class SectionCreatorUI {
         screen.elements.forEach(element => {
             const div = document.createElement('div');
             div.className = `sc-list-item ${this.store.getCurrentElement()?.id === element.id ? 'active' : ''}`;
-            div.textContent = `${element.id} (${element.type})`;
+
+            const span = document.createElement('span');
+            span.textContent = `${element.id} (${element.type})`;
+            div.appendChild(span);
+
+            const delBtn = document.createElement('button');
+            delBtn.textContent = 'X';
+            delBtn.style.marginLeft = 'auto';
+            delBtn.style.background = '#cc0000';
+            delBtn.style.padding = '2px 6px';
+            delBtn.style.fontSize = '10px';
+            delBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (confirm('Delete element?')) {
+                    this.store.deleteElement(element.id);
+                }
+            };
+            div.appendChild(delBtn);
+
             div.onclick = () => this.store.selectElement(element.id);
             list.appendChild(div);
         });
@@ -403,6 +509,19 @@ export class SectionCreatorUI {
                 input.style.border = '1px solid #444';
                 input.style.color = '#eee';
                 input.onchange = (e: any) => this.store.updateElement(element.id, { content: e.target.value });
+                group.appendChild(input);
+                content.appendChild(group);
+            });
+        } else if (element.type === 'image' || element.type === 'model' || element.type === 'video') {
+            createAccordion('Source', (content) => {
+                const group = document.createElement('div');
+                group.className = 'form-group';
+                group.innerHTML = '<label>URL</label>';
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = element.url || '';
+                input.style.width = '100%';
+                input.onchange = (e: any) => this.store.updateElement(element.id, { url: e.target.value });
                 group.appendChild(input);
                 content.appendChild(group);
             });

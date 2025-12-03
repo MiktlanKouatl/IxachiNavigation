@@ -26,6 +26,7 @@ export interface SceneElementData {
 
     // Solo relevante para Elementos Visuales
     content?: string; // Texto, URL del recurso o preset de partículas/línea
+    url?: string; // URL específica para modelos, imágenes, videos
     anchor?: { xOffset: number, yOffset: number, zOffset: number }; // Posición relativa al punto del Track
     transform?: {
         position: Vector3Data; // Posición local relativa al Anchor

@@ -71,6 +71,7 @@ export class PreviewViewport {
         // Granular updates
         this.store.on('elementAdded', (el: any) => this.elementFactory.createElement(el));
         this.store.on('elementUpdated', (el: any) => this.elementFactory.updateElement(el));
+        this.store.on('elementDeleted', (el: any) => this.elementFactory.disposeElements([el]));
 
         // We ignore 'sectionUpdated' to avoid full rebuilds on property changes
 

@@ -64,15 +64,38 @@ export class ElementFactory {
                     (object as THREE.Mesh).name = `TEXT_${data.id}`;
                     break;
                 case 'image':
-                case 'video':
-                    // TO-DO: Implement VideoTexture/ImageTexture
+                    const loader = new THREE.TextureLoader();
+                    const texture = data.url ? loader.load(data.url) : null;
                     const planeMat = new THREE.MeshBasicMaterial({
-                        color: 0xff00ff,
+                        map: texture,
+                        color: 0xffffff, // White so texture colors are accurate
                         transparent: true,
-                        opacity: data.style?.opacity ?? 1
+                        opacity: data.style?.opacity ?? 1,
+                        side: THREE.DoubleSide
                     });
-                    object = new THREE.Mesh(new THREE.PlaneGeometry(2, 1), planeMat);
-                    (object as THREE.Mesh).name = `${data.type.toUpperCase()}_${data.id}`;
+                    // Default aspect ratio 16:9, user can scale it
+                    object = new THREE.Mesh(new THREE.PlaneGeometry(3.55, 2), planeMat);
+                    (object as THREE.Mesh).name = `IMAGE_${data.id}`;
+                    break;
+                case 'video':
+                    const video = document.createElement('video');
+                    video.src = data.url || '';
+                    video.crossOrigin = 'anonymous';
+                    video.loop = true;
+                    video.muted = true;
+                    video.play().catch(e => console.warn('Video autoplay failed', e));
+
+                    const videoTexture = new THREE.VideoTexture(video);
+                    const videoMat = new THREE.MeshBasicMaterial({
+                        map: videoTexture,
+                        color: 0xffffff,
+                        transparent: true,
+                        opacity: data.style?.opacity ?? 1,
+                        side: THREE.DoubleSide
+                    });
+
+                    object = new THREE.Mesh(new THREE.PlaneGeometry(3.55, 2), videoMat);
+                    (object as THREE.Mesh).name = `VIDEO_${data.id}`;
                     break;
                 case 'line':
                     // TO-DO: Implement Line Path
@@ -134,6 +157,22 @@ export class ElementFactory {
             if (data.style?.opacity !== undefined) {
                 mat.opacity = data.style.opacity;
                 mat.transparent = mat.opacity < 1;
+            }
+
+            // Update Texture for Images
+            if (data.type === 'image' && data.url) {
+                const loader = new THREE.TextureLoader();
+                mat.map = loader.load(data.url);
+                mat.needsUpdate = true;
+            }
+
+            // Update Video Source
+            if (data.type === 'video' && data.url && mat.map instanceof THREE.VideoTexture) {
+                const video = mat.map.image as HTMLVideoElement;
+                if (video.src !== data.url) {
+                    video.src = data.url;
+                    video.play().catch(e => console.warn('Video update play failed', e));
+                }
             }
         }
     }
