@@ -97,6 +97,16 @@ export class ElementFactory {
                     object = new THREE.Mesh(new THREE.PlaneGeometry(3.55, 2), videoMat);
                     (object as THREE.Mesh).name = `VIDEO_${data.id}`;
                     break;
+                case 'button':
+                    const btnMat = new THREE.MeshBasicMaterial({
+                        color: data.style?.color ? new THREE.Color(data.style.color) : 0x00ff00,
+                        transparent: true,
+                        opacity: data.style?.opacity ?? 0.5,
+                        side: THREE.DoubleSide
+                    });
+                    object = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.5), btnMat);
+                    (object as THREE.Mesh).name = `BUTTON_${data.id}`;
+                    break;
                 case 'line':
                     // TO-DO: Implement Line Path
                     object = new THREE.Object3D();

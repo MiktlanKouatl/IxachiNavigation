@@ -116,7 +116,10 @@ export class SectionCreatorUI {
                 
                 <hr style="border-color: #333; margin: 15px 0;">
                 
+                <hr style="border-color: #333; margin: 15px 0;">
+                
                 <h3>Screens</h3>
+                <button id="btn-new-screen">New Screen</button>
                 <div id="screen-list"></div>
                 
                 <hr style="border-color: #333; margin: 15px 0;">
@@ -126,6 +129,7 @@ export class SectionCreatorUI {
                 <button id="btn-add-model">+ Model</button>
                 <button id="btn-add-image">+ Image</button>
                 <button id="btn-add-video">+ Video</button>
+                <button id="btn-add-button">+ Button</button>
                 <div id="element-list"></div>
             </div>
             
@@ -165,6 +169,15 @@ export class SectionCreatorUI {
                 }
             };
             input.click();
+        });
+
+        this.container.querySelector('#btn-new-screen')?.addEventListener('click', () => {
+            if (!this.store.getCurrentSection()) {
+                alert('Please select a section first');
+                return;
+            }
+            const id = prompt('Enter Screen ID:', `screen_${Date.now()}`);
+            if (id) this.store.createScreen(id);
         });
 
         this.container.querySelector('#btn-add-text')?.addEventListener('click', () => {
@@ -253,6 +266,31 @@ export class SectionCreatorUI {
             });
         });
 
+        this.container.querySelector('#btn-add-button')?.addEventListener('click', () => {
+            if (!this.store.getCurrentScreen()) {
+                alert('Please select a screen first');
+                return;
+            }
+            const id = `btn_${Date.now()}`;
+            this.store.addElementToCurrentScreen({
+                id,
+                type: 'button',
+                transform: {
+                    position: { x: 0, y: 0, z: 0 },
+                    rotation: { x: 0, y: 0, z: 0 },
+                    scale: { x: 1, y: 1, z: 1 }
+                },
+                style: {
+                    color: '#00ff00',
+                    opacity: 0.5
+                },
+                interaction: {
+                    trigger: 'click',
+                    action: 'goto-next-screen'
+                }
+            });
+        });
+
         // Listen for store updates to refresh UI
         this.store.on('sectionsUpdated', () => this.renderSectionList());
         this.store.on('selectionChanged', () => {
@@ -300,7 +338,25 @@ export class SectionCreatorUI {
         section.screens.forEach(screen => {
             const div = document.createElement('div');
             div.className = `sc-list-item ${this.store.getCurrentScreen()?.id === screen.id ? 'active' : ''}`;
-            div.textContent = screen.id;
+
+            const span = document.createElement('span');
+            span.textContent = screen.id;
+            div.appendChild(span);
+
+            const delBtn = document.createElement('button');
+            delBtn.textContent = 'X';
+            delBtn.style.marginLeft = 'auto';
+            delBtn.style.background = '#cc0000';
+            delBtn.style.padding = '2px 6px';
+            delBtn.style.fontSize = '10px';
+            delBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (confirm('Delete screen?')) {
+                    this.store.deleteScreen(screen.id);
+                }
+            };
+            div.appendChild(delBtn);
+
             div.onclick = () => this.store.selectScreen(screen.id);
             list.appendChild(div);
         });
@@ -341,14 +397,10 @@ export class SectionCreatorUI {
 
     private renderInspector(): void {
         const container = this.container.querySelector('#inspector-content')!;
-        const element = this.store.getCurrentElement();
-
-        if (!element) {
-            container.innerHTML = '<p style="color: #666; font-style: italic;">Select an element to edit</p>';
-            return;
-        }
-
         container.innerHTML = '';
+
+        const element = this.store.getCurrentElement();
+        const screen = this.store.getCurrentScreen();
 
         // --- Helper Functions ---
         const createInput = (label: string, value: any, type: 'text' | 'number' | 'color' | 'range', onChange: (val: any) => void, options?: { min?: number, max?: number, step?: number }) => {
@@ -395,8 +447,135 @@ export class SectionCreatorUI {
             container.appendChild(details);
         };
 
+        if (!element) {
+            if (screen) {
+                const title = document.createElement('h3');
+                title.textContent = `Screen: ${screen.id}`;
+                container.appendChild(title);
+
+                // Helper for Transition Editor
+                const createTransitionEditor = (label: string, transition: any, onChange: (newTransition: any) => void) => {
+                    // Safety check
+                    if (!transition) {
+                        transition = { type: 'none', duration: 0.5, easing: 'power2.inOut', fade: false, position: { x: 0, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0 }, scale: { x: 1, y: 1, z: 1 } };
+                    }
+
+                    createAccordion(label, (content) => {
+                        // Preset (Type)
+                        const typeGroup = document.createElement('div');
+                        typeGroup.innerHTML = '<label>Preset</label>';
+                        const typeSelect = document.createElement('select');
+                        typeSelect.style.width = '100%';
+                        typeSelect.style.background = '#111';
+                        typeSelect.style.color = '#eee';
+                        ['none', 'fade', 'slide-up', 'slide-down', 'slide-left', 'slide-right', 'zoom-in', 'zoom-out', 'custom'].forEach(t => {
+                            const opt = document.createElement('option');
+                            opt.value = t;
+                            opt.textContent = t;
+                            opt.selected = transition.type === t;
+                            typeSelect.appendChild(opt);
+                        });
+                        typeSelect.onchange = (e: any) => {
+                            const newType = e.target.value;
+                            let updates: any = { type: newType };
+
+                            // Apply preset values
+                            if (newType === 'fade') { updates.fade = true; updates.position = { x: 0, y: 0, z: 0 }; updates.rotation = { x: 0, y: 0, z: 0 }; }
+                            else if (newType === 'slide-up') { updates.fade = true; updates.position = { x: 0, y: -5, z: 0 }; }
+                            else if (newType === 'slide-down') { updates.fade = true; updates.position = { x: 0, y: 5, z: 0 }; }
+                            else if (newType === 'slide-left') { updates.fade = true; updates.position = { x: -5, y: 0, z: 0 }; }
+                            else if (newType === 'slide-right') { updates.fade = true; updates.position = { x: 5, y: 0, z: 0 }; }
+                            else if (newType === 'zoom-in') { updates.fade = true; updates.scale = { x: 0, y: 0, z: 0 }; }
+                            else if (newType === 'zoom-out') { updates.fade = true; updates.scale = { x: 2, y: 2, z: 2 }; } // Example
+                            else if (newType === 'none') { updates.fade = false; updates.position = { x: 0, y: 0, z: 0 }; updates.rotation = { x: 0, y: 0, z: 0 }; updates.scale = { x: 1, y: 1, z: 1 }; }
+
+                            onChange({ ...transition, ...updates });
+                        };
+                        typeGroup.appendChild(typeSelect);
+                        content.appendChild(typeGroup);
+
+                        // Duration
+                        createInput('Duration (s)', transition.duration || 0.5, 'number', (_) => onChange({ ...transition, duration: _ }));
+
+                        // Composable Properties
+                        const propsDetails = document.createElement('details');
+                        propsDetails.open = true;
+                        propsDetails.innerHTML = '<summary style="cursor:pointer; color:#aaa; font-size:11px; margin:5px 0;">Properties</summary>';
+                        content.appendChild(propsDetails);
+
+                        // Fade Checkbox
+                        const fadeGroup = document.createElement('div');
+                        fadeGroup.style.display = 'flex';
+                        fadeGroup.style.alignItems = 'center';
+                        fadeGroup.style.marginBottom = '5px';
+                        const fadeCheck = document.createElement('input');
+                        fadeCheck.type = 'checkbox';
+                        fadeCheck.checked = !!transition.fade;
+                        fadeCheck.onchange = (e: any) => onChange({ ...transition, fade: e.target.checked, type: 'custom' });
+                        fadeGroup.appendChild(fadeCheck);
+                        const fadeLabel = document.createElement('span');
+                        fadeLabel.textContent = ' Fade Opacity';
+                        fadeLabel.style.fontSize = '11px';
+                        fadeLabel.style.marginLeft = '5px';
+                        fadeGroup.appendChild(fadeLabel);
+                        propsDetails.appendChild(fadeGroup);
+
+                        // Position Offset
+                        const posDiv = document.createElement('div');
+                        posDiv.innerHTML = '<label>Position Offset (Start for In, End for Out)</label>';
+                        propsDetails.appendChild(posDiv);
+                        // Reuse createVec3 logic if possible, or inline it
+                        const createVec3 = (vec: { x: number, y: number, z: number }, update: (k: 'x' | 'y' | 'z', v: number) => void) => {
+                            const flex = document.createElement('div');
+                            flex.style.display = 'flex';
+                            flex.style.gap = '5px';
+                            flex.style.marginBottom = '5px';
+                            ['x', 'y', 'z'].forEach(axis => {
+                                const input = document.createElement('input');
+                                input.type = 'number';
+                                input.step = '0.1';
+                                input.value = (vec as any)[axis];
+                                input.style.width = '100%';
+                                input.style.background = '#111';
+                                input.style.border = '1px solid #444';
+                                input.style.color = '#eee';
+                                input.onchange = (e: any) => update(axis as any, parseFloat(e.target.value));
+                                flex.appendChild(input);
+                            });
+                            return flex;
+                        };
+
+                        propsDetails.appendChild(createVec3(transition.position || { x: 0, y: 0, z: 0 }, (axis, val) => {
+                            const newPos = { ...(transition.position || { x: 0, y: 0, z: 0 }), [axis]: val };
+                            onChange({ ...transition, position: newPos, type: 'custom' });
+                        }));
+
+                        // Rotation Offset
+                        const rotDiv = document.createElement('div');
+                        rotDiv.innerHTML = '<label>Rotation Offset (deg)</label>';
+                        propsDetails.appendChild(rotDiv);
+                        propsDetails.appendChild(createVec3(transition.rotation || { x: 0, y: 0, z: 0 }, (axis, val) => {
+                            const newRot = { ...(transition.rotation || { x: 0, y: 0, z: 0 }), [axis]: val };
+                            onChange({ ...transition, rotation: newRot, type: 'custom' });
+                        }));
+                    });
+                };
+
+                createTransitionEditor('Enter Transition', screen.enterTransition, (newTrans) => {
+                    this.store.updateScreen(screen.id, { enterTransition: newTrans });
+                });
+
+                createTransitionEditor('Exit Transition', screen.exitTransition, (newTrans) => {
+                    this.store.updateScreen(screen.id, { exitTransition: newTrans });
+                });
+            } else {
+                container.innerHTML = '<p style="color: #666; font-style: italic;">Select an element or screen to edit</p>';
+            }
+            return;
+        }
+
         // --- ID Section ---
-        createInput('ID', element.id, 'text', (val) => { /* Read only */ });
+        createInput('ID', element.id, 'text', (_) => { /* Read only */ });
 
         // --- Transform Section ---
         if (element.transform) {
@@ -526,5 +705,111 @@ export class SectionCreatorUI {
                 content.appendChild(group);
             });
         }
+
+        // --- Interaction Section (All Elements) ---
+        createAccordion('Interaction', (content) => {
+            // Trigger
+            const triggerGroup = document.createElement('div');
+            triggerGroup.className = 'form-group';
+            triggerGroup.innerHTML = '<label>Trigger</label>';
+            const triggerSelect = document.createElement('select');
+            triggerSelect.style.width = '100%';
+            triggerSelect.style.background = '#111';
+            triggerSelect.style.color = '#eee';
+            ['none', 'click', 'hover'].forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t;
+                opt.textContent = t;
+                opt.selected = element.interaction?.trigger === t || (t === 'none' && !element.interaction);
+                triggerSelect.appendChild(opt);
+            });
+            triggerSelect.onchange = (e: any) => {
+                const val = e.target.value;
+                if (val === 'none') {
+                    this.store.updateElement(element.id, { interaction: undefined });
+                } else {
+                    this.store.updateElement(element.id, {
+                        interaction: {
+                            trigger: val,
+                            action: element.interaction?.action || 'goto-next-screen',
+                            payload: element.interaction?.payload
+                        }
+                    });
+                }
+                this.renderInspector(); // Re-render to show/hide action fields
+            };
+            triggerGroup.appendChild(triggerSelect);
+            content.appendChild(triggerGroup);
+
+            if (element.interaction) {
+                // Action
+                const actionGroup = document.createElement('div');
+                actionGroup.className = 'form-group';
+                actionGroup.innerHTML = '<label>Action</label>';
+                const actionSelect = document.createElement('select');
+                actionSelect.style.width = '100%';
+                actionSelect.style.background = '#111';
+                actionSelect.style.color = '#eee';
+                ['goto-next-screen', 'goto-screen', 'run-custom-function'].forEach(a => {
+                    const opt = document.createElement('option');
+                    opt.value = a;
+                    opt.textContent = a;
+                    opt.selected = element.interaction?.action === a;
+                    actionSelect.appendChild(opt);
+                });
+                actionSelect.onchange = (e: any) => {
+                    this.store.updateElement(element.id, {
+                        interaction: { ...element.interaction!, action: e.target.value }
+                    });
+                    this.renderInspector(); // Re-render for payload change
+                };
+                actionGroup.appendChild(actionSelect);
+                content.appendChild(actionGroup);
+
+                // Payload
+                const payloadGroup = document.createElement('div');
+                payloadGroup.className = 'form-group';
+
+                if (element.interaction.action === 'goto-screen') {
+                    payloadGroup.innerHTML = '<label>Target Screen</label>';
+                    const screenSelect = document.createElement('select');
+                    screenSelect.style.width = '100%';
+                    screenSelect.style.background = '#111';
+                    screenSelect.style.color = '#eee';
+
+                    const currentSection = this.store.getCurrentSection();
+                    if (currentSection) {
+                        currentSection.screens.forEach(s => {
+                            const opt = document.createElement('option');
+                            opt.value = s.id;
+                            opt.textContent = s.id;
+                            opt.selected = element.interaction?.payload === s.id;
+                            screenSelect.appendChild(opt);
+                        });
+                    }
+
+                    screenSelect.onchange = (e: any) => {
+                        this.store.updateElement(element.id, {
+                            interaction: { ...element.interaction!, payload: e.target.value }
+                        });
+                    };
+                    payloadGroup.appendChild(screenSelect);
+                } else {
+                    payloadGroup.innerHTML = '<label>Payload (Target ID)</label>';
+                    const payloadInput = document.createElement('input');
+                    payloadInput.type = 'text';
+                    payloadInput.value = element.interaction?.payload || '';
+                    payloadInput.style.width = '100%';
+                    payloadInput.onchange = (e: any) => {
+                        this.store.updateElement(element.id, {
+                            interaction: { ...element.interaction!, payload: e.target.value }
+                        });
+                    };
+                    payloadGroup.appendChild(payloadInput);
+                }
+
+                content.appendChild(payloadGroup);
+            }
+        });
     }
 }

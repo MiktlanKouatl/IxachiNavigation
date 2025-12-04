@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+
 
 // --- Tipos Base ---
 export type Vector3Data = { x: number, y: number, z: number };
@@ -13,16 +13,29 @@ export interface AnimationConfig {
 }
 
 export interface TransitionConfig {
-    type: 'none' | 'fade' | 'slide-up' | 'custom';
+    type: 'none' | 'fade' | 'slide-up' | 'slide-down' | 'slide-left' | 'slide-right' | 'zoom-in' | 'zoom-out' | 'custom'; // Presets
     duration: number;
     easing: string; // Ej: 'power2.inOut'
+
+    // Composable properties
+    fade?: boolean;
+    position?: Vector3Data; // Relative offset (e.g., {x:0, y:5, z:0} for slide up)
+    rotation?: Vector3Data; // Relative rotation
+    scale?: Vector3Data; // Target scale
 }
 
 // --- II. ELEMENTOS DE ESCENA (VISUALES Y LÓGICA) ---
+
+export interface InteractionData {
+    trigger: 'click' | 'hover' | 'proximity';
+    action: 'goto-next-screen' | 'run-custom-function' | 'goto-screen';
+    payload?: string; // ID de la pantalla destino o nombre de la función
+}
+
 // La unión de todos los tipos de elementos posibles en una Screen
 export interface SceneElementData {
     id: string;
-    type: 'text' | 'image' | 'video' | 'line' | 'model' | 'logic'; // 'logic' es el nodo sin visual
+    type: 'text' | 'image' | 'video' | 'line' | 'model' | 'logic' | 'button'; // 'logic' es el nodo sin visual
 
     // Solo relevante para Elementos Visuales
     content?: string; // Texto, URL del recurso o preset de partículas/línea
@@ -41,11 +54,7 @@ export interface SceneElementData {
     config?: any; // Parámetros para el módulo de lógica (Ej: {forceMultiplier: 5})
 
     // Comportamiento de Interacción
-    interaction?: {
-        trigger: 'click' | 'hover';
-        action: 'goto-next-screen' | 'run-custom-function';
-        payload?: any;
-    };
+    interaction?: InteractionData;
 
     // Animación de entrada local (sobreescribe la Screen Transition)
     enterAnimation?: AnimationConfig;

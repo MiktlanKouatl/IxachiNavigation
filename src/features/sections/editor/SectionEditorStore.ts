@@ -36,6 +36,48 @@ export class SectionEditorStore extends EventEmitter {
         this.selectSection(id);
     }
 
+    public createScreen(id: string): void {
+        const section = this.getCurrentSection();
+        if (!section) return;
+
+        // Check for duplicate ID
+        if (section.screens.find(s => s.id === id)) {
+            console.warn(`Screen with id '${id}' already exists.`);
+            return;
+        }
+
+        const newScreen: ScreenData = {
+            id,
+            elements: [],
+            trigger: 'manual', // Default
+            enterTransition: { type: 'none', duration: 0.5, easing: 'power2.inOut', fade: false, position: { x: 0, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0 }, scale: { x: 1, y: 1, z: 1 } },
+            exitTransition: { type: 'none', duration: 0.5, easing: 'power2.inOut', fade: false, position: { x: 0, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0 }, scale: { x: 1, y: 1, z: 1 } }
+        };
+
+        section.screens.push(newScreen);
+        this.emit('sectionUpdated', section);
+        this.selectScreen(id);
+    }
+
+    public deleteScreen(id: string): void {
+        const section = this.getCurrentSection();
+        if (!section) return;
+
+        const index = section.screens.findIndex(s => s.id === id);
+        if (index !== -1) {
+            section.screens.splice(index, 1);
+
+            // If we deleted the active screen, select another one
+            if (this.activeScreenId === id) {
+                const nextScreen = section.screens.length > 0 ? section.screens[0].id : null;
+                this.selectScreen(nextScreen);
+            } else {
+                // Just refresh UI
+                this.emit('sectionUpdated', section);
+            }
+        }
+    }
+
     public selectSection(id: string | null): void {
         this.activeSectionId = id;
         this.activeScreenId = null;
@@ -60,6 +102,17 @@ export class SectionEditorStore extends EventEmitter {
     public selectElement(id: string | null): void {
         this.activeElementId = id;
         this.emit('selectionChanged', { elementId: id });
+    }
+
+    public updateScreen(screenId: string, updates: Partial<ScreenData>): void {
+        const section = this.getCurrentSection();
+        if (!section) return;
+
+        const screen = section.screens.find(s => s.id === screenId);
+        if (screen) {
+            Object.assign(screen, updates);
+            this.emit('sectionUpdated', section);
+        }
     }
 
     public addElementToCurrentScreen(element: SceneElementData): void {

@@ -1,6 +1,5 @@
 import { SectionData } from './types/SectionData';
-import { ScreenData, SceneElementData, AnimationStep, AnimationMode } from '../../waypoint/types/WaypointContentData';
-import { Vector3 } from 'three';
+import { ScreenData, SceneElementData, AnimationStep, AnimationMode } from '../waypoint/types/WaypointContentData';
 
 /**
  * Fluent API builder for creating SectionData.
@@ -26,7 +25,10 @@ export class SectionBuilder {
     public addScreen(id: string): this {
         const screen: ScreenData = {
             id,
-            elements: []
+            elements: [],
+            trigger: 'manual',
+            enterTransition: { type: 'none', duration: 0.5, easing: 'power2.inOut', fade: false, position: { x: 0, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0 }, scale: { x: 1, y: 1, z: 1 } },
+            exitTransition: { type: 'none', duration: 0.5, easing: 'power2.inOut', fade: false, position: { x: 0, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0 }, scale: { x: 1, y: 1, z: 1 } }
         };
         this.section.screens.push(screen);
         this.currentScreenId = id;
