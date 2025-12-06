@@ -13,7 +13,8 @@ const assetsToLoad = {
     // ixachiLogoSVG: '/ixachiLogo0001.svg' // Keep the SVG as a texture
   },
   paths: {
-    ixachiLogoSVG: '/ixachiLogo0001.svg'
+    ixachiLogoSVG: '/ixachiLogo0001.svg',
+    track_mandala_01: '/tracks/track_mandala_01.json'
   }
 };
 
@@ -43,16 +44,16 @@ export class AssetManager extends EventEmitter {
 
   public async loadAll(): Promise<void> {
     console.log('🌀 [AssetManager] Starting to load all assets...');
-    
+
     const promises: Promise<any>[] = [];
     let loaded = 0;
     const total = Object.keys(assetsToLoad.models).length + Object.keys(assetsToLoad.textures).length + Object.keys(assetsToLoad.paths).length;
 
     const onProgress = (key: string) => {
-        loaded++;
-        const progressRatio = loaded / total;
-        console.log(`⏳ [AssetManager] Loading: ${key} (${(progressRatio * 100).toFixed(0)}%)`);
-        this.emit('progress', progressRatio, key, loaded, total);
+      loaded++;
+      const progressRatio = loaded / total;
+      console.log(`⏳ [AssetManager] Loading: ${key} (${(progressRatio * 100).toFixed(0)}%)`);
+      this.emit('progress', progressRatio, key, loaded, total);
     };
 
     for (const key in assetsToLoad.models) {
@@ -74,12 +75,12 @@ export class AssetManager extends EventEmitter {
     }
 
     for (const key in assetsToLoad.paths) {
-        const path = assetsToLoad.paths[key as AssetKey<'paths'>];
-        const promise = this.loadPathData(path).then(pathData => {
-            this.paths[key] = pathData;
-            onProgress(key);
-        });
-        promises.push(promise);
+      const path = assetsToLoad.paths[key as AssetKey<'paths'>];
+      const promise = this.loadPathData(path).then(pathData => {
+        this.paths[key] = pathData;
+        onProgress(key);
+      });
+      promises.push(promise);
     }
 
     await Promise.all(promises);
@@ -89,34 +90,38 @@ export class AssetManager extends EventEmitter {
   }
 
   private async loadPathData(url: string): Promise<PathData> {
+    if (url.endsWith('.json')) {
+      return this.loadJsonPathData(url);
+    }
+
     const data = await this.svgLoader.loadAsync(url);
     const paths: THREE.Vector3[][] = [];
     const minDistanceSq = 0.01 * 0.01; // Threshold for filtering close points
 
     for (const path of data.paths) {
-        const shapes = SVGLoader.createShapes(path as unknown as SVGResultPaths);
+      const shapes = SVGLoader.createShapes(path as unknown as SVGResultPaths);
 
-        for (const shape of shapes) {
-            const shapePoints: THREE.Vector3[] = [];
-            for (const curve of shape.curves) {
-                const points2D = curve.getPoints(100);
-                for (const point2d of points2D) {
-                    const newPoint = new THREE.Vector3(point2d.x, point2d.y, 0);
-                    if (shapePoints.length === 0 || newPoint.distanceToSquared(shapePoints[shapePoints.length - 1]) > minDistanceSq) {
-                        shapePoints.push(newPoint);
-                    }
-                }
+      for (const shape of shapes) {
+        const shapePoints: THREE.Vector3[] = [];
+        for (const curve of shape.curves) {
+          const points2D = curve.getPoints(100);
+          for (const point2d of points2D) {
+            const newPoint = new THREE.Vector3(point2d.x, point2d.y, 0);
+            if (shapePoints.length === 0 || newPoint.distanceToSquared(shapePoints[shapePoints.length - 1]) > minDistanceSq) {
+              shapePoints.push(newPoint);
             }
-            if (shapePoints.length > 0) {
-                paths.push(shapePoints);
-            }
+          }
         }
+        if (shapePoints.length > 0) {
+          paths.push(shapePoints);
+        }
+      }
     }
 
     // Normalize and center the points
     const allPoints = paths.flat();
     if (allPoints.length === 0) {
-        return new PathData([]);
+      return new PathData([]);
     }
 
     const boundingBox = new THREE.Box3().setFromPoints(allPoints);
@@ -125,23 +130,23 @@ export class AssetManager extends EventEmitter {
     const scale = 20 / Math.max(size.x, size.y, size.z);
 
     const centeredPaths = paths.map(pathPoints => {
-        return pathPoints.map(p => {
-            return new THREE.Vector3(
-                (p.x - center.x) * scale,
-                (p.y - center.y) * -scale, // Invert Y to match Three.js coordinates
-                0
-            );
-        });
+      return pathPoints.map(p => {
+        return new THREE.Vector3(
+          (p.x - center.x) * scale,
+          (p.y - center.y) * -scale, // Invert Y to match Three.js coordinates
+          0
+        );
+      });
     });
 
     // Filter out paths that are too small to be meaningful
     const minLengthThreshold = 0.5;
     const filteredPaths = centeredPaths.filter(pathPoints => {
-        if (pathPoints.length < 2) return false;
-        // Calculate the length of this specific path
-        const tempCurve = new THREE.CatmullRomCurve3(pathPoints);
-        const length = tempCurve.getLength();
-        return length > minLengthThreshold;
+      if (pathPoints.length < 2) return false;
+      // Calculate the length of this specific path
+      const tempCurve = new THREE.CatmullRomCurve3(pathPoints);
+      const length = tempCurve.getLength();
+      return length > minLengthThreshold;
     });
 
     console.log(`[AssetManager] Filtered SVG paths: ${centeredPaths.length} -> ${filteredPaths.length}`);
@@ -168,5 +173,42 @@ export class AssetManager extends EventEmitter {
       throw new Error(`[AssetManager] Path with key "${key}" has not been loaded or does not exist.`);
     }
     return this.paths[key];
+  }
+
+  private async loadJsonPathData(url: string): Promise<PathData> {
+    const loader = new THREE.FileLoader();
+    const jsonContent = await loader.loadAsync(url);
+    const operations = JSON.parse(jsonContent as string);
+
+    // Use TrackBuilder to reconstruct the path
+    // We need to dynamically import TrackBuilder to avoid circular dependencies if any, 
+    // but here we can just import it at the top if not present.
+    // Assuming TrackBuilder is available.
+    const { TrackBuilder } = await import('../core/pathing/TrackBuilder');
+    const builder = new TrackBuilder();
+
+    // We assume the JSON is an array of operations
+    if (Array.isArray(operations)) {
+      operations.forEach(op => builder.addOperation(op));
+    }
+
+    const curvePath = builder.build();
+
+    // Convert CurvePath to points for PathData
+    // PathData expects Vector3[][] (array of point arrays, one for each continuous path)
+    // Since TrackBuilder creates one continuous path, we have one array of points.
+
+    const points = curvePath.getPoints(200); // Sample resolution
+
+    // Center the path? Or keep it as is?
+    // Usually we want it centered for the element to be placed relative to its anchor.
+    // But TrackBuilder paths might be large.
+    // Let's center it.
+    const boundingBox = new THREE.Box3().setFromPoints(points);
+    const center = boundingBox.getCenter(new THREE.Vector3());
+
+    const centeredPoints = points.map(p => p.sub(center));
+
+    return new PathData([centeredPoints]);
   }
 }

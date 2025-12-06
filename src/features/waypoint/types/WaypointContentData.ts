@@ -35,11 +35,32 @@ export interface InteractionData {
 // La unión de todos los tipos de elementos posibles en una Screen
 export interface SceneElementData {
     id: string;
-    type: 'text' | 'image' | 'video' | 'line' | 'model' | 'logic' | 'button'; // 'logic' es el nodo sin visual
+    type: 'text' | 'image' | 'video' | 'line' | 'model' | 'logic' | 'button' | 'svg-path' | 'json-path'; // 'logic' es el nodo sin visual
 
     // Solo relevante para Elementos Visuales
     content?: string; // Texto, URL del recurso o preset de partículas/línea
     url?: string; // URL específica para modelos, imágenes, videos
+
+    // Path Configuration (for svg-path and json-path)
+    assetKey?: string; // Key in AssetManager
+    pathConfig?: {
+        ribbonWidth: number;
+        revealDuration: number;
+        trailLength: number;
+        trailSpeed: number;
+        color: string; // Hex color
+        useMode?: number; // 0: Static, 1: Reveal, 2: Trail
+
+        // Advanced Ribbon Properties
+        colorEnd?: string;
+        transitionSize?: number; // Color Transition Size
+        fadeStyle?: number; // 0: None, 1: FadeIn, 2: FadeInOut, 3: FadeOut
+        fadeTransitionSize?: number;
+        colorMix?: number;
+        renderMode?: number; // 0: Solid, 1: Glow
+        opacity?: number;
+    };
+
     anchor?: { xOffset: number, yOffset: number, zOffset: number }; // Posición relativa al punto del Track
     transform?: {
         position: Vector3Data; // Posición local relativa al Anchor

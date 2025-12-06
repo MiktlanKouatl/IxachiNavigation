@@ -130,6 +130,26 @@ export class SectionEditorStore extends EventEmitter {
 
         const element = screen.elements.find(e => e.id === elementId);
         if (element) {
+            // Deep merge for specific nested objects to avoid overwriting
+            if (updates.transform) {
+                updates.transform = {
+                    ...element.transform,
+                    ...updates.transform,
+                    position: { ...(element.transform?.position || { x: 0, y: 0, z: 0 }), ...(updates.transform.position || {}) },
+                    rotation: { ...(element.transform?.rotation || { x: 0, y: 0, z: 0 }), ...(updates.transform.rotation || {}) },
+                    scale: { ...(element.transform?.scale || { x: 1, y: 1, z: 1 }), ...(updates.transform.scale || {}) }
+                };
+            }
+            if (updates.style) {
+                updates.style = { ...element.style, ...updates.style };
+            }
+            if (updates.pathConfig) {
+                updates.pathConfig = { ...element.pathConfig, ...updates.pathConfig };
+            }
+            if (updates.interaction) {
+                updates.interaction = { ...element.interaction, ...updates.interaction };
+            }
+
             Object.assign(element, updates);
             this.emit('sectionUpdated', this.getCurrentSection());
             this.emit('elementUpdated', element);

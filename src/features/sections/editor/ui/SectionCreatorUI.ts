@@ -1,20 +1,29 @@
+import { AssetManager } from '../../../../managers/AssetManager';
 import { SectionEditorStore } from '../SectionEditorStore';
-import { SectionSerializer } from '../SectionSerializer';
 import { PreviewViewport } from '../components/PreviewViewport';
+import { SectionSerializer } from '../SectionSerializer';
 
 export class SectionCreatorUI {
     private container: HTMLElement;
     private store: SectionEditorStore;
     private viewport: PreviewViewport | null = null;
+    private assetManager: AssetManager;
 
     constructor() {
         this.store = SectionEditorStore.getInstance();
         this.container = document.createElement('div');
         this.container.id = 'section-creator-root';
+        this.assetManager = new AssetManager();
+        this.initAssets(); // Start loading
         this.injectStyles();
         this.buildLayout();
         this.bindEvents();
 
+    }
+
+    private async initAssets() {
+        await this.assetManager.loadAll();
+        console.log('✅ [SectionCreator] Assets loaded');
     }
 
     public mount(parent: HTMLElement): void {
@@ -23,7 +32,7 @@ export class SectionCreatorUI {
         // Initialize Viewport after mounting to ensure dimensions are correct
         const viewportContainer = this.container.querySelector('#sc-viewport') as HTMLElement;
         if (viewportContainer && !this.viewport) {
-            this.viewport = new PreviewViewport(viewportContainer);
+            this.viewport = new PreviewViewport(viewportContainer, this.assetManager);
         }
     }
 
@@ -130,6 +139,8 @@ export class SectionCreatorUI {
                 <button id="btn-add-image">+ Image</button>
                 <button id="btn-add-video">+ Video</button>
                 <button id="btn-add-button">+ Button</button>
+                <button id="btn-add-svg-path">+ Path (SVG)</button>
+                <button id="btn-add-json-path">+ Path (JSON)</button>
                 <div id="element-list"></div>
             </div>
             
@@ -291,6 +302,58 @@ export class SectionCreatorUI {
             });
         });
 
+        this.container.querySelector('#btn-add-svg-path')?.addEventListener('click', () => {
+            if (!this.store.getCurrentScreen()) {
+                alert('Please select a screen first');
+                return;
+            }
+            const id = `path_svg_${Date.now()}`;
+            this.store.addElementToCurrentScreen({
+                id,
+                type: 'svg-path',
+                assetKey: 'ixachiLogoSVG', // Default valid key
+                pathConfig: {
+                    ribbonWidth: 1,
+                    revealDuration: 2,
+                    trailLength: 20,
+                    trailSpeed: 1,
+                    color: '#00ffff',
+                    colorEnd: '#ff00ff'
+                },
+                transform: {
+                    position: { x: 0, y: 0, z: 0 },
+                    rotation: { x: 0, y: 0, z: 0 },
+                    scale: { x: 1, y: 1, z: 1 }
+                }
+            });
+        });
+
+        this.container.querySelector('#btn-add-json-path')?.addEventListener('click', () => {
+            if (!this.store.getCurrentScreen()) {
+                alert('Please select a screen first');
+                return;
+            }
+            const id = `path_json_${Date.now()}`;
+            this.store.addElementToCurrentScreen({
+                id,
+                type: 'json-path',
+                assetKey: 'track_mandala_01', // Default valid key
+                pathConfig: {
+                    ribbonWidth: 2,
+                    revealDuration: 5,
+                    trailLength: 50,
+                    trailSpeed: 2,
+                    color: '#ff00ff',
+                    colorEnd: '#00ffff'
+                },
+                transform: {
+                    position: { x: 0, y: 0, z: 0 },
+                    rotation: { x: 0, y: 0, z: 0 },
+                    scale: { x: 1, y: 1, z: 1 }
+                }
+            });
+        });
+
         // Listen for store updates to refresh UI
         this.store.on('sectionsUpdated', () => this.renderSectionList());
         this.store.on('selectionChanged', () => {
@@ -302,6 +365,9 @@ export class SectionCreatorUI {
         this.store.on('sectionUpdated', () => {
             this.renderElementList();
             // Also update inspector if needed
+        });
+        this.store.on('elementUpdated', () => {
+            this.renderInspector(); // Re-render to update values and closures
         });
     }
 
@@ -621,58 +687,60 @@ export class SectionCreatorUI {
         }
 
         // --- Style Section ---
-        createAccordion('Style', (content) => {
-            // Color
-            const colorGroup = document.createElement('div');
-            colorGroup.className = 'form-group';
-            colorGroup.innerHTML = '<label>Color</label>';
-            const colorInput = document.createElement('input');
-            colorInput.type = 'color';
-            colorInput.value = element.style?.color || '#ffffff';
-            colorInput.style.width = '100%';
-            colorInput.style.height = '30px';
-            colorInput.style.border = 'none';
-            colorInput.style.padding = '0';
-            colorInput.onchange = (e: any) => this.store.updateElement(element.id, { style: { ...(element.style || {}), color: e.target.value } });
-            colorGroup.appendChild(colorInput);
-            content.appendChild(colorGroup);
+        if (element.type !== 'svg-path' && element.type !== 'json-path') {
+            createAccordion('Style', (content) => {
+                // Color
+                const colorGroup = document.createElement('div');
+                colorGroup.className = 'form-group';
+                colorGroup.innerHTML = '<label>Color</label>';
+                const colorInput = document.createElement('input');
+                colorInput.type = 'color';
+                colorInput.value = element.style?.color || '#ffffff';
+                colorInput.style.width = '100%';
+                colorInput.style.height = '30px';
+                colorInput.style.border = 'none';
+                colorInput.style.padding = '0';
+                colorInput.onchange = (e: any) => this.store.updateElement(element.id, { style: { ...(element.style || {}), color: e.target.value } });
+                colorGroup.appendChild(colorInput);
+                content.appendChild(colorGroup);
 
-            // Opacity
-            const opacityGroup = document.createElement('div');
-            opacityGroup.className = 'form-group';
-            opacityGroup.innerHTML = `<label>Opacity: ${element.style?.opacity ?? 1}</label>`;
-            const opacityInput = document.createElement('input');
-            opacityInput.type = 'range';
-            opacityInput.min = '0';
-            opacityInput.max = '1';
-            opacityInput.step = '0.1';
-            opacityInput.value = (element.style?.opacity ?? 1).toString();
-            opacityInput.oninput = (e: any) => {
-                const val = parseFloat(e.target.value);
-                opacityGroup.querySelector('label')!.textContent = `Opacity: ${val}`;
-                this.store.updateElement(element.id, { style: { ...(element.style || {}), opacity: val } });
-            };
-            opacityGroup.appendChild(opacityInput);
-            content.appendChild(opacityGroup);
+                // Opacity
+                const opacityGroup = document.createElement('div');
+                opacityGroup.className = 'form-group';
+                opacityGroup.innerHTML = `<label>Opacity: ${element.style?.opacity ?? 1}</label>`;
+                const opacityInput = document.createElement('input');
+                opacityInput.type = 'range';
+                opacityInput.min = '0';
+                opacityInput.max = '1';
+                opacityInput.step = '0.1';
+                opacityInput.value = (element.style?.opacity ?? 1).toString();
+                opacityInput.oninput = (e: any) => {
+                    const val = parseFloat(e.target.value);
+                    opacityGroup.querySelector('label')!.textContent = `Opacity: ${val}`;
+                    this.store.updateElement(element.id, { style: { ...(element.style || {}), opacity: val } });
+                };
+                opacityGroup.appendChild(opacityInput);
+                content.appendChild(opacityGroup);
 
-            // Font Size (Text only)
-            if (element.type === 'text') {
-                const fsGroup = document.createElement('div');
-                fsGroup.className = 'form-group';
-                fsGroup.innerHTML = '<label>Font Size</label>';
-                const fsInput = document.createElement('input');
-                fsInput.type = 'number';
-                fsInput.step = '0.1';
-                fsInput.value = element.style?.fontSize || 2;
-                fsInput.style.width = '100%';
-                fsInput.style.background = '#111';
-                fsInput.style.border = '1px solid #444';
-                fsInput.style.color = '#eee';
-                fsInput.onchange = (e: any) => this.store.updateElement(element.id, { style: { ...(element.style || {}), fontSize: parseFloat(e.target.value) } });
-                fsGroup.appendChild(fsInput);
-                content.appendChild(fsGroup);
-            }
-        });
+                // Font Size (Text only)
+                if (element.type === 'text') {
+                    const fsGroup = document.createElement('div');
+                    fsGroup.className = 'form-group';
+                    fsGroup.innerHTML = '<label>Font Size</label>';
+                    const fsInput = document.createElement('input');
+                    fsInput.type = 'number';
+                    fsInput.step = '0.1';
+                    fsInput.value = element.style?.fontSize || 2;
+                    fsInput.style.width = '100%';
+                    fsInput.style.background = '#111';
+                    fsInput.style.border = '1px solid #444';
+                    fsInput.style.color = '#eee';
+                    fsInput.onchange = (e: any) => this.store.updateElement(element.id, { style: { ...(element.style || {}), fontSize: parseFloat(e.target.value) } });
+                    fsGroup.appendChild(fsInput);
+                    content.appendChild(fsGroup);
+                }
+            });
+        }
 
         // --- Content Section ---
         if (element.type === 'text') {
@@ -703,6 +771,251 @@ export class SectionCreatorUI {
                 input.onchange = (e: any) => this.store.updateElement(element.id, { url: e.target.value });
                 group.appendChild(input);
                 content.appendChild(group);
+            });
+        } else if (element.type === 'svg-path' || element.type === 'json-path') {
+            createAccordion('Path Configuration', (content) => {
+                const config = element.pathConfig || {
+                    ribbonWidth: 1,
+                    revealDuration: 2,
+                    trailLength: 20,
+                    trailSpeed: 1,
+                    color: '#ffffff',
+                    useMode: 0 // Default to Static (0)
+                };
+
+                // Asset Key
+                createInput('Asset Key', element.assetKey || '', 'text', (val) => this.store.updateElement(element.id, { assetKey: val }));
+
+                // Mode Selector
+                const modeGroup = document.createElement('div');
+                modeGroup.className = 'form-group';
+                modeGroup.innerHTML = '<label>Mode</label>';
+                const modeSelect = document.createElement('select');
+                modeSelect.style.width = '100%';
+                modeSelect.style.background = '#111';
+                modeSelect.style.color = '#eee';
+                ['Static', 'Reveal', 'Trail'].forEach((m, i) => {
+                    const opt = document.createElement('option');
+                    opt.value = i.toString(); // Map to UseMode enum values (0, 1, 2)
+                    opt.textContent = m;
+                    opt.selected = (config.useMode || 0) === i;
+                    modeSelect.appendChild(opt);
+                });
+                modeSelect.onchange = (e: any) => this.store.updateElement(element.id, { pathConfig: { ...config, useMode: parseInt(e.target.value) } });
+                modeGroup.appendChild(modeSelect);
+                content.appendChild(modeGroup);
+
+                // --- Advanced Ribbon Properties ---
+
+                // Color Start
+                const colorStartGroup = document.createElement('div');
+                colorStartGroup.className = 'form-group';
+                colorStartGroup.innerHTML = '<label>Color Start</label>';
+                const colorStartInput = document.createElement('input');
+                colorStartInput.type = 'color';
+                colorStartInput.value = config.color || '#ffffff';
+                colorStartInput.style.width = '100%';
+                colorStartInput.style.height = '30px';
+                colorStartInput.style.border = 'none';
+                colorStartInput.style.padding = '0';
+                colorStartInput.onchange = (e: any) => this.store.updateElement(element.id, { pathConfig: { ...config, color: e.target.value } });
+                colorStartGroup.appendChild(colorStartInput);
+                content.appendChild(colorStartGroup);
+
+                // Color End
+                const colorEndGroup = document.createElement('div');
+                colorEndGroup.className = 'form-group';
+                colorEndGroup.innerHTML = '<label>Color End</label>';
+                const colorEndInput = document.createElement('input');
+                colorEndInput.type = 'color';
+                colorEndInput.value = config.colorEnd || config.color || '#ffffff';
+                colorEndInput.style.width = '100%';
+                colorEndInput.style.height = '30px';
+                colorEndInput.style.border = 'none';
+                colorEndInput.style.padding = '0';
+                colorEndInput.onchange = (e: any) => this.store.updateElement(element.id, { pathConfig: { ...config, colorEnd: e.target.value } });
+                colorEndGroup.appendChild(colorEndInput);
+                content.appendChild(colorEndGroup);
+
+                // Color Transition Size
+                const transitionSizeGroup = document.createElement('div');
+                transitionSizeGroup.className = 'form-group';
+                transitionSizeGroup.innerHTML = `<label>Color Transition: ${config.transitionSize ?? 0.1}</label>`;
+                const transitionSizeInput = document.createElement('input');
+                transitionSizeInput.type = 'range';
+                transitionSizeInput.min = '0';
+                transitionSizeInput.max = '5';
+                transitionSizeInput.step = '0.1';
+                transitionSizeInput.value = (config.transitionSize ?? 0.1).toString();
+                transitionSizeInput.oninput = (e: any) => {
+                    const val = parseFloat(e.target.value);
+                    transitionSizeGroup.querySelector('label')!.textContent = `Color Transition: ${val}`;
+                    this.store.updateElement(element.id, { pathConfig: { ...config, transitionSize: val } });
+                };
+                transitionSizeGroup.appendChild(transitionSizeInput);
+                content.appendChild(transitionSizeGroup);
+
+                // Color Mix
+                const colorMixGroup = document.createElement('div');
+                colorMixGroup.className = 'form-group';
+                colorMixGroup.innerHTML = `<label>Color Mix: ${config.colorMix ?? 1.0}</label>`;
+                const colorMixInput = document.createElement('input');
+                colorMixInput.type = 'range';
+                colorMixInput.min = '0';
+                colorMixInput.max = '1';
+                colorMixInput.step = '0.01';
+                colorMixInput.value = (config.colorMix ?? 1.0).toString();
+                colorMixInput.oninput = (e: any) => {
+                    const val = parseFloat(e.target.value);
+                    colorMixGroup.querySelector('label')!.textContent = `Color Mix: ${val}`;
+                    this.store.updateElement(element.id, { pathConfig: { ...config, colorMix: val } });
+                };
+                colorMixGroup.appendChild(colorMixInput);
+                content.appendChild(colorMixGroup);
+
+                // Fade Style
+                const fadeStyleGroup = document.createElement('div');
+                fadeStyleGroup.className = 'form-group';
+                fadeStyleGroup.innerHTML = '<label>Fade Style</label>';
+                const fadeStyleSelect = document.createElement('select');
+                fadeStyleSelect.style.width = '100%';
+                fadeStyleSelect.style.background = '#111';
+                fadeStyleSelect.style.color = '#eee';
+                ['None', 'Fade In', 'Fade In Out', 'Fade Out'].forEach((m, i) => {
+                    const opt = document.createElement('option');
+                    // Enum: None=0, FadeIn=1, FadeInOut=2, FadeOut=3
+                    // If user says FadeIn/Out are switched, maybe FadeIn behaves like FadeOut?
+                    // Let's swap the labels for 1 and 3 if the behavior is swapped.
+                    // Or better, let's map the labels to specific values.
+
+                    // Current: 0=None, 1=FadeIn, 2=FadeInOut, 3=FadeOut
+                    // User says: FadeIn and FadeOut are switched.
+                    // So 1 behaves like FadeOut, 3 behaves like FadeIn.
+                    // We want "Fade In" to select 3, and "Fade Out" to select 1.
+
+                    let value = i;
+                    if (i === 1) value = 3; // "Fade In" -> 3 (FadeOut enum?)
+                    else if (i === 3) value = 1; // "Fade Out" -> 1 (FadeIn enum?)
+
+                    // Wait, if Enum FadeIn=1 and it behaves like FadeOut, then we should label 1 as "Fade Out".
+                    // And if Enum FadeOut=3 and it behaves like FadeIn, we should label 3 as "Fade In".
+
+                    // Let's just change the order of labels in the array to match the values 0, 1, 2, 3?
+                    // No, the loop uses 'i' as value.
+
+                    // Let's use an explicit map.
+                    const values = [0, 3, 2, 1]; // None, Fade In (3), Fade In Out (2), Fade Out (1) -> Assuming 3 is the real FadeIn behavior
+
+                    // Actually, let's trust the user: "FadeIn y FadeOut are switch".
+                    // If I select "Fade In" (val 1), it looks like Fade Out.
+                    // If I select "Fade Out" (val 3), it looks like Fade In.
+                    // So I want "Fade In" label to give value 3, and "Fade Out" label to give value 1.
+
+                    opt.value = values[i].toString();
+                    opt.textContent = m;
+                    opt.selected = (config.fadeStyle || 0) === values[i];
+                    fadeStyleSelect.appendChild(opt);
+                });
+                fadeStyleSelect.onchange = (e: any) => this.store.updateElement(element.id, { pathConfig: { ...config, fadeStyle: parseInt(e.target.value) } });
+                fadeStyleGroup.appendChild(fadeStyleSelect);
+                content.appendChild(fadeStyleGroup);
+
+                // Fade Transition Size
+                const fadeSizeGroup = document.createElement('div');
+                fadeSizeGroup.className = 'form-group';
+                fadeSizeGroup.innerHTML = `<label>Fade Size: ${config.fadeTransitionSize ?? 0.1}</label>`;
+                const fadeSizeInput = document.createElement('input');
+                fadeSizeInput.type = 'range';
+                fadeSizeInput.min = '0';
+                fadeSizeInput.max = '1';
+                fadeSizeInput.step = '0.01';
+                fadeSizeInput.value = (config.fadeTransitionSize ?? 0.1).toString();
+                fadeSizeInput.oninput = (e: any) => {
+                    const val = parseFloat(e.target.value);
+                    fadeSizeGroup.querySelector('label')!.textContent = `Fade Size: ${val}`;
+                    this.store.updateElement(element.id, { pathConfig: { ...config, fadeTransitionSize: val } });
+                };
+                fadeSizeGroup.appendChild(fadeSizeInput);
+                content.appendChild(fadeSizeGroup);
+
+                // Render Mode
+                const renderModeGroup = document.createElement('div');
+                renderModeGroup.className = 'form-group';
+                renderModeGroup.innerHTML = '<label>Render Mode</label>';
+                const renderModeSelect = document.createElement('select');
+                renderModeSelect.style.width = '100%';
+                renderModeSelect.style.background = '#111';
+                renderModeSelect.style.color = '#eee';
+                ['Glow', 'Solid'].forEach((m, i) => {
+                    const opt = document.createElement('option');
+                    opt.value = i.toString();
+                    opt.textContent = m;
+                    opt.selected = (config.renderMode || 0) === i;
+                    renderModeSelect.appendChild(opt);
+                });
+                renderModeSelect.onchange = (e: any) => this.store.updateElement(element.id, { pathConfig: { ...config, renderMode: parseInt(e.target.value) } });
+                renderModeGroup.appendChild(renderModeSelect);
+                content.appendChild(renderModeGroup);
+
+                // Opacity (Global for Ribbon)
+                const ribbonOpacityGroup = document.createElement('div');
+                ribbonOpacityGroup.className = 'form-group';
+                ribbonOpacityGroup.innerHTML = `<label>Ribbon Opacity: ${config.opacity ?? 1.0}</label>`;
+                const ribbonOpacityInput = document.createElement('input');
+                ribbonOpacityInput.type = 'range';
+                ribbonOpacityInput.min = '0';
+                ribbonOpacityInput.max = '1';
+                ribbonOpacityInput.step = '0.01';
+                ribbonOpacityInput.value = (config.opacity ?? 1.0).toString();
+                ribbonOpacityInput.oninput = (e: any) => {
+                    const val = parseFloat(e.target.value);
+                    ribbonOpacityGroup.querySelector('label')!.textContent = `Ribbon Opacity: ${val}`;
+                    this.store.updateElement(element.id, { pathConfig: { ...config, opacity: val } });
+                };
+                ribbonOpacityGroup.appendChild(ribbonOpacityInput);
+                content.appendChild(ribbonOpacityGroup);
+
+                modeSelect.onchange = (e: any) =>
+                    this.store.updateElement(element.id, { pathConfig: { ...config, useMode: parseInt(e.target.value) } });
+                modeGroup.appendChild(modeSelect);
+                content.appendChild(modeGroup);
+
+                // Ribbon Width
+                createInput('Ribbon Width', config.ribbonWidth, 'number', (val) =>
+                    this.store.updateElement(element.id, { pathConfig: { ...config, ribbonWidth: val } }), { min: 0.1, step: 0.1 });
+
+                // Reveal Duration (Only relevant for Reveal mode)
+                createInput('Reveal Duration', config.revealDuration, 'number', (val) =>
+                    this.store.updateElement(element.id, { pathConfig: { ...config, revealDuration: val } }), { min: 0 });
+
+                // Play Reveal Button
+                if ((config.useMode || 0) === 1) { // Reveal Mode
+                    const playBtn = document.createElement('button');
+                    playBtn.textContent = '▶ Play Reveal';
+                    playBtn.style.width = '100%';
+                    playBtn.style.marginTop = '5px';
+                    playBtn.style.background = '#4CAF50';
+                    playBtn.onclick = () => {
+                        // Trigger animation logic
+                        // We need to access the actual 3D object. The Store doesn't hold the 3D object, the ElementFactory/Viewport does.
+                        // But we can emit an event or access the viewport if we have reference.
+                        // SectionCreatorUI has this.viewport.
+                        if (this.viewport) {
+                            this.viewport.playRevealAnimation(element.id, config.revealDuration);
+                        }
+                    };
+                    content.appendChild(playBtn);
+                }
+
+                // Trail Length (Only relevant for Trail mode)
+                createInput('Trail Length', config.trailLength, 'number', (val) =>
+                    this.store.updateElement(element.id, { pathConfig: { ...config, trailLength: val } }), { min: 0 });
+
+                // Trail Speed (Only relevant for Trail mode)
+                createInput('Trail Speed', config.trailSpeed, 'number', (val) =>
+                    this.store.updateElement(element.id, { pathConfig: { ...config, trailSpeed: val } }), { min: 0 });
+
+
             });
         }
 
@@ -811,5 +1124,7 @@ export class SectionCreatorUI {
                 content.appendChild(payloadGroup);
             }
         });
+
+
     }
 }

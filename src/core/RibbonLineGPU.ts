@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 // We bring the enums from RibbonLine to maintain consistency.
-import { RibbonConfig, RenderMode, FadeStyle, UseMode } from './RibbonLine'; 
+import { RibbonConfig, RenderMode, FadeStyle, UseMode } from './RibbonLine';
 import vertexShader from '../shaders/ribbon_gpu.vert.glsl?raw';
 import fragmentShader from '../shaders/ribbon_gpu.frag.glsl?raw';
 
@@ -57,7 +57,7 @@ export class RibbonLineGPU {
             transparent: true,
             depthWrite: false,
             blending: config.renderMode === RenderMode.Glow ? THREE.AdditiveBlending : THREE.NormalBlending,
-            
+
             uniforms: {
                 // Common uniforms
                 uColor: { value: config.color },
@@ -77,7 +77,7 @@ export class RibbonLineGPU {
 
                 // New explicit mode control
                 uUseMode: { value: config.useMode ?? UseMode.Static },
-                
+
                 // Mode-specific uniforms
                 uRevealProgress: { value: 1.0 }, // For UseMode.Reveal
                 uTrailHead: { value: 0.0 },      // For UseMode.Trail
@@ -85,7 +85,7 @@ export class RibbonLineGPU {
             },
             vertexShader: vertexShader,
             fragmentShader: fragmentShader,
-        }); 
+        });
 
         this.mesh = new THREE.Mesh(this.geometry, this.material);
         this.mesh.frustumCulled = false;
@@ -104,6 +104,8 @@ export class RibbonLineGPU {
             textureData[index + 3] = 1.0;
         }
         const texture = new THREE.DataTexture(textureData, numPoints, 1, THREE.RGBAFormat, THREE.FloatType);
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
         texture.needsUpdate = true;
         console.log(`Textura de ${numPoints}x1 puntos generada.`);
         return texture;

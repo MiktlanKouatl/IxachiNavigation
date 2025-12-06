@@ -36,6 +36,7 @@ export interface RibbonConfig {
   useMode?: UseMode;
   uPlayerForward?: THREE.Vector3; // Nueva propiedad para la dirección del jugador
   uMinHeadLength?: number;      // Nueva propiedad para la longitud mínima de la cabeza
+  trailLength?: number;         // For UseMode.Trail
 }
 
 
@@ -49,9 +50,9 @@ export class RibbonLine {
 
   constructor(config: RibbonConfig) {
     console.log('🚧 Creando RibbonLine v3.0 GPU-Powered...');
-    
+
     this.geometry = new THREE.BufferGeometry();
-    
+
     const maxPoints = config.maxLength;
     this.maxPoints = maxPoints;
     // Pre-alocamos los buffers para los nuevos atributos
@@ -60,12 +61,12 @@ export class RibbonLine {
     this.geometry.setAttribute('next', new THREE.BufferAttribute(new Float32Array(maxPoints * 3 * 2), 3));
     this.geometry.setAttribute('side', new THREE.BufferAttribute(new Float32Array(maxPoints * 1 * 2), 1));
     this.geometry.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(maxPoints * 2 * 2), 2));
-    
+
     const indices = [];
     for (let i = 0; i < maxPoints - 1; i++) {
-        const n = i * 2;
-        indices.push(n, n + 1, n + 2);
-        indices.push(n + 2, n + 1, n + 3);
+      const n = i * 2;
+      indices.push(n, n + 1, n + 2);
+      indices.push(n + 2, n + 1, n + 3);
     }
     this.geometry.setIndex(indices);
 
@@ -74,7 +75,7 @@ export class RibbonLine {
       side: THREE.DoubleSide,
       transparent: true,
       depthWrite: false,
-      
+
       uniforms: {
         uColor: { value: config.color },
         uColorEnd: { value: config.colorEnd ?? config.color },
@@ -98,11 +99,11 @@ export class RibbonLine {
 
       // El Vertex Shader construye la geometría.
       vertexShader: vertexShader,
-      
+
       // El Fragment Shader hace el render final.
       fragmentShader: fragmentShader,
     });
-    
+
     if ((config.renderMode ?? RenderMode.Glow) === RenderMode.Glow) {
       this.material.blending = THREE.AdditiveBlending;
     } else {
@@ -111,36 +112,36 @@ export class RibbonLine {
 
     this.mesh = new THREE.Mesh(this.geometry, this.material);
     this.mesh.frustumCulled = false;
-    
+
     // Escuchamos el evento de redimensionar para actualizar la resolución.
     window.addEventListener('resize', () => {
-        this.material.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+      this.material.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
     });
-    
+
     console.log('✅ RibbonLine v3.0 creada.');
   }
 
   //método de actualización para la lógica visual
-    public update(elapsedTime: number): void {
-        if (!this.isPulsing) return;
-        if (!this.material.uniforms.transitionSize || !this.material.uniforms.uColorMix) {
-            return;
-        }
-        // --- LÓGICA DE ANIMACIÓN (antes en main.ts) ---
-        const oscillation = (Math.sin(elapsedTime * 0.8) + 1) / 2;
-        const transitionSize = this.material.uniforms.transitionSize.value;
-        const totalTravelRange = 1.0 + transitionSize;
-        const colorMixProgress = oscillation * totalTravelRange;
-
-        this.material.uniforms.uColorMix.value = colorMixProgress;
+  public update(elapsedTime: number): void {
+    if (!this.isPulsing) return;
+    if (!this.material.uniforms.transitionSize || !this.material.uniforms.uColorMix) {
+      return;
     }
-  
+    // --- LÓGICA DE ANIMACIÓN (antes en main.ts) ---
+    const oscillation = (Math.sin(elapsedTime * 0.8) + 1) / 2;
+    const transitionSize = this.material.uniforms.transitionSize.value;
+    const totalTravelRange = 1.0 + transitionSize;
+    const colorMixProgress = oscillation * totalTravelRange;
+
+    this.material.uniforms.uColorMix.value = colorMixProgress;
+  }
+
   /*
   * Inicia o detiene la animación de pulso en la línea.
   * @param start - Si es verdadero, inicia el pulso; si es falso, lo detiene.
   */
   public pulse(start: boolean): void {
-      this.isPulsing = start;
+    this.isPulsing = start;
   }
 
   /**
@@ -213,7 +214,7 @@ export class RibbonLine {
     this.geometry.dispose();
     this.material.dispose();
   }
-  
+
   // `updateGeometry` prepara los datos.
   private updateGeometry(): void {
     const points = this.currentPoints;
@@ -228,68 +229,68 @@ export class RibbonLine {
     const drawLength = points.length;
 
     if (drawLength < 2) {
-        // Le decimos al renderizador que no dibuje ningún triángulo.
-        this.geometry.setDrawRange(0, 0);
-        return; // Salimos de la función inmediatamente para evitar errores.
+      // Le decimos al renderizador que no dibuje ningún triángulo.
+      this.geometry.setDrawRange(0, 0);
+      return; // Salimos de la función inmediatamente para evitar errores.
     }
 
     for (let i = 0; i < this.maxPoints; i++) {
-        const i2 = i * 2; // Índice para el vértice izquierdo
-        const i21 = i2 + 1; // Índice para el vértice derecho
+      const i2 = i * 2; // Índice para el vértice izquierdo
+      const i21 = i2 + 1; // Índice para el vértice derecho
 
-        if (i < drawLength) {
-            // Si este punto es parte de la estela visible, lo calculamos.
-            // --- LÓGICA DE EXTREMOS CORREGIDA ---
-            const currentPoint = points[i];
-            
-            // Para el punto 'previo': Si es el primer punto, extrapolamos hacia atrás.
-            // Esto evita que prevPoint sea igual a currentPoint.
-            const prevPoint = (i === 0) 
-                ? points[i].clone().sub(points[i + 1].clone().sub(points[i])) 
-                : points[i - 1];
+      if (i < drawLength) {
+        // Si este punto es parte de la estela visible, lo calculamos.
+        // --- LÓGICA DE EXTREMOS CORREGIDA ---
+        const currentPoint = points[i];
 
-            // Para el punto 'siguiente': Si es el último punto, extrapolamos hacia adelante.
-            // Esto evita que nextPoint sea igual a currentPoint.
-            const nextPoint = (i === points.length - 1) 
-                ? points[i].clone().add(points[i].clone().sub(points[i - 1]))
-                : points[i + 1];
-            
-            // Actualizamos los atributos para los dos vértices (izquierdo y derecho)
-            posAttr.setXYZ(i2, currentPoint.x, currentPoint.y, currentPoint.z);
-            posAttr.setXYZ(i21, currentPoint.x, currentPoint.y, currentPoint.z);
+        // Para el punto 'previo': Si es el primer punto, extrapolamos hacia atrás.
+        // Esto evita que prevPoint sea igual a currentPoint.
+        const prevPoint = (i === 0)
+          ? points[i].clone().sub(points[i + 1].clone().sub(points[i]))
+          : points[i - 1];
 
-            prevAttr.setXYZ(i2, prevPoint.x, prevPoint.y, prevPoint.z);
-            prevAttr.setXYZ(i21, prevPoint.x, prevPoint.y, prevPoint.z);
+        // Para el punto 'siguiente': Si es el último punto, extrapolamos hacia adelante.
+        // Esto evita que nextPoint sea igual a currentPoint.
+        const nextPoint = (i === points.length - 1)
+          ? points[i].clone().add(points[i].clone().sub(points[i - 1]))
+          : points[i + 1];
 
-            nextAttr.setXYZ(i2, nextPoint.x, nextPoint.y, nextPoint.z);
-            nextAttr.setXYZ(i21, nextPoint.x, nextPoint.y, nextPoint.z);
-            
-            sideAttr.setX(i2, -1);
-            sideAttr.setX(i21, 1);
+        // Actualizamos los atributos para los dos vértices (izquierdo y derecho)
+        posAttr.setXYZ(i2, currentPoint.x, currentPoint.y, currentPoint.z);
+        posAttr.setXYZ(i21, currentPoint.x, currentPoint.y, currentPoint.z);
 
-            uvAttr.setXY(i2, i / (drawLength - 1 || 1), 0);
-            uvAttr.setXY(i21, i / (drawLength - 1 || 1), 1);
+        prevAttr.setXYZ(i2, prevPoint.x, prevPoint.y, prevPoint.z);
+        prevAttr.setXYZ(i21, prevPoint.x, prevPoint.y, prevPoint.z);
 
-        } else {
-            // Si este punto NO es parte de la estela visible, lo colapsamos en el origen para ocultarlo.
-            // Hacemos esto para ambos vértices.
-            posAttr.setXYZ(i2, 0, 0, 0);
-            posAttr.setXYZ(i21, 0, 0, 0);
+        nextAttr.setXYZ(i2, nextPoint.x, nextPoint.y, nextPoint.z);
+        nextAttr.setXYZ(i21, nextPoint.x, nextPoint.y, nextPoint.z);
 
-            prevAttr.setXYZ(i2, 0, 0, 0);
-            prevAttr.setXYZ(i21, 0, 0, 0);
+        sideAttr.setX(i2, -1);
+        sideAttr.setX(i21, 1);
 
-            nextAttr.setXYZ(i2, 0, 0, 0);
-            nextAttr.setXYZ(i21, 0, 0, 0);
+        uvAttr.setXY(i2, i / (drawLength - 1 || 1), 0);
+        uvAttr.setXY(i21, i / (drawLength - 1 || 1), 1);
 
-            uvAttr.setXY(i2, 0, 0);
-            uvAttr.setXY(i21, 0, 0);
+      } else {
+        // Si este punto NO es parte de la estela visible, lo colapsamos en el origen para ocultarlo.
+        // Hacemos esto para ambos vértices.
+        posAttr.setXYZ(i2, 0, 0, 0);
+        posAttr.setXYZ(i21, 0, 0, 0);
 
-            if (widthAttr) {
-                widthAttr.setX(i2, 0);
-                widthAttr.setX(i21, 0);
-            }
+        prevAttr.setXYZ(i2, 0, 0, 0);
+        prevAttr.setXYZ(i21, 0, 0, 0);
+
+        nextAttr.setXYZ(i2, 0, 0, 0);
+        nextAttr.setXYZ(i21, 0, 0, 0);
+
+        uvAttr.setXY(i2, 0, 0);
+        uvAttr.setXY(i21, 0, 0);
+
+        if (widthAttr) {
+          widthAttr.setX(i2, 0);
+          widthAttr.setX(i21, 0);
         }
+      }
     }
 
     // Le decimos a Three.js que los datos del buffer han cambiado.

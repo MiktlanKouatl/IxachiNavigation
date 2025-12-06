@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { SectionEditorStore } from '../SectionEditorStore';
 import { ElementFactory } from '../../../waypoint/ElementFactory';
 import { EventEmitter } from '../../../../core/EventEmitter';
+import { AssetManager } from '../../../../managers/AssetManager';
 
 import gsap from 'gsap';
 
@@ -17,18 +18,22 @@ export class PreviewViewport {
 
     private elementFactory: ElementFactory;
     private contentGroup: THREE.Group;
-    private logicEventBus: EventEmitter; // Dummy for now
+    private logicEventBus: EventEmitter;
 
     private store: SectionEditorStore;
     private animationId: number | null = null;
+    private assetManager: AssetManager;
+    private clock: THREE.Clock;
 
     // Interaction
     private raycaster: THREE.Raycaster;
     private pointer: THREE.Vector2;
 
-    constructor(container: HTMLElement) {
+    constructor(container: HTMLElement, assetManager: AssetManager) {
         this.container = container;
+        this.assetManager = assetManager;
         this.store = SectionEditorStore.getInstance();
+        this.clock = new THREE.Clock();
 
         // Scene Setup
         this.scene = new THREE.Scene();
@@ -63,7 +68,7 @@ export class PreviewViewport {
         this.scene.add(this.contentGroup);
 
         this.logicEventBus = new EventEmitter();
-        this.elementFactory = new ElementFactory(this.contentGroup, this.logicEventBus);
+        this.elementFactory = new ElementFactory(this.contentGroup, this.logicEventBus, this.assetManager);
 
         // Interaction
         this.raycaster = new THREE.Raycaster();
@@ -323,6 +328,79 @@ export class PreviewViewport {
 
     private animate(): void {
         this.animationId = requestAnimationFrame(() => this.animate());
+
+        const dt = this.clock.getDelta();
+        const time = this.clock.getElapsedTime();
+
+        // Update RibbonLine uniforms
+        this.contentGroup.children.forEach(child => {
+            if (child instanceof THREE.Group) {
+                // Check if this group is a path element with Trail mode
+                // We need to access the element data to know the speed/length, or read from uniforms if we set them.
+                // ElementFactory sets uniforms: uUseMode, uTrailLength.
+                // We need to drive uTrailHead.
+
+                child.children.forEach(grandChild => {
+                    if (grandChild instanceof THREE.Mesh && (grandChild.material as THREE.ShaderMaterial).uniforms) {
+                        const uniforms = (grandChild.material as THREE.ShaderMaterial).uniforms;
+                        if (uniforms.uTime) uniforms.uTime.value = time;
+                        if (uniforms.uResolution) uniforms.uResolution.value.set(this.container.clientWidth, this.container.clientHeight);
+
+                        // Find the element data to get the latest config
+                        const groupName = child.name;
+                        const parts = groupName.split('_');
+                        if (parts.length >= 2) {
+                            const id = parts.slice(1).join('_');
+                            const screen = this.store.getCurrentScreen();
+                            const element = screen?.elements.find(e => e.id === id);
+
+                            if (element && element.pathConfig) {
+                                const config = element.pathConfig;
+
+                                // Update Standard Uniforms
+                                if (uniforms.uColor) uniforms.uColor.value.set(config.color);
+                                if (uniforms.uColorEnd) uniforms.uColorEnd.value.set(config.colorEnd || config.color);
+                                if (uniforms.uOpacity) uniforms.uOpacity.value = config.opacity ?? 1.0;
+                                if (uniforms.uWidth) uniforms.uWidth.value = config.ribbonWidth;
+
+                                // Update Render Mode and Blending
+                                const renderMode = config.renderMode ?? 0;
+                                if (uniforms.uRenderMode) uniforms.uRenderMode.value = renderMode;
+
+                                const targetBlending = renderMode === 0 ? THREE.AdditiveBlending : THREE.NormalBlending; // 0=Glow(Additive), 1=Solid(Normal)
+                                const mat = grandChild.material as THREE.ShaderMaterial;
+                                if (mat.blending !== targetBlending) {
+                                    mat.blending = targetBlending;
+                                    mat.needsUpdate = true; // Essential for blending change to take effect
+                                }
+
+                                // Update Fade/Mix Uniforms
+                                if (uniforms.uFadeStyle) uniforms.uFadeStyle.value = config.fadeStyle ?? 0;
+                                if (uniforms.uFadeTransitionSize) uniforms.uFadeTransitionSize.value = config.fadeTransitionSize ?? 0.1;
+                                if (uniforms.uColorMix) uniforms.uColorMix.value = config.colorMix ?? 0.5;
+                                if (uniforms.uTransitionSize) uniforms.uTransitionSize.value = config.transitionSize ?? 0.1;
+
+                                // Update Mode Uniforms
+                                if (uniforms.uUseMode) uniforms.uUseMode.value = config.useMode ?? 0;
+
+                                // Trail Animation Logic
+                                if (config.useMode === 2) { // Trail Mode
+                                    const speed = config.trailSpeed || 1;
+                                    const length = config.trailLength || 0.2;
+
+                                    // Calculate progress
+                                    const progress = (time * speed * 0.1) % 1.0; // Adjusted speed factor for better control
+
+                                    if (uniforms.uTrailHead) uniforms.uTrailHead.value = progress;
+                                    if (uniforms.uTrailLength) uniforms.uTrailLength.value = length;
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+
         this.controls.update();
         this.renderer.render(this.scene, this.camera);
     }
@@ -331,5 +409,36 @@ export class PreviewViewport {
         if (this.animationId) cancelAnimationFrame(this.animationId);
         this.renderer.dispose();
         // Dispose other three.js resources
+    }
+
+    public playRevealAnimation(elementId: string, duration: number = 2): void {
+        const screen = this.store.getCurrentScreen();
+        if (!screen) return;
+
+        const element = screen.elements.find(el => el.id === elementId);
+        if (!element) return;
+
+        // Find the group
+        const groupName = `${element.type.toUpperCase()}_${element.id}`;
+        const group = this.contentGroup.getObjectByName(groupName);
+
+        if (group && group instanceof THREE.Group) {
+            // Animate all children (ribbons)
+            group.children.forEach(child => {
+                if (child instanceof THREE.Mesh && (child.material as THREE.ShaderMaterial).uniforms?.uRevealProgress) {
+                    const mat = child.material as THREE.ShaderMaterial;
+
+                    // Reset to 0
+                    mat.uniforms.uRevealProgress.value = 0;
+
+                    // Animate to 1
+                    gsap.to(mat.uniforms.uRevealProgress, {
+                        value: 1,
+                        duration: duration,
+                        ease: 'power1.inOut'
+                    });
+                }
+            });
+        }
     }
 }
