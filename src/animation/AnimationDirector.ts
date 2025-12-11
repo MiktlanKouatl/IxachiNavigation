@@ -65,8 +65,8 @@ export class AnimationDirector {
 
     const chapterInfo = this.chapters.find(c => c.name === chapterId);
     if (!chapterInfo) {
-        console.error(`❌ [AnimationDirector] Chapter with ID '${chapterId}' not found.`);
-        return;
+      console.error(`❌ [AnimationDirector] Chapter with ID '${chapterId}' not found.`);
+      return;
     }
 
     this.isPlaying = true;
@@ -74,11 +74,11 @@ export class AnimationDirector {
     console.log(`▶️ [AnimationDirector] Playing single chapter: ${chapterId}`);
 
     try {
-        await this.activeChapter.start(this, this.targets);
-        if (this.activeChapter.stop) this.activeChapter.stop(this.targets);
+      await this.activeChapter.start(this, this.targets);
+      if (this.activeChapter.stop) this.activeChapter.stop(this.targets);
     } catch (error) {
-        console.error(`❌ [AnimationDirector] Chapter ${chapterId} failed:`, error);
-        if (this.activeChapter.stop) this.activeChapter.stop(this.targets);
+      console.error(`❌ [AnimationDirector] Chapter ${chapterId} failed:`, error);
+      if (this.activeChapter.stop) this.activeChapter.stop(this.targets);
     }
 
     console.log(`✅ [AnimationDirector] Chapter ${chapterId} finished.`);
@@ -93,5 +93,18 @@ export class AnimationDirector {
     if (this.activeChapter?.stop) {
       this.activeChapter.stop(this.targets);
     }
+  }
+
+  public update(delta: number, time: number): void {
+    if (this.isPlaying && this.activeChapter?.update) {
+      this.activeChapter.update(delta, time);
+    }
+  }
+
+  public getActiveCamera(): THREE.Camera | null {
+    if (this.isPlaying && this.activeChapter?.getCamera) {
+      return this.activeChapter.getCamera() ?? null;
+    }
+    return null;
   }
 }

@@ -48,7 +48,37 @@ export class IntroChapter implements IAnimationChapter {
         targets.hostSourceObject.position.copy(startPoint);
 
         // 3. Now, reset ribbon, add to scene, and enable drawing.
-        targets.hostRibbon.reset();
+        // targets.hostRibbon.reset();
+
+        // GPU Player Setup: Create texture from path points
+        const pathPoints = path.curves[0].getPoints(200); // Sample points for texture
+        // We need to access the private createPathTexture method or similar, 
+        // OR RibbonLineGPUPlayer should expose a method to update from points.
+        // Looking at RibbonLineGPUPlayer, it has `createPathTexture` as private, 
+        // but it takes points in constructor.
+        // It DOES NOT expose a public method to update points from Vector3 array directly, 
+        // only `setPathTexture`.
+        // So we need to manually create the texture here or add a helper to RibbonLineGPUPlayer.
+        // For now, let's assume we can create a DataTexture here.
+
+        const numPoints = pathPoints.length;
+        const textureData = new Float32Array(numPoints * 4);
+        for (let i = 0; i < numPoints; i++) {
+            const point = pathPoints[i];
+            const index = i * 4;
+            textureData[index] = point.x;
+            textureData[index + 1] = point.y;
+            textureData[index + 2] = point.z;
+            textureData[index + 3] = 1.0;
+        }
+        const texture = new THREE.DataTexture(textureData, numPoints, 1, THREE.RGBAFormat, THREE.FloatType);
+        texture.needsUpdate = true;
+
+        if (targets.hostRibbon.setPathTexture) {
+            targets.hostRibbon.setPathTexture(texture);
+            targets.hostRibbon.setPathLength(numPoints);
+        }
+
         targets.scene.add(targets.hostRibbon.mesh);
         targets.enableDrawing();
 
@@ -84,9 +114,9 @@ export class IntroChapter implements IAnimationChapter {
             });
 
             // Animate ribbon width simultaneously
-            this.timeline.fromTo(targets.hostRibbon.material.uniforms.uWidth, 
+            this.timeline.fromTo(targets.hostRibbon.material.uniforms.uWidth,
                 { value: this.params.width.start },
-                { 
+                {
                     value: this.params.width.end,
                     duration: this.params.duration,
                     ease: this.params.ease,
@@ -113,13 +143,13 @@ export class IntroChapter implements IAnimationChapter {
         const startPoint = new THREE.Vector3(currentRadius * Math.cos(startAngle), currentRadius * Math.sin(startAngle), randomInRange(zRange.min, zRange.max));
         console.log('📍 Punto de inicio de HostRibbon:', startPoint);
         points.push(startPoint);
-        
+
         for (let i = 0; i < numIntermediatePoints; i++) {
             currentRadius *= radiusReductionFactor;
             const angle = Math.random() * Math.PI * 2;
             points.push(new THREE.Vector3(currentRadius * Math.cos(angle), currentRadius * Math.sin(angle), randomInRange(-3, 3)));
         }
-        
+
         const finalAngle = Math.random() * Math.PI * 2;
         points.push(new THREE.Vector3(0.1 * Math.cos(finalAngle), 0.1 * Math.sin(finalAngle), 0));
         console.log('🌀 Puntos generados para la curva:', points);

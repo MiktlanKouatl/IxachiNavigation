@@ -25,7 +25,7 @@ export interface AnimationTargets {
     // Main animatable objects
     hostFollower: PathFollower;
     hostSourceObject: THREE.Object3D;
-    hostRibbon: RibbonLine;
+    hostRibbon: RibbonLine | any; // TODO: Strictly type as RibbonLine | RibbonLineGPUPlayer after import
     movementController: MovementController;
     enableDrawing: () => void;
 

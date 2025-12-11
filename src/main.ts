@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { AssetManager } from './managers/AssetManager';
 import { AnimationControlPanel } from './ui/AnimationControlPanel';
 import { RibbonLine, RibbonConfig, UseMode, FadeStyle, RenderMode } from './core/RibbonLine';
+import { RibbonLineGPUPlayer } from './core/RibbonLineGPUPlayer';
 import { PathData } from './core/pathing/PathData';
 import { PathFollower } from './core/pathing/PathFollower';
 import { ProgressUI } from './ui/ProgressUI';
@@ -26,6 +27,7 @@ import { FadeInChapter } from './animation/chapters/FadeInChapter';
 import { TransitionToCirclePath } from './animation/chapters/TransitionToCirclePath';
 import { JourneyChapter } from './animation/chapters/JourneyChapter';
 import { TraceLogoChapter } from './animation/chapters/TraceLogoChapter';
+import { MandalaChapter } from './animation/chapters/MandalaChapter';
 
 console.log('🚀 Ixachi Experience Initialized');
 
@@ -129,6 +131,10 @@ export class IxachiExperience {
     this.director.addChapter('Journey', new JourneyChapter());
     this.director.addChapter('TraceLogo', new TraceLogoChapter());
 
+    // [NEW] Register Mandala Chapter
+    const mandalaChapter = new MandalaChapter();
+    this.director.addChapter('Mandala', mandalaChapter);
+
     // --- Initialize Navigation System ---
     this.setupNavigationPaths();
     this.navigationController.on('transitionRequested', (chapterId: string, targetPathId: string) => {
@@ -146,10 +152,13 @@ export class IxachiExperience {
 
     // --- Start Experience ---
     this.setMode(ExperienceMode.Cinematic);
-    this.director.play().then(() => {
-      console.log('🎬 Cinematic intro finished. Switching to Navigation mode.');
-      this.navigationController.setPath('pathB'); // Set the initial path for navigation
-      this.setMode(ExperienceMode.Navigation);
+
+    // Modified Flow: Intro -> Loading -> Mandala
+    this.director.playChapter('Intro').then(() => {
+      return this.director.playChapter('Loading');
+    }).then(() => {
+      console.log('🌌 Entering Mandala Drive...');
+      return this.director.playChapter('Mandala');
     });
   }
 
@@ -191,7 +200,7 @@ export class IxachiExperience {
     this.currentMode = mode;
 
     if (mode === ExperienceMode.Navigation) {
-      this.director.stop();
+      // this.director.stop(); // Don't stop director if it's handling the game loop!
       this.scrollManager.connect();
       this.scrollManager.on('scroll', this.navigationController.handleScroll.bind(this.navigationController));
     } else { // Cinematic
@@ -200,19 +209,24 @@ export class IxachiExperience {
     }
   }
 
-  private createHostRibbon(): RibbonLine {
+  private createHostRibbon(): any {
+    // We start with a dummy path or empty, IntroChapter will set the real path texture
+    const dummyPoints = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 1)];
     const config: RibbonConfig = {
       color: this.colorManager.getColor('accent'),
       width: 3.2,
-      maxLength: 150,
+      maxLength: 200, // Sufficient for intro
       useMode: UseMode.Trail,
       fadeStyle: FadeStyle.FadeInOut,
       renderMode: RenderMode.Solid,
       fadeTransitionSize: 0.4,
-      uPlayerForward: new THREE.Vector3(0, 0, 1), // Initial value, will be updated dynamically
-      uMinHeadLength: 0.5, // Fixed minimum head length
+      uPlayerForward: new THREE.Vector3(0, 0, 1),
+      uMinHeadLength: 0.5,
     };
-    const ribbon = new RibbonLine(config);
+
+    // Use the GPU Player
+    const ribbon = new RibbonLineGPUPlayer(dummyPoints, config);
+
     this.colorManager.on('update', () => {
       ribbon.material.uniforms.uColor.value.copy(this.colorManager.getColor('accent'));
     });
@@ -253,26 +267,47 @@ export class IxachiExperience {
     const elapsedTime = this.clock.getElapsedTime();
     const deltaTime = this.clock.getDelta();
 
-    // Only update navigation controls when in navigation mode
+    // Update Director (which updates active chapter)
+    this.director.update(deltaTime, elapsedTime);
+
+    // Only update navigation controls when in navigation mode AND NOT in Mandala chapter
+    // (Mandala chapter handles its own controls via update())
     if (this.currentMode === ExperienceMode.Navigation) {
       this.navigationController.update();
     }
 
     this.intersectionUI.update();
 
-    // Smooth camera movement is always on
+    // Smooth camera movement is always on for the MAIN camera
     this.smoothLookAtTarget.position.lerp(this.lookAtTarget.position, this.cameraSmoothing);
     this.camera.position.lerp(this.cameraTarget.position, this.cameraSmoothing);
     this.camera.lookAt(this.smoothLookAtTarget.position);
 
     this.movementController.update(this.hostSourceObject, deltaTime, elapsedTime);
+    this.movementController.update(this.hostSourceObject, deltaTime, elapsedTime);
+
     // Update the uPlayerForward uniform in the ribbon shader
-    this.hostRibbon.setPlayerForward(this.movementController.getForwardVector());
-    if (this.isDrawingEnabled) {
-      this.hostRibbon.addPoint(this.hostSourceObject.position);
+    if (this.hostRibbon instanceof RibbonLine) {
+      this.hostRibbon.setPlayerForward(this.movementController.getForwardVector());
+      if (this.isDrawingEnabled) {
+        this.hostRibbon.addPoint(this.hostSourceObject.position);
+      }
+    } else {
+      // GPU Player Logic
+      // We assume the chapter handles the path texture updates or it's a static path being revealed
+      // For Intro, we might need to update the head position based on progress if we are using Trail mode
+      // But IntroChapter uses a timeline to animate progress.
+      // If we use RibbonLineGPUPlayer, we need to sync its 'head' or 'progress' with the movement controller or timeline.
+      // For now, let's just update time.
+      (this.hostRibbon as any).setTime(elapsedTime);
+      (this.hostRibbon as any).setPlayerForward(this.movementController.getForwardVector());
+      // (this.hostRibbon as any).updateHead(); // If needed
     }
 
-    this.renderer.render(this.scene, this.camera);
+    // Determine which camera to render
+    const activeCamera = this.director.getActiveCamera() || this.camera;
+
+    this.renderer.render(this.scene, activeCamera);
   }
 }
 
