@@ -11,6 +11,7 @@ import { FadeStyle } from '../../core/RibbonLine';
 import { PathController } from '../../core/pathing/PathController';
 import { RingController } from '../../features/rings/RingController';
 import { EnergyOrbController } from '../../features/collectables/EnergyOrbController';
+import { StationController } from '../../features/stations/StationController';
 import { TrackBuilder, TrackOperation } from '../../core/pathing/TrackBuilder';
 import trackData from '../../data/tracks/track_mandala_01.json';
 
@@ -32,6 +33,7 @@ export class MandalaChapter implements IAnimationChapter {
     private pathController: PathController;
     private ringController: RingController;
     private orbController: EnergyOrbController;
+    private stationController: StationController;
 
     // Visuals
     private playerRibbon: RibbonLineGPUPlayer;
@@ -124,12 +126,37 @@ export class MandalaChapter implements IAnimationChapter {
         console.log('FixedDelta:', chapterDelta, 'Speed:', this.playerController.speed, 'Pos:', this.playerController.position);
         this.cameraController.update();
 
-        // Update Managers (using global managers from targets would be better, but we have local instances for now)
-        // We should probably use the global ColorManager from targets
+        // Update Managers
         // this.colorManager.update(chapterDelta);
 
         if (this.ringController) this.ringController.update(chapterDelta, this.playerController.position);
         if (this.orbController) this.orbController.update(chapterDelta, chapterTime, this.playerController.position);
+
+        // --- Station & Plug-in Logic ---
+        if (this.stationController) {
+            const connection = this.stationController.update(this.playerController.position, chapterTime);
+
+            if (connection.connected && connection.targetPos) {
+                // 🛑 PLUG-IN EFFECT: Override Player Movement
+
+                // CHECK FOR DISCONNECT (Reverse Speed)
+                // Threshold must be small because speed is reset to 0 every frame in the else block
+                if (this.playerController.speed < -0.1) {
+                    this.stationController.disconnect();
+                    // Allow movement this frame so they can back out
+                } else {
+                    // 1. Stop forward movement
+                    this.playerController.speed = 0;
+
+                    // 2. Magnetize/Snap to Socket
+                    const lerpFactor = 5.0 * chapterDelta;
+                    this.playerController.position.lerp(connection.targetPos, lerpFactor);
+
+                    // 3. Orient towards the station (optional, or keep looking forward)
+                    // this.playerController.lookAt(connection.targetPos); 
+                }
+            }
+        }
 
         // GPU Compute Updates
         if (this.ffUniforms) this.ffUniforms['u_time'].value = chapterTime;
@@ -188,6 +215,7 @@ export class MandalaChapter implements IAnimationChapter {
 
         this.ringController = new RingController(this.scene, this.pathController, colorManager);
         this.orbController = new EnergyOrbController(this.scene, this.pathController, colorManager);
+        this.stationController = new StationController(this.scene);
 
         // Setup Gameplay Elements
         this.setupGameplay();

@@ -1,0 +1,70 @@
+[
+    {
+        "id": "station_intro",
+        "sectionId": "section_intro",
+        "position": {
+            "x": 0,
+            "y": 5,
+            "z": -100
+        },
+        "socketPosition": {
+            "x": 0,
+            "y": 2,
+            "z": 2
+        },
+        "approachRadius": 40,
+        "connectRadius": 8,
+        "type": "monolith_basic"
+    },
+    {
+        "id": "station_context",
+        "sectionId": "section_context",
+        "position": {
+            "x": 100,
+            "y": 10,
+            "z": -250
+        },
+        "socketPosition": {
+            "x": 0,
+            "y": 2,
+            "z": 2
+        },
+        "approachRadius": 40,
+        "connectRadius": 8,
+        "type": "monolith_basic"
+    },
+    {
+        "id": "station_details",
+        "sectionId": "section_details",
+        "position": {
+            "x": -80,
+            "y": 8,
+            "z": -400
+        },
+        "socketPosition": {
+            "x": 0,
+            "y": 2,
+            "z": 2
+        },
+        "approachRadius": 40,
+        "connectRadius": 8,
+        "type": "monolith_basic"
+    },
+    {
+        "id": "station_conclusion",
+        "sectionId": "section_conclusion",
+        "position": {
+            "x": 0,
+            "y": 15,
+            "z": -600
+        },
+        "socketPosition": {
+            "x": 0,
+            "y": 2,
+            "z": 2
+        },
+        "approachRadius": 50,
+        "connectRadius": 10,
+        "type": "monolith_grand"
+    }
+]

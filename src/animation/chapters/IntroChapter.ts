@@ -48,37 +48,7 @@ export class IntroChapter implements IAnimationChapter {
         targets.hostSourceObject.position.copy(startPoint);
 
         // 3. Now, reset ribbon, add to scene, and enable drawing.
-        // targets.hostRibbon.reset();
-
-        // GPU Player Setup: Create texture from path points
-        const pathPoints = path.curves[0].getPoints(200); // Sample points for texture
-        // We need to access the private createPathTexture method or similar, 
-        // OR RibbonLineGPUPlayer should expose a method to update from points.
-        // Looking at RibbonLineGPUPlayer, it has `createPathTexture` as private, 
-        // but it takes points in constructor.
-        // It DOES NOT expose a public method to update points from Vector3 array directly, 
-        // only `setPathTexture`.
-        // So we need to manually create the texture here or add a helper to RibbonLineGPUPlayer.
-        // For now, let's assume we can create a DataTexture here.
-
-        const numPoints = pathPoints.length;
-        const textureData = new Float32Array(numPoints * 4);
-        for (let i = 0; i < numPoints; i++) {
-            const point = pathPoints[i];
-            const index = i * 4;
-            textureData[index] = point.x;
-            textureData[index + 1] = point.y;
-            textureData[index + 2] = point.z;
-            textureData[index + 3] = 1.0;
-        }
-        const texture = new THREE.DataTexture(textureData, numPoints, 1, THREE.RGBAFormat, THREE.FloatType);
-        texture.needsUpdate = true;
-
-        if (targets.hostRibbon.setPathTexture) {
-            targets.hostRibbon.setPathTexture(texture);
-            targets.hostRibbon.setPathLength(numPoints);
-        }
-
+        targets.hostRibbon.reset();
         targets.scene.add(targets.hostRibbon.mesh);
         targets.enableDrawing();
 

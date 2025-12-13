@@ -18,7 +18,7 @@ export class TraceLogoChapter implements IAnimationChapter {
 
     public start(director: AnimationDirector, targets: AnimationTargets): Promise<void> {
         // This chapter's promise should never resolve, as it runs an infinite loop.
-        return new Promise(() => {
+        return new Promise((resolve) => {
             console.log('TraceLogoChapter started');
 
             this.scene = targets.scene;
@@ -57,7 +57,7 @@ export class TraceLogoChapter implements IAnimationChapter {
             const { colorManager } = targets;
             for (const curve of logoPathData.curves) {
                 const highResPoints = new PathData([curve.points]).curves[0].getPoints(150);
-                
+
                 const revealRibbon = new RibbonLine({
                     color: colorManager.getColor('primary'),
                     width: 0.5,
@@ -94,7 +94,7 @@ export class TraceLogoChapter implements IAnimationChapter {
                 onComplete: () => {
                     // --- Start Loop Animation after Reveal ---
                     console.log('Starting crossfade and trail loop...');
-                    
+
                     const fadeTl = gsap.timeline();
                     this.allTweens.push(fadeTl);
                     for (const ribbon of this.revealRibbons) {
@@ -121,6 +121,12 @@ export class TraceLogoChapter implements IAnimationChapter {
                                 ribbon.setTrail(progress.value, params.trailLength);
                             }
                         }
+                    });
+
+                    // [NEW] Resolve after a short delay to allow transition to Mandala
+                    gsap.delayedCall(5.0, () => {
+                        console.log('✅ TraceLogoChapter complete, resolving...');
+                        resolve();
                     });
                 }
             });

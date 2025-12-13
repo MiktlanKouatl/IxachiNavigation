@@ -153,9 +153,11 @@ export class IxachiExperience {
     // --- Start Experience ---
     this.setMode(ExperienceMode.Cinematic);
 
-    // Modified Flow: Intro -> Loading -> Mandala
+    // Modified Flow: Intro -> Loading -> TraceLogo -> Mandala
     this.director.playChapter('Intro').then(() => {
       return this.director.playChapter('Loading');
+    }).then(() => {
+      return this.director.playChapter('TraceLogo');
     }).then(() => {
       console.log('🌌 Entering Mandala Drive...');
       return this.director.playChapter('Mandala');
@@ -209,9 +211,7 @@ export class IxachiExperience {
     }
   }
 
-  private createHostRibbon(): any {
-    // We start with a dummy path or empty, IntroChapter will set the real path texture
-    const dummyPoints = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 1)];
+  private createHostRibbon(): RibbonLine {
     const config: RibbonConfig = {
       color: this.colorManager.getColor('accent'),
       width: 3.2,
@@ -220,12 +220,9 @@ export class IxachiExperience {
       fadeStyle: FadeStyle.FadeInOut,
       renderMode: RenderMode.Solid,
       fadeTransitionSize: 0.4,
-      uPlayerForward: new THREE.Vector3(0, 0, 1),
-      uMinHeadLength: 0.5,
     };
 
-    // Use the GPU Player
-    const ribbon = new RibbonLineGPUPlayer(dummyPoints, config);
+    const ribbon = new RibbonLine(config);
 
     this.colorManager.on('update', () => {
       ribbon.material.uniforms.uColor.value.copy(this.colorManager.getColor('accent'));
@@ -287,21 +284,9 @@ export class IxachiExperience {
     this.movementController.update(this.hostSourceObject, deltaTime, elapsedTime);
 
     // Update the uPlayerForward uniform in the ribbon shader
-    if (this.hostRibbon instanceof RibbonLine) {
-      this.hostRibbon.setPlayerForward(this.movementController.getForwardVector());
-      if (this.isDrawingEnabled) {
-        this.hostRibbon.addPoint(this.hostSourceObject.position);
-      }
-    } else {
-      // GPU Player Logic
-      // We assume the chapter handles the path texture updates or it's a static path being revealed
-      // For Intro, we might need to update the head position based on progress if we are using Trail mode
-      // But IntroChapter uses a timeline to animate progress.
-      // If we use RibbonLineGPUPlayer, we need to sync its 'head' or 'progress' with the movement controller or timeline.
-      // For now, let's just update time.
-      (this.hostRibbon as any).setTime(elapsedTime);
-      (this.hostRibbon as any).setPlayerForward(this.movementController.getForwardVector());
-      // (this.hostRibbon as any).updateHead(); // If needed
+    // CPU Ribbon Logic
+    if (this.isDrawingEnabled) {
+      this.hostRibbon.addPoint(this.hostSourceObject.position);
     }
 
     // Determine which camera to render

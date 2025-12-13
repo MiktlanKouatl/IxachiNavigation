@@ -1,0 +1,464 @@
+[
+    {
+        "id": "section_intro",
+        "screens": [
+            {
+                "id": "screen_intro_1",
+                "trigger": "manual",
+                "enterTransition": {
+                    "type": "fade",
+                    "duration": 1.0,
+                    "easing": "power2.out"
+                },
+                "exitTransition": {
+                    "type": "fade",
+                    "duration": 0.5,
+                    "easing": "power2.in"
+                },
+                "elements": [
+                    {
+                        "id": "title",
+                        "type": "text",
+                        "content": "IXACHI WORKSHOP DE PRESCÉNICA",
+                        "transform": {
+                            "position": {
+                                "x": 0,
+                                "y": 3,
+                                "z": 0
+                            },
+                            "rotation": {
+                                "x": 0,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "scale": {
+                                "x": 1,
+                                "y": 1,
+                                "z": 1
+                            }
+                        },
+                        "style": {
+                            "fontSize": 1.5,
+                            "color": "#ffffff",
+                            "opacity": 1
+                        }
+                    },
+                    {
+                        "id": "subtitle",
+                        "type": "text",
+                        "content": "«Igual de importante que el mensaje es la forma en que lo transmites»",
+                        "transform": {
+                            "position": {
+                                "x": 0,
+                                "y": 1.5,
+                                "z": 0
+                            },
+                            "rotation": {
+                                "x": 0,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "scale": {
+                                "x": 1,
+                                "y": 1,
+                                "z": 1
+                            }
+                        },
+                        "style": {
+                            "fontSize": 0.8,
+                            "color": "#cccccc",
+                            "opacity": 1
+                        }
+                    },
+                    {
+                        "id": "body_1",
+                        "type": "text",
+                        "content": "Mejorar nuestra forma de compartir ideas es una habilidad importantísima para ser mejores líderes y trabajar con empatía.\n\nPrescénica es la técnica para ser más carismáticos y contundentes en cualquier escenario, controlando cuerpo, respiración y voz.",
+                        "transform": {
+                            "position": {
+                                "x": 0,
+                                "y": -1,
+                                "z": 0
+                            },
+                            "rotation": {
+                                "x": 0,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "scale": {
+                                "x": 1,
+                                "y": 1,
+                                "z": 1
+                            }
+                        },
+                        "style": {
+                            "fontSize": 0.5,
+                            "color": "#aaaaaa",
+                            "opacity": 1
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "section_context",
+        "screens": [
+            {
+                "id": "screen_context_1",
+                "trigger": "manual",
+                "enterTransition": {
+                    "type": "slide-up",
+                    "duration": 1.0,
+                    "easing": "power2.out"
+                },
+                "exitTransition": {
+                    "type": "fade",
+                    "duration": 0.5,
+                    "easing": "power2.in"
+                },
+                "elements": [
+                    {
+                        "id": "title_skills",
+                        "type": "text",
+                        "content": "POWER SKILLS QUE DESARROLLA",
+                        "transform": {
+                            "position": {
+                                "x": -4,
+                                "y": 3,
+                                "z": 0
+                            },
+                            "rotation": {
+                                "x": 0,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "scale": {
+                                "x": 1,
+                                "y": 1,
+                                "z": 1
+                            }
+                        },
+                        "style": {
+                            "fontSize": 1.0,
+                            "color": "#00ffff",
+                            "opacity": 1
+                        }
+                    },
+                    {
+                        "id": "list_skills",
+                        "type": "text",
+                        "content": "● Oratoria\n● Respiración Consciente\n● Consciencia Corporal Activa\n● Comunicación No Verbal\n● Atención Múltiple\n● Liderazgo Asertivo",
+                        "transform": {
+                            "position": {
+                                "x": -4,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "rotation": {
+                                "x": 0,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "scale": {
+                                "x": 1,
+                                "y": 1,
+                                "z": 1
+                            }
+                        },
+                        "style": {
+                            "fontSize": 0.5,
+                            "color": "#ffffff",
+                            "opacity": 1
+                        }
+                    },
+                    {
+                        "id": "title_ideal",
+                        "type": "text",
+                        "content": "IDEAL PARA",
+                        "transform": {
+                            "position": {
+                                "x": 4,
+                                "y": 3,
+                                "z": 0
+                            },
+                            "rotation": {
+                                "x": 0,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "scale": {
+                                "x": 1,
+                                "y": 1,
+                                "z": 1
+                            }
+                        },
+                        "style": {
+                            "fontSize": 1.0,
+                            "color": "#ff00ff",
+                            "opacity": 1
+                        }
+                    },
+                    {
+                        "id": "list_ideal",
+                        "type": "text",
+                        "content": "● Líderes de equipos\n● Equipos de venta\n● Desarrolladores de contenido\n● Mandos gerenciales\n● Personas que hablan en público",
+                        "transform": {
+                            "position": {
+                                "x": 4,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "rotation": {
+                                "x": 0,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "scale": {
+                                "x": 1,
+                                "y": 1,
+                                "z": 1
+                            }
+                        },
+                        "style": {
+                            "fontSize": 0.5,
+                            "color": "#ffffff",
+                            "opacity": 1
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "section_details",
+        "screens": [
+            {
+                "id": "screen_details_1",
+                "trigger": "manual",
+                "enterTransition": {
+                    "type": "zoom-in",
+                    "duration": 1.0,
+                    "easing": "back.out(1.7)"
+                },
+                "exitTransition": {
+                    "type": "fade",
+                    "duration": 0.5,
+                    "easing": "power2.in"
+                },
+                "elements": [
+                    {
+                        "id": "title_modules",
+                        "type": "text",
+                        "content": "MÓDULOS Y DETALLES",
+                        "transform": {
+                            "position": {
+                                "x": 0,
+                                "y": 4,
+                                "z": 0
+                            },
+                            "rotation": {
+                                "x": 0,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "scale": {
+                                "x": 1,
+                                "y": 1,
+                                "z": 1
+                            }
+                        },
+                        "style": {
+                            "fontSize": 1.2,
+                            "color": "#ffff00",
+                            "opacity": 1
+                        }
+                    },
+                    {
+                        "id": "list_modules",
+                        "type": "text",
+                        "content": "1. Storymarketing\n2. Ludotécnica\n3. Piensarrápido\n4. Conexión Cómica\n5. Locución & Redacción",
+                        "transform": {
+                            "position": {
+                                "x": -3,
+                                "y": 1,
+                                "z": 0
+                            },
+                            "rotation": {
+                                "x": 0,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "scale": {
+                                "x": 1,
+                                "y": 1,
+                                "z": 1
+                            }
+                        },
+                        "style": {
+                            "fontSize": 0.5,
+                            "color": "#ffffff",
+                            "opacity": 1
+                        }
+                    },
+                    {
+                        "id": "info_duration",
+                        "type": "text",
+                        "content": "DURACIÓN:\n● Taller: 16 Hrs (Mín 8)\n● Módulos: 2 Hrs c/u",
+                        "transform": {
+                            "position": {
+                                "x": 3,
+                                "y": 2,
+                                "z": 0
+                            },
+                            "rotation": {
+                                "x": 0,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "scale": {
+                                "x": 1,
+                                "y": 1,
+                                "z": 1
+                            }
+                        },
+                        "style": {
+                            "fontSize": 0.5,
+                            "color": "#cccccc",
+                            "opacity": 1
+                        }
+                    },
+                    {
+                        "id": "info_clients",
+                        "type": "text",
+                        "content": "CLIENTES SATISFECHOS:\nHeineken, Pepsico, Danone, HP, Lala, Gentera, KPMG, Kidzania, Tv Azteca, Dupont",
+                        "transform": {
+                            "position": {
+                                "x": 0,
+                                "y": -2,
+                                "z": 0
+                            },
+                            "rotation": {
+                                "x": 0,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "scale": {
+                                "x": 1,
+                                "y": 1,
+                                "z": 1
+                            }
+                        },
+                        "style": {
+                            "fontSize": 0.4,
+                            "color": "#888888",
+                            "opacity": 1
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "section_conclusion",
+        "screens": [
+            {
+                "id": "screen_conclusion_1",
+                "trigger": "manual",
+                "enterTransition": {
+                    "type": "fade",
+                    "duration": 2.0,
+                    "easing": "power2.inOut"
+                },
+                "exitTransition": {
+                    "type": "fade",
+                    "duration": 1.0,
+                    "easing": "power2.in"
+                },
+                "elements": [
+                    {
+                        "id": "title_identity",
+                        "type": "text",
+                        "content": "QUIÉNES SOMOS",
+                        "transform": {
+                            "position": {
+                                "x": 0,
+                                "y": 3,
+                                "z": 0
+                            },
+                            "rotation": {
+                                "x": 0,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "scale": {
+                                "x": 1,
+                                "y": 1,
+                                "z": 1
+                            }
+                        },
+                        "style": {
+                            "fontSize": 1.5,
+                            "color": "#ffffff",
+                            "opacity": 1
+                        }
+                    },
+                    {
+                        "id": "mission",
+                        "type": "text",
+                        "content": "Ixachi: “en abundancia y de forma generosa”\n\nAyudamos a líderes y equipos a potenciar sus competencias naturales para lograr un mejor impacto en su cultura organizacional.",
+                        "transform": {
+                            "position": {
+                                "x": 0,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "rotation": {
+                                "x": 0,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "scale": {
+                                "x": 1,
+                                "y": 1,
+                                "z": 1
+                            }
+                        },
+                        "style": {
+                            "fontSize": 0.6,
+                            "color": "#ffffff",
+                            "opacity": 1
+                        }
+                    },
+                    {
+                        "id": "slogan",
+                        "type": "text",
+                        "content": "“Compartimos Ixachi, enseñamos Ixachi y entretenemos Ixachi”",
+                        "transform": {
+                            "position": {
+                                "x": 0,
+                                "y": -3,
+                                "z": 0
+                            },
+                            "rotation": {
+                                "x": 0,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "scale": {
+                                "x": 1,
+                                "y": 1,
+                                "z": 1
+                            }
+                        },
+                        "style": {
+                            "fontSize": 0.8,
+                            "color": "#00ff00",
+                            "opacity": 1
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+]
