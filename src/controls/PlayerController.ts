@@ -18,9 +18,15 @@ export class PlayerController {
     public maxSpeed: number = 30.0;
     public maxPitchAngle: number = Math.PI / 4; // 45 degrees
     public pitchCorrectionSpeed: number = 2.0;
-    
+
     // --- Private Input State ---
-    public keyboardState: { [key:string]: boolean } = {};
+    public keyboardState: { [key: string]: boolean } = {};
+
+    // Mouse Control State
+    private isMouseLocked: boolean = false;
+    private mouseSensitivity: number = 0.002;
+    private mousePitch: number = 0;
+    private mouseYaw: number = 0;
 
     constructor() {
         this.position = new THREE.Vector3(0, 0, 0);
@@ -29,6 +35,31 @@ export class PlayerController {
 
         window.addEventListener('keydown', (e) => { this.keyboardState[e.key.toLowerCase()] = true; });
         window.addEventListener('keyup', (e) => { this.keyboardState[e.key.toLowerCase()] = false; });
+
+        // Mouse Events
+        document.addEventListener('click', () => {
+            if (!this.isMouseLocked) {
+                document.body.requestPointerLock();
+            }
+        });
+
+        document.addEventListener('pointerlockchange', () => {
+            this.isMouseLocked = document.pointerLockElement === document.body;
+            console.log('🔒 Mouse Lock State:', this.isMouseLocked);
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (this.isMouseLocked) {
+                // Yaw (Left/Right) - affects rotation around Y axis
+                this.mouseYaw -= e.movementX * this.mouseSensitivity;
+
+                // Pitch (Up/Down) - affects rotation around X axis
+                this.mousePitch -= e.movementY * this.mouseSensitivity;
+
+                // Clamp Pitch
+                this.mousePitch = Math.max(-this.maxPitchAngle, Math.min(this.maxPitchAngle, this.mousePitch));
+            }
+        });
     }
 
     public update(deltaTime: number): void {
@@ -39,29 +70,29 @@ export class PlayerController {
         const deceleration = 0.95; // Represents friction
 
         // --- Update Rates based on Input ---
-        // Yaw (A/D)
-        if (this.keyboardState['a']) this.turnRate = turnSpeed;
-        else if (this.keyboardState['d']) this.turnRate = -turnSpeed;
-        else this.turnRate = 0;
+        // Yaw (A/D) - Keyboard is additive to mouse
+        let keyboardTurnRate = 0;
+        if (this.keyboardState['a']) keyboardTurnRate = turnSpeed;
+        else if (this.keyboardState['d']) keyboardTurnRate = -turnSpeed;
 
-        // Pitch (Q/E)
-        if (this.keyboardState['q']) this.pitchRate = pitchSpeed; // Pitch up
-        else if (this.keyboardState['e']) this.pitchRate = -pitchSpeed; // Pitch down
-        else this.pitchRate = 0;
-        
+        // Pitch (Q/E) - Keyboard is additive to mouse
+        let keyboardPitchRate = 0;
+        if (this.keyboardState['q']) keyboardPitchRate = pitchSpeed; // Pitch up
+        else if (this.keyboardState['e']) keyboardPitchRate = -pitchSpeed; // Pitch down
+
         // --- Pitch Limiting and Auto-Correction ---
-        const euler = new THREE.Euler().setFromQuaternion(this.quaternion, 'YXZ');
-        const currentPitch = euler.x;
+        // We combine mouse pitch (absolute) with keyboard pitch (rate-based)
+        // Ideally, we should unify them. 
+        // Strategy: Mouse sets a "Target Orientation", Keyboard modifies it?
+        // Simpler Strategy: Mouse adds directly to rotation, Keyboard adds to rotation.
 
-        if (this.pitchRate === 0) { // If no user input for pitch, auto-correct to level
-            if (Math.abs(currentPitch) > 0.01) {
-                this.pitchRate = -currentPitch * this.pitchCorrectionSpeed;
-            }
-        } else { // If user is trying to pitch, check against limits
-            if ((currentPitch > this.maxPitchAngle && this.pitchRate > 0) || (currentPitch < -this.maxPitchAngle && this.pitchRate < 0)) {
-                this.pitchRate = 0; // Stop pitching further
-            }
-        }
+        // Let's apply Mouse Deltas directly to a stored Euler or Quaternion?
+        // Actually, the previous logic used rates. Mouse gives us DISPLACEMENT (movementX/Y).
+        // So we can just apply the displacement directly.
+
+        // Reset rates for this frame (we calculated them above)
+        this.turnRate = keyboardTurnRate;
+        this.pitchRate = keyboardPitchRate;
 
         // --- Thrust (W/S) ---
         if (this.keyboardState['w']) this.speed += acceleration * deltaTime;
@@ -72,15 +103,21 @@ export class PlayerController {
         this.speed = THREE.MathUtils.clamp(this.speed, -this.maxSpeed / 2, this.maxSpeed);
 
         // --- Apply Rotations ---
+        // 1. Keyboard Rotation (Rate * DeltaTime)
         const yawDelta = this.turnRate * deltaTime;
         const pitchDelta = this.pitchRate * deltaTime;
 
-        const yawQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yawDelta);
-        const pitchQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitchDelta);
+        // 2. Apply to Accumulators
+        this.mouseYaw += yawDelta;
+        this.mousePitch += pitchDelta;
 
-        // Combine and apply rotations
-        this.quaternion.multiply(pitchQuat); // Apply pitch locally
-        this.quaternion.premultiply(yawQuat); // Apply yaw in world space
+        // Clamp Pitch again (in case keyboard pushed it over)
+        this.mousePitch = Math.max(-this.maxPitchAngle, Math.min(this.maxPitchAngle, this.mousePitch));
+
+        // 3. Construct Quaternion from Accumulators
+        // Order: Y (Yaw) then X (Pitch)
+        const euler = new THREE.Euler(this.mousePitch, this.mouseYaw, 0, 'YXZ');
+        this.quaternion.setFromEuler(euler);
 
         // --- Apply Movement ---
         const forwardVector = new THREE.Vector3(0, 0, -1).applyQuaternion(this.quaternion);
