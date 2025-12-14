@@ -54,6 +54,10 @@ export class MandalaChapter implements IAnimationChapter {
     private isInitialized: boolean = false;
     private resolvePromise: (() => void) | null = null;
 
+    // Launch Mechanic State
+    private isCharging: boolean = false;
+    private wasWDown: boolean = false;
+
     // Constants
     private readonly LANDSCAPE_WORLD_SIZE = 400;
     private readonly GRID_RESOLUTION = 64;
@@ -123,7 +127,7 @@ export class MandalaChapter implements IAnimationChapter {
         const chapterDelta = 0.016;
 
         this.playerController.update(chapterDelta);
-        console.log('FixedDelta:', chapterDelta, 'Speed:', this.playerController.speed, 'Pos:', this.playerController.position);
+        // console.log('FixedDelta:', chapterDelta, 'Speed:', this.playerController.speed, 'Pos:', this.playerController.position);
         this.cameraController.update();
 
         // Update Managers
@@ -139,13 +143,46 @@ export class MandalaChapter implements IAnimationChapter {
             if (connection.connected && connection.targetPos) {
                 // 🛑 PLUG-IN EFFECT: Override Player Movement
 
+                // --- LAUNCH MECHANIC ---
+                const isWDown = this.playerController.keyboardState['w'];
+                const justPressedW = isWDown && !this.wasWDown;
+                this.wasWDown = isWDown;
+
+                if (justPressedW) {
+                    if (!this.isCharging) {
+                        // Step 1: Start Charging
+                        console.log('⚡ Charging Launch...');
+                        this.isCharging = true;
+                    } else {
+                        // Step 2: Launch!
+                        console.log('🚀 LAUNCH!');
+                        this.stationController.disconnect();
+                        this.playerController.speed = 80.0; // Boost
+                        this.isCharging = false;
+                        // Return early to skip the position locking below
+                        return;
+                    }
+                }
+
+                // Visual Feedback for Charging
+                if (this.isCharging) {
+                    // Camera Shake
+                    const shakeIntensity = 0.2;
+                    this.camera.position.add(new THREE.Vector3(
+                        (Math.random() - 0.5) * shakeIntensity,
+                        (Math.random() - 0.5) * shakeIntensity,
+                        (Math.random() - 0.5) * shakeIntensity
+                    ));
+                }
+
                 // CHECK FOR DISCONNECT (Reverse Speed)
                 // Threshold must be small because speed is reset to 0 every frame in the else block
                 if (this.playerController.speed < -0.1) {
                     this.stationController.disconnect();
+                    this.isCharging = false; // Cancel charge
                     // Allow movement this frame so they can back out
                 } else {
-                    // 1. Stop forward movement
+                    // 1. Stop forward movement (unless we just launched, but we returned early above)
                     this.playerController.speed = 0;
 
                     // 2. Magnetize/Snap to Socket
@@ -155,6 +192,10 @@ export class MandalaChapter implements IAnimationChapter {
                     // 3. Orient towards the station (optional, or keep looking forward)
                     // this.playerController.lookAt(connection.targetPos); 
                 }
+            } else {
+                // Not connected, reset state
+                this.isCharging = false;
+                this.wasWDown = this.playerController.keyboardState['w'];
             }
         }
 
