@@ -7,13 +7,14 @@ import { PlayerController } from '../../controls/PlayerController';
 import { ChaseCameraController } from '../../controls/ChaseCameraController';
 import { GPUParticleSystem } from '../../core/GPUParticleSystem';
 import { RibbonLineGPUPlayer, UseMode } from '../../core/RibbonLineGPUPlayer';
+import { Chapter } from '../Chapter';
 import { FadeStyle } from '../../core/RibbonLine';
 import { PathController } from '../../core/pathing/PathController';
 import { RingController } from '../../features/rings/RingController';
 import { EnergyOrbController } from '../../features/collectables/EnergyOrbController';
 import { StationController } from '../../features/stations/StationController';
 import { TrackBuilder, TrackOperation } from '../../core/pathing/TrackBuilder';
-import trackData from '../../data/tracks/track_mandala_01.json';
+import trackData from '../../data/tracks/track01.json';
 
 // Shaders
 import flowFieldShader from '../../shaders/flow_field_perlin_compute.glsl?raw';
@@ -22,29 +23,34 @@ import particleRenderVertexShader from '../../shaders/particle_render.vert.glsl?
 import particleRenderFragmentShader from '../../shaders/particle_render.frag.glsl?raw';
 
 export class MandalaChapter implements IAnimationChapter {
-    private scene: THREE.Scene;
+    private scene!: THREE.Scene;
     private camera: THREE.PerspectiveCamera;
-    private renderer: THREE.WebGLRenderer;
+    private renderer!: THREE.WebGLRenderer;
     private clock: THREE.Clock;
 
     // Controllers
-    private playerController: PlayerController;
-    private cameraController: ChaseCameraController;
-    private pathController: PathController;
-    private ringController: RingController;
-    private orbController: EnergyOrbController;
-    private stationController: StationController;
+    private playerController!: PlayerController;
+    private cameraController!: ChaseCameraController;
+    private pathController!: PathController;
+    private ringController!: RingController;
+    private orbController!: EnergyOrbController;
+    private stationController!: StationController;
 
     // Visuals
-    private playerRibbon: RibbonLineGPUPlayer;
-    private playerParticleSystem: GPUParticleSystem;
-    private landscapeParticles: THREE.Points;
-    private trackMesh: THREE.Mesh;
-    private trackWireframe: THREE.LineSegments;
+    private playerRibbon!: RibbonLineGPUPlayer;
+    private playerParticleSystem!: GPUParticleSystem;
+    private landscapeParticles!: THREE.Points;
+    private trackMesh!: THREE.Mesh;
+    private trackWireframe!: THREE.LineSegments;
+
+    // Debug Visuals
+    private pinkSphere!: THREE.Mesh;
+    private orangeSphere!: THREE.Mesh;
+    private yellowArrow!: THREE.ArrowHelper;
 
     // GPU Compute
-    private landscapeGpuCompute: GPUComputationRenderer;
-    private flowFieldCompute: GPUComputationRenderer;
+    private landscapeGpuCompute!: GPUComputationRenderer;
+    private flowFieldCompute!: GPUComputationRenderer;
     private landscapeAgentPositionVariable: any;
     private flowFieldVariable: any;
     private ffUniforms: any;
@@ -129,6 +135,113 @@ export class MandalaChapter implements IAnimationChapter {
         this.playerController.update(chapterDelta);
         // console.log('FixedDelta:', chapterDelta, 'Speed:', this.playerController.speed, 'Pos:', this.playerController.position);
         this.cameraController.update();
+
+        // --- Path Assist Logic ---
+        const closest = this.pathController.getClosestPoint(this.playerController.position);
+        if (closest) {
+            // 1. Update Pink Sphere (Closest Point)
+            if (this.pinkSphere) this.pinkSphere.position.copy(closest.point);
+
+            // 2. Calculate Target (Carrot) - Look Ahead
+            // REFINEMENT: Problem 2 "Corner Cutting" & "Stopping Carrot"
+            // Calculate curvature to adjust look-ahead.
+            const tAhead = (closest.t + 0.01) % 1;
+            const tangent = this.pathController.getTangentAt(closest.t).normalize();
+            const tangentAhead = this.pathController.getTangentAt(tAhead).normalize();
+            const curvature = 1.0 - tangent.dot(tangentAhead);
+
+            // Target Look-Ahead based on curvature
+            const minLookAhead = 0.005; // Increased min to prevent "stopping" (was 0.002)
+            const maxLookAhead = 0.020; // Increased max for better straights (was 0.015)
+            const curvatureFactor = THREE.MathUtils.clamp(curvature * 500, 0, 1); // Reduced sensitivity
+            const targetLookAhead = THREE.MathUtils.lerp(maxLookAhead, minLookAhead, curvatureFactor);
+
+            // SMOOTHING: Don't snap to the new look-ahead, lerp to it.
+            // We need to store the current lookAhead in a class property, but for now let's just use a simple approach.
+            // Since we don't have a state variable for lookAhead, we'll just be less aggressive with the curvature factor.
+            // Ideally, we should add `private currentLookAhead: number = 0.01;` to the class.
+
+            // Let's assume we can't add state easily right now without a bigger refactor.
+            // We'll just use the calculated value but with the increased minimum.
+            const lookAheadDistance = targetLookAhead;
+
+            // BI-DIRECTIONAL LOGIC:
+            const forwardDot = this.playerController.velocity.clone().normalize().dot(tangent);
+            const direction = forwardDot < 0 ? -1 : 1;
+
+            const targetT = (closest.t + (lookAheadDistance * direction) + 1) % 1;
+            const targetPoint = this.pathController.getPointAt(targetT);
+
+            // DEBUG: Log values
+            if (Math.random() < 0.01) {
+                console.log(`🥕 T: ${closest.t.toFixed(3)} | Curv: ${curvature.toFixed(5)} | LookAhead: ${lookAheadDistance.toFixed(4)} | Dir: ${direction}`);
+            }
+
+            // Update Orange Sphere
+            if (this.orangeSphere) this.orangeSphere.position.copy(targetPoint);
+
+            // 3. Calculate Desired Rotation
+            const directionToTarget = new THREE.Vector3().subVectors(targetPoint, this.playerController.position).normalize();
+
+            // Update Yellow Arrow
+            if (this.yellowArrow) {
+                this.yellowArrow.position.copy(this.playerController.position);
+                this.yellowArrow.setDirection(directionToTarget);
+            }
+
+            const toPath = new THREE.Vector3().subVectors(closest.point, this.playerController.position);
+            const distToPath = toPath.length();
+
+            // 4. Apply Steering (Step 4 - Enabled)
+            // REFINEMENT: Problem 3 "Zombie Stare" - Range Reduced
+            // User requested ~1.5 units (slightly wider than track)
+            const assistRange = 1.5;
+            if (distToPath < assistRange) {
+                this.playerController.rotateTowards(directionToTarget, chapterDelta);
+            } else {
+                // Optional: Visual cue that assist is OFF?
+                // For now, just don't rotate.
+            }
+
+            // 5. Apply Attraction (Step 5 - Enabled)
+            // Tuning: Gentler attraction, larger deadzone to stop zigzag
+            const attractionStrength = 2.0; // Reduced from 5.0
+            // const dampingFactor = 2.0; // Still disabled
+
+            // Deadzone: Don't apply force if we are close to the center (e.g. < 1.0 unit)
+            // This prevents the "zigzag" oscillation on straights.
+            if (distToPath > 1.0 && distToPath < 50.0) {
+                // Get tangent at the closest point
+                const tangent = this.pathController.getTangentAt(closest.t).normalize();
+
+                // Project toPath onto the plane perpendicular to the tangent
+                const dot = toPath.dot(tangent);
+                const perpendicularForce = toPath.clone().sub(tangent.multiplyScalar(dot));
+
+                // FLOW ASSIST: Gentle push along the tangent
+                const flowStrength = 2.0;
+                const flowForce = tangent.multiplyScalar(flowStrength);
+
+                // Combine Spring + Flow (No Damping)
+                const totalForce = perpendicularForce.normalize().multiplyScalar(distToPath * attractionStrength)
+                    .add(flowForce);
+
+                // Clamp the total force magnitude to avoid explosions AND allow breaking away
+                // Reduced max force so you can fight it if you want to leave
+                const maxForce = 5.0; // Reduced from 20.0
+                if (totalForce.lengthSq() > maxForce * maxForce) {
+                    totalForce.normalize().multiplyScalar(maxForce);
+                }
+
+                const displacement = totalForce.multiplyScalar(chapterDelta);
+                this.playerController.position.add(displacement);
+
+                // DEBUG LOGGING (Throttle)
+                if (Math.random() < 0.01) {
+                    console.log(`Force: ${totalForce.length().toFixed(2)} | Dist: ${distToPath.toFixed(2)}`);
+                }
+            }
+        }
 
         // Update Managers
         // this.colorManager.update(chapterDelta);
@@ -268,6 +381,34 @@ export class MandalaChapter implements IAnimationChapter {
 
         // Initial Camera Setup
         this.cameraController.update();
+
+        // --- Debug Visuals ---
+        this.initDebugVisuals();
+    }
+
+    private initDebugVisuals(): void {
+        // Pink Sphere (Closest Point)
+        this.pinkSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.5, 16, 16),
+            new THREE.MeshBasicMaterial({ color: 0xff00ff })
+        );
+        this.scene.add(this.pinkSphere);
+
+        // Orange Sphere (Target/Carrot)
+        this.orangeSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.5, 16, 16),
+            new THREE.MeshBasicMaterial({ color: 0xffaa00 })
+        );
+        this.scene.add(this.orangeSphere);
+
+        // Yellow Arrow (Desired Rotation)
+        this.yellowArrow = new THREE.ArrowHelper(
+            new THREE.Vector3(0, 0, 1),
+            new THREE.Vector3(0, 0, 0),
+            5,
+            0xffff00
+        );
+        this.scene.add(this.yellowArrow);
     }
 
     private setupGameplay(): void {

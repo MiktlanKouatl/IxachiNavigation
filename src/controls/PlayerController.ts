@@ -132,6 +132,17 @@ export class PlayerController {
         }
     }
 
+    public rotateTowards(targetDirection: THREE.Vector3, deltaTime: number): void {
+        const targetQuaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), targetDirection);
+        const rotateSpeed = 2.0; // Adjust for responsiveness
+        this.quaternion.slerp(targetQuaternion, rotateSpeed * deltaTime);
+
+        // Update internal pitch/yaw state from the new quaternion to prevent fighting
+        const euler = new THREE.Euler().setFromQuaternion(this.quaternion, 'YXZ');
+        this.mouseYaw = euler.y;
+        this.mousePitch = euler.x;
+    }
+
     public dispose(): void {
         // In a real app, you'd remove the event listeners here.
     }

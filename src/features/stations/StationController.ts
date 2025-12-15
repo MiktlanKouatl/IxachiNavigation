@@ -17,6 +17,10 @@ export class StationController {
 
     private disconnectCooldown: number = 0;
 
+    public get isConnectedToStation(): boolean {
+        return this.isConnected;
+    }
+
     constructor(scene: THREE.Scene) {
         this.scene = scene;
         this.init();
