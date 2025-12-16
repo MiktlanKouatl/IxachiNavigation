@@ -110,25 +110,28 @@ export class FlowAssistTestChapter implements IAnimationChapter {
                 this.playerController.rotateTowards(this._tempDirToTarget, chapterDelta);
             }
 
-            /* STEP 4: DISABLE FORCES
-            // 4. Forces (Attraction + Flow)
+            // 4. Forces (Flow Only) - STEP 5 ACTIVE
+            // We are SKIPPING Attraction (Perpendicular Force) for now as per user request.
             if (distToPath > 0.5 && distToPath < 50.0) {
-                this._tempTangent.copy(tangent); // Use the tangent we got earlier
+                this._tempTangent.copy(tangent);
 
+                /* SKIPPING ATTRACTION
                 // Project toPath onto plane perpendicular to tangent
                 const dot = this._tempToPath.dot(this._tempTangent);
                 this._tempPerpForce.copy(this._tempTangent).multiplyScalar(dot);
                 this._tempPerpForce.subVectors(this._tempToPath, this._tempPerpForce);
-
-                // Attraction Strength
-                const attractionStrength = 5.0; // Stronger for testbed to verify vertical hold
-                
-                // Flow Strength
-                const flowStrength = 2.0;
-                this._tempFlowForce.copy(this._tempTangent).multiplyScalar(flowStrength * direction); // Apply direction!
-
-                // Combine
+                const attractionStrength = 5.0; 
                 this._tempTotalForce.copy(this._tempPerpForce).normalize().multiplyScalar(distToPath * attractionStrength);
+                */
+
+                // Reset Total Force since we skipped attraction
+                this._tempTotalForce.set(0, 0, 0);
+
+                // Flow Strength (Forward Push)
+                const flowStrength = 2.0;
+                this._tempFlowForce.copy(this._tempTangent).multiplyScalar(flowStrength * direction);
+
+                // Add Flow
                 this._tempTotalForce.add(this._tempFlowForce);
 
                 // Clamp
@@ -140,7 +143,6 @@ export class FlowAssistTestChapter implements IAnimationChapter {
                 this._tempDisplacement.copy(this._tempTotalForce).multiplyScalar(chapterDelta);
                 this.playerController.position.add(this._tempDisplacement);
             }
-            */
         }
     }
 
