@@ -94,8 +94,7 @@ export class FlowAssistTestChapter implements IAnimationChapter {
 
             if (this.orangeSphere) this.orangeSphere.position.copy(targetPoint);
 
-            /* STEP 3: DISABLE ROTATION & FORCES
-            // 3. Rotation Assist
+            // 3. Rotation Assist - STEP 3 ACTIVE
             this._tempDirToTarget.subVectors(targetPoint, this.playerController.position).normalize();
             if (this.yellowArrow) {
                 this.yellowArrow.position.copy(this.playerController.position);
@@ -105,11 +104,13 @@ export class FlowAssistTestChapter implements IAnimationChapter {
             this._tempToPath.subVectors(closest.point, this.playerController.position);
             const distToPath = this._tempToPath.length();
 
-            // Assist Range
-            if (distToPath < 2.0) {
+            // Assist Range - INCREASED for stability testing
+            // Was 2.0, which is too strict if the player drifts slightly.
+            if (distToPath < 15.0) {
                 this.playerController.rotateTowards(this._tempDirToTarget, chapterDelta);
             }
 
+            /* STEP 4: DISABLE FORCES
             // 4. Forces (Attraction + Flow)
             if (distToPath > 0.5 && distToPath < 50.0) {
                 this._tempTangent.copy(tangent); // Use the tangent we got earlier
@@ -121,7 +122,7 @@ export class FlowAssistTestChapter implements IAnimationChapter {
 
                 // Attraction Strength
                 const attractionStrength = 5.0; // Stronger for testbed to verify vertical hold
-
+                
                 // Flow Strength
                 const flowStrength = 2.0;
                 this._tempFlowForce.copy(this._tempTangent).multiplyScalar(flowStrength * direction); // Apply direction!
