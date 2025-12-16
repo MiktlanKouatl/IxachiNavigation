@@ -1,14 +1,18 @@
 
 import * as THREE from 'three';
 import { PathData } from './PathData';
+import { SpatialGrid } from './SpatialGrid';
 
 export class PathController {
     public pathData!: PathData;
     public pathCurve!: THREE.Curve<THREE.Vector3>; // Relaxed type
 
     private sampledPoints: { point: THREE.Vector3, t: number }[] = [];
+    private spatialGrid: SpatialGrid<{ t: number }>;
 
     constructor(customCurve?: THREE.CurvePath<THREE.Vector3>) {
+        this.spatialGrid = new SpatialGrid(20); // Cell size 20
+
         if (customCurve) {
             this.pathCurve = customCurve as unknown as THREE.CatmullRomCurve3;
         } else {
@@ -42,14 +46,17 @@ export class PathController {
         // This prevents points from bunching up or being sparse on different curve types.
 
         this.sampledPoints = [];
+        this.spatialGrid.clear(); // Clear grid before refilling
+
         for (let i = 0; i <= divisions; i++) {
             const t = i / divisions;
             const point = this.pathCurve.getPointAt(t);
 
-            this.sampledPoints.push({
-                point: point,
-                t: t
-            });
+            const item = { point: point, t: t };
+            this.sampledPoints.push(item);
+
+            // Add to Spatial Grid
+            this.spatialGrid.add(point, { t: t });
         }
 
         console.log(`🛣️ PathController: Sampled ${this.sampledPoints.length} points using getPointAt.`);
@@ -82,22 +89,29 @@ export class PathController {
     }
 
     public getClosestPoint(position: THREE.Vector3): { point: THREE.Vector3, t: number } {
-        let minDistanceSq = Infinity;
-        let closestIndex = -1;
+        // [OPTIMIZED] Spatial Grid Search (O(1))
+        const nearbyItems = this.spatialGrid.getNearby(position);
 
-        // 1. Coarse search through sampled points
-        for (let i = 0; i < this.sampledPoints.length; i++) {
-            const distSq = this.sampledPoints[i].point.distanceToSquared(position);
+        // Fallback to full search if grid returns nothing (e.g. player fell off map far away)
+        // or if the grid cell size is too small and we are between cells (though 3x3 check handles this).
+        const searchCandidates = nearbyItems.length > 0 ? nearbyItems : this.sampledPoints.map(p => ({ position: p.point, data: { t: p.t } }));
+
+        let minDistanceSq = Infinity;
+        let bestItem: { position: THREE.Vector3, data: { t: number } } | null = null;
+
+        for (const item of searchCandidates) {
+            const distSq = item.position.distanceToSquared(position);
             if (distSq < minDistanceSq) {
                 minDistanceSq = distSq;
-                closestIndex = i;
+                bestItem = item;
             }
         }
 
-        // 2. Fine-tune (optional, but good for smoothness)
-        // For now, returning the sampled point is usually "good enough" if resolution is high (2000 points)
-        // To make it perfectly smooth, we could project onto the line segment of neighbors.
+        if (bestItem) {
+            return { point: bestItem.position, t: bestItem.data.t };
+        }
 
-        return this.sampledPoints[closestIndex];
+        // Should never happen if sampledPoints is not empty
+        return this.sampledPoints[0];
     }
 }
