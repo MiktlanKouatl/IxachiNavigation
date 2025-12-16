@@ -79,7 +79,6 @@ export class FlowAssistTestChapter implements IAnimationChapter {
             // 1. Update Pink Sphere (Closest Point)
             if (this.pinkSphere) this.pinkSphere.position.copy(closest.point);
 
-            /* STEP 1: DISABLE EVERYTHING ELSE
             // 2. Calculate Target (Carrot)
             // Tuning: LookAhead
             const lookAheadDistance = 0.015;
@@ -95,6 +94,7 @@ export class FlowAssistTestChapter implements IAnimationChapter {
 
             if (this.orangeSphere) this.orangeSphere.position.copy(targetPoint);
 
+            /* STEP 3: DISABLE ROTATION & FORCES
             // 3. Rotation Assist
             this._tempDirToTarget.subVectors(targetPoint, this.playerController.position).normalize();
             if (this.yellowArrow) {
