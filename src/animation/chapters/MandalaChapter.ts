@@ -14,7 +14,7 @@ import { RingController } from '../../features/rings/RingController';
 import { EnergyOrbController } from '../../features/collectables/EnergyOrbController';
 import { StationController } from '../../features/stations/StationController';
 import { TrackBuilder, TrackOperation } from '../../core/pathing/TrackBuilder';
-import trackData from '../../data/tracks/track01.json';
+import trackData from '../../data/tracks/track02.json';
 
 // Shaders
 import flowFieldShader from '../../shaders/flow_field_perlin_compute.glsl?raw';
@@ -59,6 +59,16 @@ export class MandalaChapter implements IAnimationChapter {
     // State
     private isInitialized: boolean = false;
     private resolvePromise: (() => void) | null = null;
+
+    // Temporary Vectors (Optimization)
+    private _tempDirToTarget = new THREE.Vector3();
+    private _tempToPath = new THREE.Vector3();
+    private _tempTangent = new THREE.Vector3();
+    private _tempPerpForce = new THREE.Vector3();
+    private _tempFlowForce = new THREE.Vector3();
+    private _tempTotalForce = new THREE.Vector3();
+    private _tempDisplacement = new THREE.Vector3();
+    private _tempForward = new THREE.Vector3();
 
     // Launch Mechanic State
     private isCharging: boolean = false;
@@ -181,23 +191,23 @@ export class MandalaChapter implements IAnimationChapter {
             if (this.orangeSphere) this.orangeSphere.position.copy(targetPoint);
 
             // 3. Calculate Desired Rotation
-            const directionToTarget = new THREE.Vector3().subVectors(targetPoint, this.playerController.position).normalize();
+            this._tempDirToTarget.subVectors(targetPoint, this.playerController.position).normalize();
 
             // Update Yellow Arrow
             if (this.yellowArrow) {
                 this.yellowArrow.position.copy(this.playerController.position);
-                this.yellowArrow.setDirection(directionToTarget);
+                this.yellowArrow.setDirection(this._tempDirToTarget);
             }
 
-            const toPath = new THREE.Vector3().subVectors(closest.point, this.playerController.position);
-            const distToPath = toPath.length();
+            this._tempToPath.subVectors(closest.point, this.playerController.position);
+            const distToPath = this._tempToPath.length();
 
             // 4. Apply Steering (Step 4 - Enabled)
             // REFINEMENT: Problem 3 "Zombie Stare" - Range Reduced
             // User requested ~1.5 units (slightly wider than track)
             const assistRange = 1.5;
             if (distToPath < assistRange) {
-                this.playerController.rotateTowards(directionToTarget, chapterDelta);
+                this.playerController.rotateTowards(this._tempDirToTarget, chapterDelta);
             } else {
                 // Optional: Visual cue that assist is OFF?
                 // For now, just don't rotate.
@@ -212,33 +222,69 @@ export class MandalaChapter implements IAnimationChapter {
             // This prevents the "zigzag" oscillation on straights.
             if (distToPath > 1.0 && distToPath < 50.0) {
                 // Get tangent at the closest point
-                const tangent = this.pathController.getTangentAt(closest.t).normalize();
+                this._tempTangent.copy(this.pathController.getTangentAt(closest.t)).normalize();
 
                 // Project toPath onto the plane perpendicular to the tangent
-                const dot = toPath.dot(tangent);
-                const perpendicularForce = toPath.clone().sub(tangent.multiplyScalar(dot));
+                const dot = this._tempToPath.dot(this._tempTangent);
+
+                // perpendicularForce = toPath - (tangent * dot)
+                // Use _tempPerpForce to store the projection first to avoid modifying _tempTangent
+                this._tempPerpForce.copy(this._tempTangent).multiplyScalar(dot);
+                this._tempPerpForce.subVectors(this._tempToPath, this._tempPerpForce);
 
                 // FLOW ASSIST: Gentle push along the tangent
                 const flowStrength = 2.0;
-                const flowForce = tangent.multiplyScalar(flowStrength);
+                this._tempFlowForce.copy(this._tempTangent).multiplyScalar(flowStrength); // tangent is already modified above? No, wait.
+                // Wait, `this._tempTangent.multiplyScalar(dot)` modified _tempTangent in place!
+                // FIX: Re-get tangent or clone it. 
+                // Let's re-get tangent to be safe and clear, or use another temp.
+                // Actually, let's fix the logic above.
+
+                // Correct Logic:
+                const tangent = this.pathController.getTangentAt(closest.t).normalize(); // Returns new vector? Yes, getTangentAt returns new Vector3.
+                // Optimization: We can avoid `getTangentAt` allocating if we had a method for it, but for now let's just use the temp vars correctly.
+
+                this._tempTangent.copy(tangent);
+
+                // perpendicularForce calculation
+                // vector.sub( otherVector.multiplyScalar(s) ) -> modifies otherVector!
+                // We need to be careful with in-place modifications.
+
+                // Let's do it step by step safely.
+                const tangentClone = this._tempTangent.clone(); // Still allocating... 
+                // Let's use another temp if needed, or just be careful.
+                // _tempPerpForce.copy(_tempToPath).sub( _tempTangent.multiplyScalar(dot) ) -> _tempTangent is modified.
+                // So if we need _tempTangent later (for flow force), we need to restore it or use a copy.
+
+                // Better:
+                // _tempPerpForce.copy(_tempTangent).multiplyScalar(dot); // _tempPerpForce holds the projection
+                // _tempPerpForce.subVectors(this._tempToPath, this._tempPerpForce); // _tempPerpForce = toPath - projection
+
+                this._tempPerpForce.copy(this._tempTangent).multiplyScalar(dot);
+                this._tempPerpForce.subVectors(this._tempToPath, this._tempPerpForce);
+
+                // FLOW ASSIST
+                // _tempFlowForce = tangent * strength
+                this._tempFlowForce.copy(this._tempTangent).multiplyScalar(flowStrength);
 
                 // Combine Spring + Flow (No Damping)
-                const totalForce = perpendicularForce.normalize().multiplyScalar(distToPath * attractionStrength)
-                    .add(flowForce);
+                // totalForce = perp.normalize() * (dist * strength) + flow
+                this._tempTotalForce.copy(this._tempPerpForce).normalize().multiplyScalar(distToPath * attractionStrength);
+                this._tempTotalForce.add(this._tempFlowForce);
 
                 // Clamp the total force magnitude to avoid explosions AND allow breaking away
                 // Reduced max force so you can fight it if you want to leave
                 const maxForce = 5.0; // Reduced from 20.0
-                if (totalForce.lengthSq() > maxForce * maxForce) {
-                    totalForce.normalize().multiplyScalar(maxForce);
+                if (this._tempTotalForce.lengthSq() > maxForce * maxForce) {
+                    this._tempTotalForce.normalize().multiplyScalar(maxForce);
                 }
 
-                const displacement = totalForce.multiplyScalar(chapterDelta);
-                this.playerController.position.add(displacement);
+                this._tempDisplacement.copy(this._tempTotalForce).multiplyScalar(chapterDelta);
+                this.playerController.position.add(this._tempDisplacement);
 
                 // DEBUG LOGGING (Throttle)
                 if (Math.random() < 0.01) {
-                    console.log(`Force: ${totalForce.length().toFixed(2)} | Dist: ${distToPath.toFixed(2)}`);
+                    console.log(`Force: ${this._tempTotalForce.length().toFixed(2)} | Dist: ${distToPath.toFixed(2)}`);
                 }
             }
         }
@@ -336,11 +382,11 @@ export class MandalaChapter implements IAnimationChapter {
             this.playerRibbon.setWidth(newWidth);
 
             // Forward Vector
-            const forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(this.playerController.quaternion);
+            this._tempForward.set(0, 0, -1).applyQuaternion(this.playerController.quaternion);
             if (this.playerController.velocity.lengthSq() > 0.01) {
-                forwardDir.copy(this.playerController.velocity).normalize();
+                this._tempForward.copy(this.playerController.velocity).normalize();
             }
-            this.playerRibbon.setPlayerForward(forwardDir);
+            this.playerRibbon.setPlayerForward(this._tempForward);
             this.playerRibbon.updateHead();
             this.playerRibbon.setTime(chapterTime);
         }
@@ -482,24 +528,31 @@ export class MandalaChapter implements IAnimationChapter {
             geometry.setAttribute('uv', new THREE.Float32BufferAttribute(allUvs, 2));
             geometry.setIndex(allIndices);
 
-            const material = new THREE.MeshStandardMaterial({
-                color: 0x222222,
-                emissive: 0x001133,
-                emissiveIntensity: 0.2,
-                side: THREE.DoubleSide,
-                roughness: 0.4,
-                metalness: 0.8
+            // WIREFRAME / TRANSPARENT Material as requested
+            const material = new THREE.MeshBasicMaterial({
+                color: 0x444444,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.3
             });
+
             this.trackMesh = new THREE.Mesh(geometry, material);
             this.trackMesh.position.y = -0.2;
             this.scene.add(this.trackMesh);
 
+            // We can keep or remove the extra wireframe object since the main mesh is now wireframe.
+            // Let's keep it but make it distinct or just remove it if it's redundant.
+            // The user asked for the track to be wireframe "so we can see through it".
+            // Let's just use the single wireframe mesh for clarity.
+
+            /* 
             this.trackWireframe = new THREE.LineSegments(
                 new THREE.WireframeGeometry(geometry),
                 new THREE.LineBasicMaterial({ color: 0x0044aa, transparent: true, opacity: 0.3 })
             );
             this.trackWireframe.position.y = -0.19;
             this.scene.add(this.trackWireframe);
+            */
         }
     }
 

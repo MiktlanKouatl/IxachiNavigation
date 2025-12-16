@@ -1,0 +1,44 @@
+[
+  {
+    "type": "straight",
+    "length": 200
+  },
+  {
+    "type": "turn",
+    "angle": -90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 300,
+    "heightChange": 60
+  },
+  {
+    "type": "turn",
+    "angle": -90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "straight",
+    "length": 200
+  },
+  {
+    "type": "turn",
+    "angle": -90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 300,
+    "heightChange": -60
+  },
+  {
+    "type": "turn",
+    "angle": -90,
+    "radius": 100,
+    "roll": 0
+  }
+]

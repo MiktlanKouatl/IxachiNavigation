@@ -1,0 +1,178 @@
+[
+  {
+    "type": "ramp",
+    "length": 200,
+    "heightChange": 40
+  },
+  {
+    "type": "turn",
+    "angle": -90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 200,
+    "heightChange": -40
+  },
+  {
+    "type": "turn",
+    "angle": -90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 200,
+    "heightChange": -40
+  },
+  {
+    "type": "turn",
+    "angle": -90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 200,
+    "heightChange": 40
+  },
+  {
+    "type": "turn",
+    "angle": -90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 200,
+    "heightChange": 40
+  },
+  {
+    "type": "turn",
+    "angle": -90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 200,
+    "heightChange": -40
+  },
+  {
+    "type": "turn",
+    "angle": -90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 200,
+    "heightChange": -40
+  },
+  {
+    "type": "turn",
+    "angle": -90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 200,
+    "heightChange": 40
+  },
+  {
+    "type": "turn",
+    "angle": -90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 200,
+    "heightChange": 40
+  },
+  {
+    "type": "turn",
+    "angle": -90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 200,
+    "heightChange": -40
+  },
+  {
+    "type": "turn",
+    "angle": -90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 200,
+    "heightChange": -40
+  },
+  {
+    "type": "turn",
+    "angle": -90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 200,
+    "heightChange": 40
+  },
+  {
+    "type": "turn",
+    "angle": -90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 200,
+    "heightChange": 40
+  },
+  {
+    "type": "turn",
+    "angle": -90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 200,
+    "heightChange": -40
+  },
+  {
+    "type": "turn",
+    "angle": -90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 200,
+    "heightChange": -40
+  },
+  {
+    "type": "turn",
+    "angle": -90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 200,
+    "heightChange": 40
+  },
+  {
+    "type": "turn",
+    "angle": -90,
+    "radius": 100,
+    "roll": 0
+  }
+]

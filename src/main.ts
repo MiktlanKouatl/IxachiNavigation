@@ -28,6 +28,7 @@ import { TransitionToCirclePath } from './animation/chapters/TransitionToCircleP
 import { JourneyChapter } from './animation/chapters/JourneyChapter';
 import { TraceLogoChapter } from './animation/chapters/TraceLogoChapter';
 import { MandalaChapter } from './animation/chapters/MandalaChapter';
+import { FlowAssistTestChapter } from './animation/chapters/FlowAssistTestChapter';
 
 console.log('🚀 Ixachi Experience Initialized');
 
@@ -135,6 +136,10 @@ export class IxachiExperience {
     const mandalaChapter = new MandalaChapter();
     this.director.addChapter('Mandala', mandalaChapter);
 
+    // [TESTBED] Register Flow Assist Test Chapter
+    const flowAssistTestChapter = new FlowAssistTestChapter();
+    this.director.addChapter('FlowAssistTest', flowAssistTestChapter);
+
     // --- Initialize Navigation System ---
     this.setupNavigationPaths();
     this.navigationController.on('transitionRequested', (chapterId: string, targetPathId: string) => {
@@ -153,7 +158,11 @@ export class IxachiExperience {
     // --- Start Experience ---
     this.setMode(ExperienceMode.Cinematic);
 
-    // Modified Flow: Intro -> Loading -> TraceLogo -> Mandala
+    // Modified Flow: Jump straight to Testbed
+    console.log('🧪 Starting Flow Assist Testbed...');
+    this.director.playChapter('FlowAssistTest');
+
+    /* Original Sequence
     this.director.playChapter('Intro').then(() => {
       return this.director.playChapter('Loading');
     }).then(() => {
@@ -162,6 +171,7 @@ export class IxachiExperience {
       console.log('🌌 Entering Mandala Drive...');
       return this.director.playChapter('Mandala');
     });
+    */
   }
 
   private setupNavigationPaths(): void {

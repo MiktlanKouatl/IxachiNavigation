@@ -37,24 +37,28 @@ export class PathController {
 
     private samplePathPoints(): void {
         const divisions = 2000; // High resolution for accuracy
-        const points = this.pathCurve.getPoints(divisions);
 
-        console.log(`🛣️ PathController: Sampling path. Divisions: ${divisions}, Points: ${points.length}`);
+        // Use getPointAt to ensure uniform distribution along the path (arc-length parameterization)
+        // This prevents points from bunching up or being sparse on different curve types.
 
         this.sampledPoints = [];
-        for (let i = 0; i < points.length; i++) {
-            // If points.length > divisions + 1, then t will be > 1.
-            // We should normalize t based on the actual number of points.
-            const t = i / (points.length - 1);
+        for (let i = 0; i <= divisions; i++) {
+            const t = i / divisions;
+            const point = this.pathCurve.getPointAt(t);
+
             this.sampledPoints.push({
-                point: points[i],
+                point: point,
                 t: t
             });
         }
 
+        console.log(`🛣️ PathController: Sampled ${this.sampledPoints.length} points using getPointAt.`);
+
         // Ensure pathData is also set if not already
         if (!this.pathData) {
-            this.pathData = new PathData([points], true);
+            // If pathData was not set by createPath (e.g., customCurve was provided),
+            // we can use the sampled points to initialize it.
+            this.pathData = new PathData([this.sampledPoints.map(s => s.point)], true);
         }
     }
 
