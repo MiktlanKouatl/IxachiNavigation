@@ -7,6 +7,7 @@ import { ChaseCameraController } from '../../controls/ChaseCameraController';
 import { PathController } from '../../core/pathing/PathController';
 import { TrackBuilder, TrackOperation } from '../../core/pathing/TrackBuilder';
 import trackData from '../../../public/tracks/track06.json';
+import { UnifiedParticleSystem } from '../../core/UnifiedParticleSystem'; // Import the new system
 
 export class FlowAssistTestChapter implements IAnimationChapter {
     private scene!: THREE.Scene;
@@ -18,8 +19,11 @@ export class FlowAssistTestChapter implements IAnimationChapter {
     private cameraController!: ChaseCameraController;
     private pathController!: PathController;
 
+    // Particle System
+    private unifiedParticleSystem!: UnifiedParticleSystem;
+
     // Visuals
-    private trackMesh!: THREE.Mesh;
+    // private trackMesh!: THREE.Mesh; // Commented out to avoid conflict
 
     // Debug Visuals
     private pinkSphere!: THREE.Mesh;
@@ -60,7 +64,8 @@ export class FlowAssistTestChapter implements IAnimationChapter {
     public stop(targets: AnimationTargets): void {
         console.log('🛑 [FlowAssistTestChapter] Stopping...');
         this.scene.background = null;
-        if (this.trackMesh) this.trackMesh.visible = false;
+        // if (this.trackMesh) this.trackMesh.visible = false; // Commented out
+        if (this.unifiedParticleSystem) this.unifiedParticleSystem.dispose(); // Dispose the new system
         // Cleanup if needed
     }
 
@@ -72,6 +77,7 @@ export class FlowAssistTestChapter implements IAnimationChapter {
 
         this.playerController.update(chapterDelta);
         this.cameraController.update();
+        if (this.unifiedParticleSystem) this.unifiedParticleSystem.update(chapterDelta); // Update the new system
 
         // --- Flow Assist Logic (Testbed Version) ---
         const closest = this.pathController.getClosestPoint(this.playerController.position);
@@ -139,7 +145,6 @@ export class FlowAssistTestChapter implements IAnimationChapter {
                 if (this._tempTotalForce.lengthSq() > maxForce * maxForce) {
                     this._tempTotalForce.normalize().multiplyScalar(maxForce);
                 }
-
                 this._tempDisplacement.copy(this._tempTotalForce).multiplyScalar(chapterDelta);
                 this.playerController.position.add(this._tempDisplacement);
             }
@@ -162,8 +167,12 @@ export class FlowAssistTestChapter implements IAnimationChapter {
         this.cameraController = new ChaseCameraController(this.camera, this.playerController);
         this.pathController = new PathController(trackPath);
 
+        // Unified Particle System
+        this.unifiedParticleSystem = new UnifiedParticleSystem(targets.renderer, this.scene);
+        this.unifiedParticleSystem.setPathController(this.pathController); // Connect the systems
+
         // Visuals
-        this.buildTrackVisuals(trackPath, operations);
+        // this.buildTrackVisuals(trackPath, operations); // Commented out
         this.initDebugVisuals();
     }
 
