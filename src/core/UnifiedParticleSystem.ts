@@ -51,29 +51,27 @@ export class UnifiedParticleSystem {
         // Vertex Shader and Fragment Shader will be external files later
         const vertexShader = `
             attribute float behaviorID;
-            varying float vBehaviorID; // Pass behavior to fragment shader
+            varying float vBehaviorID;
 
             void main() {
                 vBehaviorID = behaviorID;
-
-                gl_PointSize = 2.0; // Render ALL particles with a visible size for debugging
-
+                if (behaviorID == 0.0) {
+                    gl_PointSize = 0.0; // Hide inactive
+                } else {
+                    gl_PointSize = 2.0;
+                }
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
             }
         `;
 
         const fragmentShader = `
-            varying float vBehaviorID; // Receive from vertex shader
+            varying float vBehaviorID;
 
             void main() {
-                // --- DEBUGGING: Color by Behavior ---
                 if (vBehaviorID == 0.0) {
-                    gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); // INACTIVE = Red
-                } else if (vBehaviorID == 2.0) {
-                    gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0); // PATH = Green
-                } else {
-                    gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0); // Unexpected value = Blue
+                    discard; // Make inactive fully invisible
                 }
+                gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0); // Path particles are white
             }
         `;
 
@@ -117,17 +115,65 @@ export class UnifiedParticleSystem {
     private generatePathParticles() {
         if (!this.pathController) return;
 
-        const pathParticleCount = 20000; // Use a subset of particles for the path
+        const curvePath = this.pathController.getCurve() as THREE.CurvePath<THREE.Vector3>;
+        if (!curvePath || !curvePath.curves) return;
 
-        for (let i = 0; i < pathParticleCount; i++) {
-            // For now, just assign the behavior to the first N particles
-            this.behaviorIDs[i] = ParticleBehavior.PATH;
+        const totalParticles = this.particleCount;
+        const subCurves = curvePath.curves;
+        const totalLength = curvePath.getLength();
+
+        // Parameters for 'Lecho de Río'
+        const spreadFactor = 2.0; // How wide the riverbed is
+        const offsetBelow = 0.5; // How far below the path
+
+        let particleIndex = 0;
+
+        // Iterate over each sub-curve in the CurvePath
+        for (const curve of subCurves) {
+            const curveLength = curve.getLength();
+            const numParticlesForCurve = Math.floor((curveLength / totalLength) * totalParticles);
+
+            if (numParticlesForCurve === 0) continue;
+
+            const divisions = Math.max(2, numParticlesForCurve); // Use enough divisions for detail
+            const points = curve.getPoints(divisions);
+            const { normals, binormals } = curve.computeFrenetFrames(divisions, false);
+
+            for (let i = 0; i < numParticlesForCurve; i++) {
+                if (particleIndex >= totalParticles) break; // Safety break
+
+                this.behaviorIDs[particleIndex] = ParticleBehavior.PATH;
+
+                // Map particle to a point on this specific sub-curve
+                const t = i / numParticlesForCurve;
+                const frameIndex = Math.floor(t * divisions);
+
+                const pathPosition = points[frameIndex];
+                const binormal = binormals[frameIndex];
+                const normal = normals[frameIndex];
+
+                if (!pathPosition || !binormal || !normal) continue; // Safety check for last point
+
+                const randomSideOffset = (Math.random() - 0.5) * spreadFactor;
+                const finalPosition = new THREE.Vector3().copy(pathPosition);
+                finalPosition.addScaledVector(binormal, randomSideOffset);
+                finalPosition.addScaledVector(normal, -offsetBelow);
+
+                const i3 = particleIndex * 3;
+                this.positions[i3 + 0] = finalPosition.x;
+                this.positions[i3 + 1] = finalPosition.y;
+                this.positions[i3 + 2] = finalPosition.z;
+
+                particleIndex++;
+            }
         }
 
-        // Important: notify Three.js that the buffer has changed
+        // Important: notify Three.js that the buffers have changed
         const behaviorAttribute = this.geometry.getAttribute('behaviorID') as THREE.BufferAttribute;
         behaviorAttribute.needsUpdate = true;
+        const positionAttribute = this.geometry.getAttribute('position') as THREE.BufferAttribute;
+        positionAttribute.needsUpdate = true;
 
-        console.log(`🛣️ [UnifiedParticleSystem] Assigned ${pathParticleCount} particles to PATH behavior.`);
+        console.log(`🛣️ [UnifiedParticleSystem] Assigned and positioned ${particleIndex} particles across ${subCurves.length} path segments.`);
     }
 }
