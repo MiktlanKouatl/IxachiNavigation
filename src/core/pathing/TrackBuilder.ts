@@ -159,9 +159,13 @@ export class TrackBuilder {
         this.currentPosition.copy(end);
         // Direction technically changes in 3D, but for "slot car" logic on a map, 
         // we often keep the 2D projected direction or update the 3D one.
-        // Let's update the 3D direction to match the ramp slope.
-        this.currentDirection.copy(displacement).normalize();
-        return line;
+
+        // FOR VISUAL EDITOR STABILITY: Keep direction flat.
+        // The ramp goes up, but the "Turtle" heading remains flat.
+        // this.currentDirection.copy(displacement).normalize(); 
+
+        // No change to currentDirection needed for a straight ramp!
+        // It enters flat, it leaves flat (just higher).
     }
 
     private buildTurn(path: THREE.CurvePath<THREE.Vector3>, op: TrackOperation): THREE.Curve<THREE.Vector3> {
@@ -244,6 +248,11 @@ export class TrackBuilder {
         this.currentDirection.applyAxisAngle(axis, angleRad);
 
         // If there was a height change, the direction vector also needs to pitch up/down?
+        // FOR VISUAL EDITOR STABILITY: We DO NOT propagate pitch to the next segment.
+        // The "Turtle" stays flat on the XZ plane, and height is just an offset.
+        // This ensures that changing the height of one segment does not rotate the entire future track.
+
+        /*
         if (heightChange !== 0) {
             const arcLength = Math.abs(angleRad * radius);
             const slopeAngle = Math.atan2(heightChange, arcLength);
@@ -251,6 +260,7 @@ export class TrackBuilder {
             const right = new THREE.Vector3().crossVectors(this.currentDirection, new THREE.Vector3(0, 1, 0)).normalize();
             this.currentDirection.applyAxisAngle(right, slopeAngle);
         }
+        */
 
         this.currentDirection.normalize();
         return arcCurve;

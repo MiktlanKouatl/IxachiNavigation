@@ -1,0 +1,47 @@
+[
+  {
+    "type": "straight",
+    "length": 50
+  },
+  {
+    "type": "straight",
+    "length": 50
+  },
+  {
+    "type": "straight",
+    "length": 50
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 100,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 40
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": -30
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 0
+  }
+]

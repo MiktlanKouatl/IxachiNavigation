@@ -1,0 +1,62 @@
+[
+    {
+        "type": "move",
+        "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "direction": {
+            "x": 0,
+            "y": 0,
+            "z": -1
+        }
+    },
+    {
+        "type": "straight",
+        "length": 50
+    },
+    {
+        "type": "ramp",
+        "length": 100,
+        "heightChange": 50
+    },
+    {
+        "type": "straight",
+        "length": 20
+    },
+    {
+        "type": "turn",
+        "angle": 90,
+        "radius": 50,
+        "heightChange": 20,
+        "roll": 0
+    },
+    {
+        "type": "turn",
+        "angle": 90,
+        "radius": 50,
+        "heightChange": 20,
+        "roll": 0
+    },
+    {
+        "type": "straight",
+        "length": 50
+    },
+    {
+        "type": "ramp",
+        "length": 100,
+        "heightChange": -90
+    },
+    {
+        "type": "turn",
+        "angle": 180,
+        "radius": 40,
+        "heightChange": 0,
+        "roll": 0
+    },
+    {
+        "type": "straight",
+        "length": 50
+    }
+]

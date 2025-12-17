@@ -6,7 +6,7 @@ import { PlayerController } from '../../controls/PlayerController';
 import { ChaseCameraController } from '../../controls/ChaseCameraController';
 import { PathController } from '../../core/pathing/PathController';
 import { TrackBuilder, TrackOperation } from '../../core/pathing/TrackBuilder';
-import trackData from '../../data/tracks/track02.json';
+import trackData from '../../../public/tracks/track06.json';
 
 export class FlowAssistTestChapter implements IAnimationChapter {
     private scene!: THREE.Scene;

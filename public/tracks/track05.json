@@ -1,0 +1,361 @@
+[
+  {
+    "type": "straight",
+    "length": 50
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 50
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 30,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": -35
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 30,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 30,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": -50
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 10,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 10,
+    "heightChange": 4.9
+  },
+  {
+    "type": "turn",
+    "angle": -52.92,
+    "radius": 18.54,
+    "roll": 0
+  },
+  {
+    "type": "straight",
+    "length": 50
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 50
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 30,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": -35
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 30,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 30,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": -50
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 10,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 10,
+    "heightChange": 4.9
+  },
+  {
+    "type": "turn",
+    "angle": -52.92,
+    "radius": 18.54,
+    "roll": 0
+  },
+  {
+    "type": "move",
+    "position": {
+      "x": -1.4210854715202004e-14,
+      "y": 0,
+      "z": 49.99999999999999
+    },
+    "direction": {
+      "x": -1,
+      "y": 0,
+      "z": -2.220446049250313e-16
+    }
+  },
+  {
+    "type": "straight",
+    "length": 50
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 50
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 30,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": -35
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 30,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 30,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": -50
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 10,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 10,
+    "heightChange": 4.9
+  },
+  {
+    "type": "turn",
+    "angle": -52.92,
+    "radius": 18.54,
+    "roll": 0
+  },
+  {
+    "type": "move",
+    "position": {
+      "x": 50,
+      "y": 0,
+      "z": 6.123233995736766e-15
+    },
+    "direction": {
+      "x": -1.2246467991473532e-16,
+      "y": 0,
+      "z": 1
+    }
+  },
+  {
+    "type": "straight",
+    "length": 50
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 50
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 30,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": -35
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 30,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 30,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": -50
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 10,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 10,
+    "heightChange": 4.9
+  },
+  {
+    "type": "turn",
+    "angle": -52.92,
+    "radius": 18.54,
+    "roll": 0
+  },
+  {
+    "type": "move",
+    "position": {
+      "x": 7.105427357601002e-15,
+      "y": 0,
+      "z": -50
+    },
+    "direction": {
+      "x": 1,
+      "y": 0,
+      "z": 2.220446049250313e-16
+    }
+  },
+  {
+    "type": "straight",
+    "length": 50
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 50
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 30,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": -35
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 30,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 30,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": -50
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 10,
+    "roll": 0
+  },
+  {
+    "type": "ramp",
+    "length": 10,
+    "heightChange": 4.9
+  },
+  {
+    "type": "turn",
+    "angle": -52.92,
+    "radius": 18.54,
+    "roll": 0
+  }
+]

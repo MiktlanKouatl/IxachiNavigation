@@ -1,0 +1,206 @@
+[
+  {
+    "type": "straight",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "straight",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "straight",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 69,
+    "roll": 0,
+    "heightChange": 0
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 69,
+    "roll": 0,
+    "heightChange": 0
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 69,
+    "roll": 0,
+    "heightChange": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 50
+  },
+  {
+    "type": "straight",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": -50
+  },
+  {
+    "type": "straight",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "straight",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "straight",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 69,
+    "roll": 0,
+    "heightChange": 0
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 69,
+    "roll": 0,
+    "heightChange": 0
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 69,
+    "roll": 0,
+    "heightChange": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 50
+  },
+  {
+    "type": "straight",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": -50
+  },
+  {
+    "type": "straight",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "straight",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "straight",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 69,
+    "roll": 0,
+    "heightChange": 0
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 69,
+    "roll": 0,
+    "heightChange": 0
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 69,
+    "roll": 0,
+    "heightChange": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 50
+  },
+  {
+    "type": "straight",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": -50
+  },
+  {
+    "type": "straight",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "straight",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "straight",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 69,
+    "roll": 0,
+    "heightChange": 0
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 69,
+    "roll": 0,
+    "heightChange": 0
+  },
+  {
+    "type": "turn",
+    "angle": 90,
+    "radius": 69,
+    "roll": 0,
+    "heightChange": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": 50
+  },
+  {
+    "type": "straight",
+    "length": 50,
+    "heightChange": 0
+  },
+  {
+    "type": "ramp",
+    "length": 50,
+    "heightChange": -50
+  }
+]

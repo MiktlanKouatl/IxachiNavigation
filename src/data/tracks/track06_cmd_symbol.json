@@ -1,0 +1,91 @@
+[
+    {
+        "type": "move",
+        "position": {
+            "x": -100,
+            "y": 50,
+            "z": -150
+        },
+        "direction": {
+            "x": 1,
+            "y": 0,
+            "z": 0
+        }
+    },
+    {
+        "type": "straight",
+        "length": 200
+    },
+    {
+        "type": "ramp",
+        "length": 50,
+        "heightChange": -50
+    },
+    {
+        "type": "turn",
+        "angle": 270,
+        "radius": 50,
+        "roll": 0
+    },
+    {
+        "type": "straight",
+        "length": 50
+    },
+    {
+        "type": "straight",
+        "length": 200
+    },
+    {
+        "type": "ramp",
+        "length": 50,
+        "heightChange": 50
+    },
+    {
+        "type": "turn",
+        "angle": 270,
+        "radius": 50,
+        "roll": 0
+    },
+    {
+        "type": "straight",
+        "length": 50
+    },
+    {
+        "type": "straight",
+        "length": 200
+    },
+    {
+        "type": "ramp",
+        "length": 50,
+        "heightChange": -50
+    },
+    {
+        "type": "turn",
+        "angle": 270,
+        "radius": 50,
+        "roll": 0
+    },
+    {
+        "type": "straight",
+        "length": 50
+    },
+    {
+        "type": "straight",
+        "length": 200
+    },
+    {
+        "type": "ramp",
+        "length": 50,
+        "heightChange": 50
+    },
+    {
+        "type": "turn",
+        "angle": 270,
+        "radius": 50,
+        "roll": 0
+    },
+    {
+        "type": "straight",
+        "length": 50
+    }
+]
