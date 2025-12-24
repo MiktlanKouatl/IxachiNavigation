@@ -267,7 +267,7 @@ export class GPUComputationRenderer {
 			minFilter: minFilter || NearestFilter,
 			magFilter: magFilter || NearestFilter,
 			format: RGBAFormat,
-			type: ( /(iPad|iPhone|iPod)/g.test( navigator.userAgent ) ) ? HalfFloatType : FloatType,
+			type: HalfFloatType, // Forcing HalfFloatType to test compatibility
 			stencilBuffer: false
 		} );
 

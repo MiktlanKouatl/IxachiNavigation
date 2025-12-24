@@ -43,7 +43,7 @@ export function runScene() {
 
     // Selection
     const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
+    const pointerPos = new THREE.Vector2();
     let selectedNodeIndex: number = -1;
 
     const transformControl = new TransformControls(camera, renderer.domElement);
@@ -59,7 +59,7 @@ export function runScene() {
     scene.add(transformControl);
 
     // --- State for UI ---
-    const uiState = {
+    const builderState = {
         nextSegmentType: 'straight', // straight, turn, ramp
         length: 50,
         angle: 90,
@@ -71,6 +71,7 @@ export function runScene() {
         showWireframe: false,
         lockYAxis: true, // 2D Layout Mode
         editorMode: 'layout', // layout, sculpt
+        particleSector: 'full' // full, bed, roof
     };
 
     // --- Core Logic ---
@@ -265,7 +266,7 @@ export function runScene() {
             const points = curve.getPoints(divisions);
             const frenetFrames = curve.computeFrenetFrames(divisions, false);
             const rollRad = THREE.MathUtils.DEG2RAD * (op.roll || 0);
-            const width = uiState.roadWidth;
+            const width = builderState.roadWidth;
             const halfWidth = width / 2;
 
             for (let i = 0; i <= divisions; i++) {
@@ -322,7 +323,7 @@ export function runScene() {
             const material = new THREE.MeshStandardMaterial({ color: 0x444444, side: THREE.DoubleSide, wireframe: false });
             const baseMesh = new THREE.Mesh(geometry, material);
 
-            if (uiState.mandalaMode) {
+            if (builderState.mandalaMode) {
                 const mandalaGroup = new THREE.Group();
 
                 // Q1 (Original)
@@ -371,336 +372,355 @@ export function runScene() {
         }
     }
 
-// --- Visualization Functions ---
-function updateGhostVisuals() {
-    if (ghostMesh) {
-        scene.remove(ghostMesh);
-        if (ghostMesh instanceof THREE.Mesh || ghostMesh instanceof THREE.Line) {
-            ghostMesh.geometry.dispose();
-            if (Array.isArray(ghostMesh.material)) {
-                ghostMesh.material.forEach(m => m.dispose());
-            } else {
-                ghostMesh.material.dispose();
+    // --- Visualization Functions ---
+    function updateGhostVisuals() {
+        if (ghostMesh) {
+            scene.remove(ghostMesh);
+            if (ghostMesh instanceof THREE.Mesh || ghostMesh instanceof THREE.Line) {
+                ghostMesh.geometry.dispose();
+                if (Array.isArray(ghostMesh.material)) {
+                    ghostMesh.material.forEach(m => m.dispose());
+                } else {
+                    ghostMesh.material.dispose();
+                }
             }
+            ghostMesh = null;
         }
-        ghostMesh = null;
+
+        // Create a temporary builder to simulate the next step
+        const ghostBuilder = new TrackBuilder();
+
+        // Sync start configuration
+        const pos = new THREE.Vector3(startState.x, startState.y, startState.z);
+        const dir = new THREE.Vector3(0, 0, -1);
+        dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.DEG2RAD * startState.heading);
+        ghostBuilder.setStart(pos, dir);
+
+        // Replay existing operations
+        trackBuilder.getOperations().forEach(op => ghostBuilder.addOperation(op));
+
+        // Add the potential next operation
+        const nextOp = createOperationFromUI();
+        ghostBuilder.addOperation(nextOp);
+
+        // Build the path
+        const fullPath = ghostBuilder.build();
+        const curves = fullPath.curves;
+
+        if (curves.length > 0) {
+            // Visualize only the LAST curve (the new one)
+            const lastCurve = curves[curves.length - 1];
+            // If the last op was a 'move', there might be no curve? 
+            const points = lastCurve.getPoints(50);
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ color: 0xffaa00, linewidth: 2, transparent: true, opacity: 0.7 });
+            ghostMesh = new THREE.Line(geometry, material);
+            scene.add(ghostMesh);
+        }
     }
 
-    // Create a temporary builder to simulate the next step
-    const ghostBuilder = new TrackBuilder();
 
-    // Sync start configuration
-    const pos = new THREE.Vector3(startState.x, startState.y, startState.z);
-    const dir = new THREE.Vector3(0, 0, -1);
-    dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.DEG2RAD * startState.heading);
-    ghostBuilder.setStart(pos, dir);
 
-    // Replay existing operations
-    trackBuilder.getOperations().forEach(op => ghostBuilder.addOperation(op));
+    // --- Core Logic ---
 
-    // Add the potential next operation
-    const nextOp = createOperationFromUI();
-    ghostBuilder.addOperation(nextOp);
+    // ... (rest of functions)
 
-    // Build the path
-    const fullPath = ghostBuilder.build();
-    const curves = fullPath.curves;
+    function createOperationFromUI(): TrackOperation {
+        const height = builderState.lockYAxis ? 0 : builderState.heightChange;
+        const config: TrackOperation = {
+            type: 'straight',
+            length: 10,
+            particleSector: builderState.particleSector
+        };
 
-    if (curves.length > 0) {
-        // Visualize only the LAST curve (the new one)
-        const lastCurve = curves[curves.length - 1];
-        // If the last op was a 'move', there might be no curve? 
-        // Or if it's a gap.
-        // But createOperationFromUI returns Straight/Turn/Ramp.
-
-        const points = lastCurve.getPoints(50);
-        const geometry = new THREE.BufferGeometry().setFromPoints(points);
-        const material = new THREE.LineBasicMaterial({ color: 0xffaa00, linewidth: 2, transparent: true, opacity: 0.7 });
-        ghostMesh = new THREE.Line(geometry, material);
-        scene.add(ghostMesh);
+        switch (builderState.nextSegmentType) {
+            case 'straight':
+                config.type = 'straight';
+                config.length = builderState.length;
+                config.heightChange = height;
+                break;
+            case 'turn':
+                config.type = 'turn';
+                config.angle = builderState.angle;
+                config.radius = builderState.radius;
+                config.roll = builderState.roll;
+                config.heightChange = height;
+                break;
+            case 'ramp':
+                config.type = 'ramp';
+                config.length = builderState.length;
+                config.heightChange = builderState.heightChange;
+                break;
+        }
+        return config;
     }
-}
 
-function createOperationFromUI(): TrackOperation {
-    const height = uiState.lockYAxis ? 0 : uiState.heightChange;
-    switch (uiState.nextSegmentType) {
-        case 'straight':
-            return { type: 'straight', length: uiState.length, heightChange: height };
-        case 'turn':
-            return { type: 'turn', angle: uiState.angle, radius: uiState.radius, roll: uiState.roll, heightChange: height };
-        case 'ramp':
-            return { type: 'ramp', length: uiState.length, heightChange: uiState.heightChange }; // Ramps always use height
-        default:
-            return { type: 'straight', length: 10 };
-    }
-}
+    // --- Interaction ---
+    // Multi-selection state
+    const selectedNodeIndices: Set<number> = new Set();
 
-// --- Interaction ---
-window.addEventListener('pointerdown', onPointerDown);
+    const onPointerDown = (event: PointerEvent) => {
+        // Calculate mouse position
+        pointerPos.x = (event.clientX / window.innerWidth) * 2 - 1;
+        pointerPos.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-// Multi-selection state
-const selectedNodeIndices: Set<number> = new Set();
+        raycaster.setFromCamera(pointerPos, camera);
+        const intersects = raycaster.intersectObjects(controlPoints);
 
-function onPointerDown(event: PointerEvent) {
-    // Calculate mouse position
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        const isShift = event.shiftKey;
 
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(controlPoints);
+        if (intersects.length > 0) {
+            const selectedObject = intersects[0].object;
+            const index = selectedObject.userData.index;
 
-    const isShift = event.shiftKey;
-
-    if (intersects.length > 0) {
-        const selectedObject = intersects[0].object;
-        const index = selectedObject.userData.index;
-
-        if (isShift) {
-            // Toggle selection
-            if (selectedNodeIndices.has(index)) {
-                selectedNodeIndices.delete(index);
-                if (selectedNodeIndex === index) {
-                    transformControl.detach();
-                    selectedNodeIndex = -1;
+            if (isShift) {
+                // Toggle selection
+                if (selectedNodeIndices.has(index)) {
+                    selectedNodeIndices.delete(index);
+                    if (selectedNodeIndex === index) {
+                        transformControl.detach();
+                        selectedNodeIndex = -1;
+                    }
+                } else {
+                    selectedNodeIndices.add(index);
+                    // If we select a new one, make it the "primary" for transform?
+                    selectedNodeIndex = index;
+                    transformControl.attach(selectedObject);
                 }
             } else {
+                // Single selection
+                selectedNodeIndices.clear();
                 selectedNodeIndices.add(index);
-                // If we select a new one, make it the "primary" for transform?
                 selectedNodeIndex = index;
                 transformControl.attach(selectedObject);
             }
+
+            transformControl.setMode('translate');
+            transformControl.showX = false; // Only Y editing for now
+            transformControl.showZ = false;
+
         } else {
-            // Single selection
-            selectedNodeIndices.clear();
-            selectedNodeIndices.add(index);
-            selectedNodeIndex = index;
-            transformControl.attach(selectedObject);
-        }
-
-        transformControl.setMode('translate');
-        transformControl.showX = false; // Only Y editing for now
-        transformControl.showZ = false;
-
-    } else {
-        if (!transformControl.dragging) {
-            transformControl.detach();
-            selectedNodeIndex = -1;
-            selectedNodeIndices.clear();
-        }
-    }
-
-    updateSelectionVisuals();
-}
-
-function updateSelectionVisuals() {
-    controlPoints.forEach(p => {
-        const mesh = p as THREE.Mesh;
-        const index = mesh.userData.index;
-        if (selectedNodeIndices.has(index)) {
-            // Highlight
-            if (index === selectedNodeIndex) {
-                mesh.material = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Primary
-            } else {
-                mesh.material = new THREE.MeshBasicMaterial({ color: 0xffaa00 }); // Secondary
+            if (!transformControl.dragging) {
+                transformControl.detach();
+                selectedNodeIndex = -1;
+                selectedNodeIndices.clear();
             }
-        } else {
-            mesh.material = new THREE.MeshBasicMaterial({ color: 0xffff00 }); // Default
         }
-    });
-}
 
-// --- Join Logic ---
-function joinSelectedNodes() {
-    if (selectedNodeIndices.size !== 2) {
-        console.warn("Select exactly 2 nodes to join.");
-        return;
-    }
-
-    const indices = Array.from(selectedNodeIndices).sort((a, b) => a - b);
-    const i = indices[0];
-    const j = indices[1];
-
-    // We expect them to be adjacent in the node list (i and i+1)
-    // Node i is the End of Op i-1.
-    // Node i+1 is the End of Op i.
-    // Wait, Node 0 is Start. Node 1 is End of Op 0.
-    // So Node i corresponds to End of Op i-1.
-    // Node j (i+1) corresponds to End of Op i.
-
-    // The "Gap" is usually caused by a 'move' operation at Op i.
-    // If Op i is 'move', then Node i is the start of the gap (End of Op i-1),
-    // and Node i+1 is the end of the gap (End of Op i / Start of Op i+1).
-
-    // So we check Op[i].
-    // But wait, Node indices map to:
-    // 0: Start
-    // 1: End of Op 0
-    // 2: End of Op 1
-    // ...
-    // k: End of Op k-1
-
-    // So if we select Node k and Node k+1:
-    // The operation connecting them is Op k.
-
-    if (j !== i + 1) {
-        console.warn("Selected nodes must be adjacent to join.");
-        return;
-    }
-
-    const opIndex = i; // Op connecting Node i and Node i+1
-    const ops = trackBuilder.getOperations();
-
-    if (opIndex >= ops.length) return;
-
-    const op = ops[opIndex];
-
-    if (op.type !== 'move') {
-        console.warn("Selected nodes are already connected (not a 'move' operation).");
-        // Optional: Allow replacing existing segments too?
-        // For now, only fix gaps.
-        return;
-    }
-
-    // It is a move!
-    // We want to replace it with a Ramp/Straight that spans the gap.
-    // The gap is from Node i to Node i+1.
-    // BUT, Node i+1's position is defined by the 'move' op.
-    // If we replace the 'move' with a 'ramp', the 'ramp' will start at Node i
-    // and go in the current direction.
-    // It will NOT necessarily end at Node i+1's current position.
-    // Instead, it will create a NEW position for Node i+1.
-    // And all subsequent nodes will shift to attach to this new position.
-    // This effectively "pulls" the rest of the track to the join point.
-
-    // We need to determine the Length and HeightChange of this new ramp.
-    // We want the new ramp to have the SAME length/height as the gap?
-    // Or do we want to just bridge it?
-
-    // Calculate the vector of the gap
-    const p1 = controlPoints[i].position;
-    const p2 = controlPoints[j].position;
-    const diff = new THREE.Vector3().subVectors(p2, p1);
-
-    // Horizontal length
-    const horizLen = new THREE.Vector2(diff.x, diff.z).length();
-    const heightChange = diff.y;
-
-    // Replace Op
-    ops[opIndex] = {
-        type: 'ramp',
-        length: horizLen,
-        heightChange: heightChange,
-        // We can't easily set direction unless we add a Turn before it.
-        // For now, we assume the direction is roughly correct or user accepts the shift.
+        updateSelectionVisuals();
     };
 
-    // Refresh
-    trackBuilder.clear();
-    ops.forEach(o => trackBuilder.addOperation(o));
-    updateTrackVisuals();
-    updateGhostVisuals();
+    window.addEventListener('pointerdown', onPointerDown);
 
-    // Clear selection
-    selectedNodeIndices.clear();
-    selectedNodeIndex = -1;
-    transformControl.detach();
-    updateSelectionVisuals();
-}
-
-// --- GUI ---
-const gui = new GUI({ title: 'Visual Track Editor' });
-
-const actions = {
-    addSegment: () => {
-        trackBuilder.addOperation(createOperationFromUI());
-        updateTrackVisuals();
-        updateGhostVisuals();
-    },
-    undo: () => {
-        trackBuilder.undo();
-        updateTrackVisuals();
-        updateGhostVisuals();
-    },
-    clear: () => {
-        trackBuilder.clear();
-        updateTrackVisuals();
-        updateGhostVisuals();
-    },
-    joinNodes: () => {
-        joinSelectedNodes();
-    },
-    bakeMandala: () => {
-        const ops = trackBuilder.getOperations();
-        if (ops.length === 0) return;
-
-        // We assume the user designed ONE quadrant (90 degrees total turn).
-        // We just repeat it 3 more times.
-
-        // Q2
-        ops.forEach(op => trackBuilder.addOperation({ ...op, id: undefined }));
-        // Q3
-        ops.forEach(op => trackBuilder.addOperation({ ...op, id: undefined }));
-        // Q4
-        ops.forEach(op => trackBuilder.addOperation({ ...op, id: undefined }));
-
-        updateTrackVisuals();
-        updateGhostVisuals();
-    },
-    exportJson: () => {
-        const json = JSON.stringify(trackBuilder.getOperations(), null, 2);
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'track.json';
-        a.click();
-        URL.revokeObjectURL(url);
+    function updateSelectionVisuals() {
+        controlPoints.forEach(p => {
+            const mesh = p as THREE.Mesh;
+            const index = mesh.userData.index;
+            if (selectedNodeIndices.has(index)) {
+                // Highlight
+                if (index === selectedNodeIndex) {
+                    mesh.material = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Primary
+                } else {
+                    mesh.material = new THREE.MeshBasicMaterial({ color: 0xffaa00 }); // Secondary
+                }
+            } else {
+                mesh.material = new THREE.MeshBasicMaterial({ color: 0xffff00 }); // Default
+            }
+        });
     }
-};
 
-// --- Start Position UI ---
-const startFolder = gui.addFolder('Start Configuration');
-const startState = { x: 0, y: 0, z: 0, heading: 0 };
-function updateStart() {
-    const pos = new THREE.Vector3(startState.x, startState.y, startState.z);
-    const dir = new THREE.Vector3(0, 0, -1);
-    dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.DEG2RAD * startState.heading);
-    trackBuilder.setStart(pos, dir);
+    // --- Join Logic ---
+    function joinSelectedNodes() {
+        if (selectedNodeIndices.size !== 2) {
+            console.warn("Select exactly 2 nodes to join.");
+            return;
+        }
+
+        const indices = Array.from(selectedNodeIndices).sort((a, b) => a - b);
+        const i = indices[0];
+        const j = indices[1];
+
+        // We expect them to be adjacent in the node list (i and i+1)
+        // Node i is the End of Op i-1.
+        // Node i+1 is the End of Op i.
+        // Wait, Node 0 is Start. Node 1 is End of Op 0.
+        // So Node i corresponds to End of Op i-1.
+        // Node j (i+1) corresponds to End of Op i.
+
+        // The "Gap" is usually caused by a 'move' operation at Op i.
+        // If Op i is 'move', then Node i is the start of the gap (End of Op i-1),
+        // and Node i+1 is the end of the gap (End of Op i / Start of Op i+1).
+
+        // So we check Op[i].
+        // But wait, Node indices map to:
+        // 0: Start
+        // 1: End of Op 0
+        // 2: End of Op 1
+        // ...
+        // k: End of Op k-1
+
+        // So if we select Node k and Node k+1:
+        // The operation connecting them is Op k.
+
+        if (j !== i + 1) {
+            console.warn("Selected nodes must be adjacent to join.");
+            return;
+        }
+
+        const opIndex = i; // Op connecting Node i and Node i+1
+        const ops = trackBuilder.getOperations();
+
+        if (opIndex >= ops.length) return;
+
+        const op = ops[opIndex];
+
+        if (op.type !== 'move') {
+            console.warn("Selected nodes are already connected (not a 'move' operation).");
+            // Optional: Allow replacing existing segments too?
+            // For now, only fix gaps.
+            return;
+        }
+
+        // It is a move!
+        // We want to replace it with a Ramp/Straight that spans the gap.
+        // The gap is from Node i to Node i+1.
+        // BUT, Node i+1's position is defined by the 'move' op.
+        // If we replace the 'move' with a 'ramp', the 'ramp' will start at Node i
+        // and go in the current direction.
+        // It will NOT necessarily end at Node i+1's current position.
+        // Instead, it will create a NEW position for Node i+1.
+        // And all subsequent nodes will shift to attach to this new position.
+        // This effectively "pulls" the rest of the track to the join point.
+
+        // We need to determine the Length and HeightChange of this new ramp.
+        // We want the new ramp to have the SAME length/height as the gap?
+        // Or do we want to just bridge it?
+
+        // Calculate the vector of the gap
+        const p1 = controlPoints[i].position;
+        const p2 = controlPoints[j].position;
+        const diff = new THREE.Vector3().subVectors(p2, p1);
+
+        // Horizontal length
+        const horizLen = new THREE.Vector2(diff.x, diff.z).length();
+        const heightChange = diff.y;
+
+        // Replace Op
+        ops[opIndex] = {
+            type: 'ramp',
+            length: horizLen,
+            heightChange: heightChange,
+            // We can't easily set direction unless we add a Turn before it.
+            // For now, we assume the direction is roughly correct or user accepts the shift.
+        };
+
+        // Refresh
+        trackBuilder.clear();
+        ops.forEach(o => trackBuilder.addOperation(o));
+        updateTrackVisuals();
+        updateGhostVisuals();
+
+        // Clear selection
+        selectedNodeIndices.clear();
+        selectedNodeIndex = -1;
+        transformControl.detach();
+        updateSelectionVisuals();
+    }
+
+    // --- GUI ---
+    const gui = new GUI({ title: 'Visual Track Editor' });
+
+    const actions = {
+        addSegment: () => {
+            trackBuilder.addOperation(createOperationFromUI());
+            updateTrackVisuals();
+            updateGhostVisuals();
+        },
+        undo: () => {
+            trackBuilder.undo();
+            updateTrackVisuals();
+            updateGhostVisuals();
+        },
+        clear: () => {
+            trackBuilder.clear();
+            updateTrackVisuals();
+            updateGhostVisuals();
+        },
+        joinNodes: () => {
+            joinSelectedNodes();
+        },
+        bakeMandala: () => {
+            const ops = trackBuilder.getOperations();
+            if (ops.length === 0) return;
+
+            // We assume the user designed ONE quadrant (90 degrees total turn).
+            // We just repeat it 3 more times.
+
+            // Q2
+            ops.forEach(op => trackBuilder.addOperation({ ...op, id: undefined }));
+            // Q3
+            ops.forEach(op => trackBuilder.addOperation({ ...op, id: undefined }));
+            // Q4
+            ops.forEach(op => trackBuilder.addOperation({ ...op, id: undefined }));
+
+            updateTrackVisuals();
+            updateGhostVisuals();
+        },
+        exportJson: () => {
+            const json = JSON.stringify(trackBuilder.getOperations(), null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'track.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    };
+
+    // --- Start Position UI ---
+    const startFolder = gui.addFolder('Start Configuration');
+    const startState = { x: 0, y: 0, z: 0, heading: 0 };
+    function updateStart() {
+        const pos = new THREE.Vector3(startState.x, startState.y, startState.z);
+        const dir = new THREE.Vector3(0, 0, -1);
+        dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.DEG2RAD * startState.heading);
+        trackBuilder.setStart(pos, dir);
+        updateTrackVisuals();
+        updateGhostVisuals();
+    }
+    startFolder.add(startState, 'x', -200, 200).onChange(updateStart);
+    startFolder.add(startState, 'y', -50, 50).onChange(updateStart);
+    startFolder.add(startState, 'z', -200, 200).onChange(updateStart);
+    startFolder.add(startState, 'heading', -180, 180).onChange(updateStart);
+
+    const editorFolder = gui.addFolder('Editor Settings');
+    editorFolder.add(builderState, 'lockYAxis').name('Lock Y (2D Mode)');
+    editorFolder.add(builderState, 'mandalaMode').name('Mandala Mode (Visual)').onChange(() => updateTrackVisuals());
+    editorFolder.add(actions, 'bakeMandala').name('BAKE MANDALA (4x Loop)');
+    editorFolder.add(builderState, 'roadWidth', 1, 50).onChange(() => updateTrackVisuals());
+    editorFolder.add(actions, 'joinNodes').name('Join Selected Nodes (Shift+Click)');
+
+    const typeFolder = gui.addFolder('Add Segment');
+    typeFolder.add(builderState, 'nextSegmentType', ['straight', 'turn', 'ramp']).onChange(updateGhostVisuals);
+    typeFolder.add(builderState, 'length', 10, 200).onChange(updateGhostVisuals);
+    typeFolder.add(builderState, 'angle', -180, 180).onChange(updateGhostVisuals);
+    typeFolder.add(builderState, 'radius', 10, 100).onChange(updateGhostVisuals);
+    typeFolder.add(builderState, 'heightChange', -50, 50).name('Height Delta').onChange(updateGhostVisuals);
+    typeFolder.add(actions, 'addSegment').name('ADD SEGMENT');
+    typeFolder.add(actions, 'undo').name('Undo Last');
+    typeFolder.add(actions, 'clear').name('Clear All');
+    typeFolder.add(actions, 'exportJson').name('Export JSON');
+
+    // Initial Visuals
     updateTrackVisuals();
     updateGhostVisuals();
-}
-startFolder.add(startState, 'x', -200, 200).onChange(updateStart);
-startFolder.add(startState, 'y', -50, 50).onChange(updateStart);
-startFolder.add(startState, 'z', -200, 200).onChange(updateStart);
-startFolder.add(startState, 'heading', -180, 180).onChange(updateStart);
 
-const editorFolder = gui.addFolder('Editor Settings');
-editorFolder.add(uiState, 'lockYAxis').name('Lock Y (2D Mode)');
-editorFolder.add(uiState, 'mandalaMode').name('Mandala Mode (Visual)').onChange(() => updateTrackVisuals());
-editorFolder.add(actions, 'bakeMandala').name('BAKE MANDALA (4x Loop)');
-editorFolder.add(uiState, 'roadWidth', 1, 50).onChange(() => updateTrackVisuals());
-editorFolder.add(actions, 'joinNodes').name('Join Selected Nodes (Shift+Click)');
-
-const typeFolder = gui.addFolder('Add Segment');
-typeFolder.add(uiState, 'nextSegmentType', ['straight', 'turn', 'ramp']).onChange(updateGhostVisuals);
-typeFolder.add(uiState, 'length', 10, 200).onChange(updateGhostVisuals);
-typeFolder.add(uiState, 'angle', -180, 180).onChange(updateGhostVisuals);
-typeFolder.add(uiState, 'radius', 10, 100).onChange(updateGhostVisuals);
-typeFolder.add(uiState, 'heightChange', -50, 50).name('Height Delta').onChange(updateGhostVisuals);
-typeFolder.add(actions, 'addSegment').name('ADD SEGMENT');
-typeFolder.add(actions, 'undo').name('Undo Last');
-typeFolder.add(actions, 'clear').name('Clear All');
-typeFolder.add(actions, 'exportJson').name('Export JSON');
-
-// Initial Visuals
-updateTrackVisuals();
-updateGhostVisuals();
-
-// --- Animation Loop ---
-function animate() {
-    requestAnimationFrame(animate);
-    controls.update();
-    renderer.render(scene, camera);
-}
-animate();
+    // --- Animation Loop ---
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+    animate();
 }

@@ -82,6 +82,11 @@ export class FlowAssistTestChapter implements IAnimationChapter {
         // --- Flow Assist Logic (Testbed Version) ---
         const closest = this.pathController.getClosestPoint(this.playerController.position);
         if (closest) {
+            // Drive Particle System Window
+            if (this.unifiedParticleSystem) {
+                this.unifiedParticleSystem.setPlayerT(closest.t);
+            }
+
             // 1. Update Pink Sphere (Closest Point)
             if (this.pinkSphere) this.pinkSphere.position.copy(closest.point);
 

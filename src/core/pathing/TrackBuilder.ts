@@ -17,6 +17,8 @@ export interface TrackOperation {
     // Move (Jump to position)
     position?: THREE.Vector3;
     direction?: THREE.Vector3;
+    // Metadata
+    particleSector?: string; // 'full', 'bed', 'roof', etc.
 }
 
 export interface SectionTrigger {
@@ -132,6 +134,8 @@ export class TrackBuilder {
         const end = this.currentPosition.clone().add(this.currentDirection.clone().multiplyScalar(length));
 
         const line = new THREE.LineCurve3(start, end);
+        // @ts-ignore
+        line.userData = op;
         path.add(line);
 
         // Update state
@@ -153,6 +157,8 @@ export class TrackBuilder {
         const end = start.clone().add(displacement);
 
         const line = new THREE.LineCurve3(start, end);
+        // @ts-ignore
+        line.userData = op;
         path.add(line);
 
         // Update state
@@ -162,10 +168,9 @@ export class TrackBuilder {
 
         // FOR VISUAL EDITOR STABILITY: Keep direction flat.
         // The ramp goes up, but the "Turtle" heading remains flat.
-        // this.currentDirection.copy(displacement).normalize(); 
-
         // No change to currentDirection needed for a straight ramp!
         // It enters flat, it leaves flat (just higher).
+        return line;
     }
 
     private buildTurn(path: THREE.CurvePath<THREE.Vector3>, op: TrackOperation): THREE.Curve<THREE.Vector3> {
@@ -235,6 +240,8 @@ export class TrackBuilder {
         });
 
         const arcCurve = new THREE.CatmullRomCurve3(precisePoints3D, false, 'catmullrom', 0.0); // tension 0 for straight lines? No.
+        // @ts-ignore
+        arcCurve.userData = op;
 
         path.add(arcCurve);
 

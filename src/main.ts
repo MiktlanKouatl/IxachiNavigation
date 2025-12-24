@@ -96,6 +96,15 @@ export class IxachiExperience {
     this.renderer.setPixelRatio(window.devicePixelRatio);
     document.getElementById('app')?.appendChild(this.renderer.domElement);
 
+    // --- GPU Capabilities Check ---
+    console.log(`[GPU Check] WebGL 2 Enabled: ${this.renderer.capabilities.isWebGL2}`);
+    const fboFloat = !!this.renderer.extensions.get( 'OES_texture_float' );
+    const fboFloatLinear = !!this.renderer.extensions.get( 'OES_texture_float_linear' );
+    console.log(`[GPU Check] OES_texture_float: ${fboFloat}`);
+    const extColorBufferFloat = !!this.renderer.extensions.get( 'EXT_color_buffer_float' );
+    console.log(`[GPU Check] EXT_color_buffer_float (WebGL2): ${extColorBufferFloat}`);
+    console.log(`[GPU Check] OES_texture_float_linear: ${fboFloatLinear}`);
+
     // --- Create all animatable objects ---
     this.hostSourceObject = new THREE.Object3D();
     this.scene.add(this.hostSourceObject);
@@ -123,6 +132,7 @@ export class IxachiExperience {
       scene: this.scene,
       assetManager: assetManager,
       colorManager: this.colorManager,
+      renderer: this.renderer, // Add renderer to targets
     };
     this.director = new AnimationDirector(targets, this);
     new AnimationControlPanel(assetManager, this.director, this.colorManager);
